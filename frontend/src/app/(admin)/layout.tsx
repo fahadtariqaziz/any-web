@@ -1,7 +1,7 @@
-import { Activity, MessageCircle, Plus } from "lucide-react";
+import { Blocks, MessageCircle, Plus } from "lucide-react";
 import Link from "next/link";
 
-// The admin view: every agent step, pause, score and verdict is visible. The patient chat lives at "/".
+// The admin view: every agent step, pause, score and verdict is visible. The chat lives at "/" (M10 redesigns both).
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col bg-slate-50 text-slate-900">
@@ -9,18 +9,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Link href="/admin" className="flex items-center gap-2.5">
             <span className="flex size-8 items-center justify-center rounded-lg bg-brand text-white">
-              <Activity className="size-4" aria-hidden />
+              <Blocks className="size-4" aria-hidden />
             </span>
-            <span className="font-semibold tracking-tight text-slate-900">Health Decision Arena</span>
+            <span className="font-semibold tracking-tight text-slate-900">AI App Builder</span>
             <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
               admin
             </span>
           </Link>
           <nav className="flex items-center gap-3">
-            <span className="hidden text-xs text-slate-500 lg:block">Health information only, not medical advice</span>
             <Link href="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">
               <MessageCircle className="size-4" aria-hidden />
-              Patient chat
+              Chat
             </Link>
             <Link
               href="/admin"
@@ -35,9 +34,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
       <footer className="no-print border-t border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-4 text-xs leading-relaxed text-slate-500 sm:px-6">
-          This tool summarises published research, clinical references and patient experiences found on the web. It is
-          health information to discuss with a qualified clinician, not a diagnosis or a prescription. Never start,
-          stop or change a medication based on it. If you have emergency warning signs, seek urgent care now.
+          The agents research existing apps, papers and technical sources on the web, then propose and validate a
+          solution. Every statement in the brief says whether it is verified, research-backed, from you, a
+          recommendation or an assumption. Nothing is planned or built before you approve it.
         </div>
       </footer>
     </div>

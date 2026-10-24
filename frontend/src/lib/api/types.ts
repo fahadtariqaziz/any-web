@@ -6,7 +6,7 @@
 /** What the HTTP layer knows about a session (not the graph's own status). */
 export type RunState = "running" | "paused" | "interrupted" | "finished";
 
-export type PauseType = "clarification";
+export type PauseType = "clarification" | "brief_review";
 
 export interface ProgressLine {
   at: string; // ISO time
@@ -22,8 +22,31 @@ export interface ClarificationPayload {
   error?: string;
 }
 
+export type ReviewTarget = "auto" | "requirements" | "research" | "proposal" | "wording";
+
+/** The validated brief, waiting for the user's approval or change request (spec §6). */
+export interface BriefReviewPayload {
+  type: "brief_review";
+  brief_markdown: string;
+  brief: ProblemBrief;
+  validation_summary: {
+    checks_passed: number;
+    checks_total: number;
+    open_issues: string[];
+    word_count: number;
+    word_budget: number;
+  };
+  unresolved_questions: string[];
+  round: number; // 1 + change requests so far
+  max_rounds: number;
+  wording_only: boolean; // max_rounds reached: only wording changes (or approval) are accepted
+  error?: string;
+}
+
 /** `type` tells which payload it is (TypeScript narrows on it: if (p.type === "clarification") ...). */
-export type PendingPause = { type: "clarification"; payload: ClarificationPayload };
+export type PendingPause =
+  | { type: "clarification"; payload: ClarificationPayload }
+  | { type: "brief_review"; payload: BriefReviewPayload };
 
 export interface ErrorInfo {
   code: string;
@@ -199,6 +222,7 @@ export interface CreateDecisionRequest {
 /** Body of POST /resume. `type` must match pending.type (or "continue" for an interrupted run). */
 export type ResumeRequest =
   | { type: "clarification"; answers: Record<string, string> } // exact question text -> answer
+  | { type: "brief_review"; action: "approve" | "request_changes"; feedback?: string; target?: ReviewTarget }
   | { type: "continue" };
 
 // --- evidence (GET /evidence) --------------------------------------------------------------------
@@ -462,6 +486,24 @@ export interface BriefResponse {
   brief: ProblemBrief;
   markdown: string; // main part (~1 page), references, appendix
   validation: BriefValidation;
+  approved_at: string | null; // set once the user approved exactly this brief
+  review_round: number; // change requests so far
+}
+
+// --- approved versions (GET /artifacts) -----------------------------------------------------------
+
+export interface ArtifactView {
+  kind: "brief" | "plan";
+  version: number;
+  content_hash: string;
+  approved_at: string | null;
+  created_at: string;
+  markdown: string;
+}
+
+export interface ArtifactList {
+  thread_id: string;
+  artifacts: ArtifactView[];
 }
 
 export interface ReportResponse {

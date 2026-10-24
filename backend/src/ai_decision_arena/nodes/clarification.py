@@ -48,6 +48,9 @@ between answers, a must-have feature that is still unclear). Otherwise set need_
 If <judge_questions> is non-empty, the Judge needs those answers to rank the proposals: ask them (reworded if
 helpful) plus anything else essential, within the limit. If <brief_questions> is non-empty, the brief validator
 found critical information missing or contradictory in the solution brief: ask those the same way.
+If <brief_feedback> holds a request about the requirements (the user corrected the brief), put the facts it states
+into new_profile_facts / new_features / new_constraints (reuse existing keys when it corrects them), refine the
+project name / summary if needed, and ask only if the request itself is unclear.
 
 Rules:
 - At most {max_questions} questions per round, in plain language. ONE question = ONE answer: never pack several

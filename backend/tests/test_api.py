@@ -78,6 +78,20 @@ def test_start_pause_resume_report(client):
     ok = client.post(f"/api/decisions/{thread_id}/resume", json={"type": "clarification", "answers": {questions[0]: "2 years"}})
     assert ok.status_code == 202
     status = wait_until_not_running(client, thread_id)
+    assert status["run_state"] == "paused" and status["pending"]["type"] == "brief_review"
+    assert status["has_brief"] is True                         # the validated brief is readable during the review
+    assert client.get(f"/api/decisions/{thread_id}/brief").json()["approved_at"] is None
+    # wrong pause type → 409; changes without feedback → 422
+    wrong = client.post(f"/api/decisions/{thread_id}/resume", json={"type": "clarification", "answers": {}})
+    assert wrong.status_code == 409 and wrong.json()["error"]["code"] == "wrong_pause_type"
+    empty = client.post(f"/api/decisions/{thread_id}/resume", json={"type": "brief_review", "action": "request_changes", "feedback": " "})
+    assert empty.status_code == 422
+    bad_target = client.post(f"/api/decisions/{thread_id}/resume", json={"type": "brief_review", "action": "approve", "target": "nowhere"})
+    assert bad_target.status_code == 422
+
+    approve = client.post(f"/api/decisions/{thread_id}/resume", json={"type": "brief_review", "action": "approve"})
+    assert approve.status_code == 202
+    status = wait_until_not_running(client, thread_id)
     assert status["run_state"] == "finished"
     assert status["workflow_status"] == "completed"
     assert status["has_report"] is True
@@ -94,7 +108,7 @@ def test_start_pause_resume_report(client):
     brief = client.get(f"/api/decisions/{thread_id}/brief")
     assert brief.status_code == 200
     brief = brief.json()
-    assert brief["validation"]["verdict"] == "approve"
+    assert brief["validation"]["verdict"] == "approve" and brief["approved_at"]
     assert brief["markdown"].startswith("# ") and "## 10. References" in brief["markdown"]
     known_urls = {e["source_url"] for e in client.get(f"/api/decisions/{thread_id}/evidence").json()["evidence"]}
     assert brief["brief"]["references"] and {r["url"] for r in brief["brief"]["references"]} <= known_urls
@@ -117,3 +131,27 @@ def test_second_start_while_running_is_409(client):
     second = client.post(f"/api/decisions/{thread_id}/resume", json={"type": "clarification", "answers": {questions[0]: "x"}})
     assert second.status_code == 409 and second.json()["error"]["code"] == "already_running"
     wait_until_not_running(client, thread_id)
+
+
+def test_brief_change_request_round_trip_and_wording_only_cap(client, monkeypatch):
+    from ai_decision_arena.config import get_settings
+    monkeypatch.setattr(get_settings(), "max_review_rounds", 1)
+    thread_id = client.post("/api/decisions", json={"question": "A habit tracker app for students"}).json()["thread_id"]
+    status = wait_until_not_running(client, thread_id)
+    client.post(f"/api/decisions/{thread_id}/resume", json={"type": "clarification", "answers": {}})
+    status = wait_until_not_running(client, thread_id)
+    assert status["pending"]["payload"]["round"] == 1
+
+    r = client.post(f"/api/decisions/{thread_id}/resume",
+                    json={"type": "brief_review", "action": "request_changes", "feedback": "Shorter, please.", "target": "wording"})
+    assert r.status_code == 202
+    status = wait_until_not_running(client, thread_id)
+    payload = status["pending"]["payload"]
+    assert status["pending"]["type"] == "brief_review" and payload["round"] == 2 and payload["wording_only"] is True
+    assert client.get(f"/api/decisions/{thread_id}/brief").json()["review_round"] == 1
+
+    capped = client.post(f"/api/decisions/{thread_id}/resume",
+                         json={"type": "brief_review", "action": "request_changes", "feedback": "More research.", "target": "research"})
+    assert capped.status_code == 422 and "only wording" in capped.json()["error"]["message"]
+    client.post(f"/api/decisions/{thread_id}/resume", json={"type": "brief_review", "action": "approve"})
+    assert wait_until_not_running(client, thread_id)["workflow_status"] == "completed"

@@ -18,6 +18,7 @@ import { EvidencePanel } from "@/components/evidence/EvidencePanel";
 import { BriefView } from "@/components/report/BriefView";
 import { ReportView } from "@/components/report/ReportView";
 import { ActivityFeed } from "@/components/session/ActivityFeed";
+import { BriefReviewPanel } from "@/components/session/BriefReviewPanel";
 import { CaseCard } from "@/components/session/CaseCard";
 import { ClarificationForm } from "@/components/session/ClarificationForm";
 import { InterruptedPanel } from "@/components/session/InterruptedPanel";
@@ -103,7 +104,12 @@ export function DecisionView() {
   if (resuming || running) {
     main = <NowPanel status={status} activity={act} now={now} fallbackStart={firstSeenRunning.current} resuming={resuming} />;
   } else if (status.run_state === "paused" && pending) {
-    main = <ClarificationForm threadId={threadId} payload={pending.payload} onSubmitted={onSubmitted} />;
+    main =
+      pending.type === "brief_review" ? (
+        <BriefReviewPanel threadId={threadId} payload={pending.payload} onSubmitted={onSubmitted} />
+      ) : (
+        <ClarificationForm threadId={threadId} payload={pending.payload} onSubmitted={onSubmitted} />
+      );
   } else if (status.run_state === "interrupted") {
     main = <InterruptedPanel threadId={threadId} status={status} onSubmitted={onSubmitted} />;
   } else if (finishedWithReport) {

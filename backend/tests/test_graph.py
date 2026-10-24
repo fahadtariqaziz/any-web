@@ -3,7 +3,8 @@
 from ai_decision_arena import graph as G
 
 EXPECTED_NODES = {"intake", "clarification", "await_clarification", "research", "proposer", "critic", "judge",
-                  "evidence_checker", "final_report", "brief_writer", "brief_validator", "completion"}
+                  "evidence_checker", "final_report", "brief_writer", "brief_validator",
+                  "await_brief_review", "brief_review_router", "completion"}
 
 
 def test_graph_compiles_with_expected_nodes(graph):
@@ -53,14 +54,15 @@ def test_route_after_evidence_checker():
 def test_report_feeds_the_brief(graph):
     edges = {(e.source, e.target) for e in graph.get_graph().edges}
     assert ("final_report", "brief_writer") in edges and ("brief_writer", "brief_validator") in edges
-    assert {("brief_validator", "brief_writer"), ("brief_validator", "clarification"), ("brief_validator", "completion")} <= edges
+    assert {("brief_validator", "brief_writer"), ("brief_validator", "clarification"), ("brief_validator", "await_brief_review")} <= edges
+    assert ("brief_validator", "completion") in edges          # the failure edge only (guarded)
 
 
 def test_route_after_brief_validator():
     assert G.route_after_brief_validator({"brief_validation": {"verdict": "revise"}}) == "brief_writer"
     assert G.route_after_brief_validator({"brief_validation": {"verdict": "clarify"}}) == "clarification"
-    assert G.route_after_brief_validator({"brief_validation": {"verdict": "approve"}}) == "completion"
-    assert G.route_after_brief_validator({}) == "completion"
+    assert G.route_after_brief_validator({"brief_validation": {"verdict": "approve"}}) == "await_brief_review"
+    assert G.route_after_brief_validator({}) == "await_brief_review"
 
 
 def test_guarded_route_goes_to_completion_on_error():

@@ -101,6 +101,8 @@ class Settings(BaseSettings):
     max_research_retries: int = Field(default=2, ge=0, le=5)
     max_debate_rounds: int = Field(default=2, ge=1, le=5)
     max_brief_revisions: int = Field(default=2, ge=0, le=5, description="Rewrites of the brief the validator may ask for.")
+    max_review_rounds: int = Field(default=6, ge=1, le=20, description="Change requests on the brief that may re-run "
+                                   "earlier steps; after that only wording changes (or approval) are accepted.")
     brief_word_budget: int = Field(default=900, ge=300, le=3000, description="Words of brief sections 1-9 before the "
                                    "appendix (about one page); overflow items move to the appendix.")
 

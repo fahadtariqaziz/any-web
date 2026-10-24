@@ -1,11 +1,12 @@
-"""Drive one full session through the HTTP API, like the frontend will (start → poll → answer → report).
+"""Drive one full session through the HTTP API, like the frontend does (start → poll → answer → review the brief →
+report).
 
 Start the server first (another terminal, backend/ folder):
-    uv run uvicorn ai_decision_arena.api.main:app --port 8000
+    FRONTEND_URL=http://localhost:3001 uv run uvicorn ai_decision_arena.api.main:app --port 8001
 Then:
     uv run python scripts/api_flow.py                                   # "A simple calculator web app", you answer
-    uv run python scripts/api_flow.py "I get migraines twice a week"
-    uv run python scripts/api_flow.py --auto                            # skip questions
+    uv run python scripts/api_flow.py "A booking site for a small yoga studio"
+    uv run python scripts/api_flow.py --auto                            # skip questions, approve the brief
     uv run python scripts/api_flow.py --thread <thread_id>              # pick up an existing session
 """
 
@@ -17,9 +18,9 @@ import httpx
 
 parser = argparse.ArgumentParser()
 parser.add_argument("question", nargs="*")
-parser.add_argument("--auto", action="store_true", help="no typing: skip all questions")
+parser.add_argument("--auto", action="store_true", help="no typing: skip all questions and approve the brief")
 parser.add_argument("--thread", help="existing thread_id instead of starting a new session")
-parser.add_argument("--base", default="http://localhost:8000")
+parser.add_argument("--base", default="http://localhost:8001")
 args = parser.parse_args()
 
 api = httpx.Client(base_url=args.base, timeout=30)
@@ -49,9 +50,27 @@ def answer(pending: dict) -> dict:
     payload = pending["payload"]
     if payload.get("error"):
         print(f"⚠️  {payload['error']}")
-    print(f"\n🤔 Clarification round {payload['round']} (Enter = skip)")      # the only pause type
+    if pending["type"] == "brief_review":
+        return review(payload)
+    print(f"\n🤔 Clarification round {payload['round']} (Enter = skip)")
     answers = {} if args.auto else {q: input(f"{q}\n> ") for q in payload["questions"]}
     return {"type": "clarification", "answers": answers}
+
+
+def review(payload: dict) -> dict:
+    summary = payload["validation_summary"]
+    print("\n" + "=" * 80 + "\n" + payload["brief_markdown"] + "=" * 80)
+    print(f"📝 Brief review, round {payload['round']} of {payload['max_rounds']}: {summary['checks_passed']}/"
+          f"{summary['checks_total']} checks passed, {summary['word_count']} words"
+          + (" · only wording changes are accepted now" if payload["wording_only"] else ""))
+    if args.auto:
+        print("   --auto: approving")
+        return {"type": "brief_review", "action": "approve"}
+    feedback = input("Press Enter to APPROVE, or type the change you want:\n> ").strip()
+    if not feedback:
+        return {"type": "brief_review", "action": "approve"}
+    target = input("Where should it go? [auto] / requirements / research / proposal / wording\n> ").strip() or "auto"
+    return {"type": "brief_review", "action": "request_changes", "feedback": feedback, "target": target}
 
 
 if args.thread:
@@ -86,6 +105,13 @@ if report.status_code == 200:
     print(f"   winner: {winner['proposal']['name'] if winner else r.get('no_winner_reason')}")
     for alt in r.get("alternatives", []):
         print(f"   alternative: {alt['proposal']['name']}")
+brief = api.get(f"{P}/{thread_id}/brief")
+if brief.status_code == 200:
+    b = brief.json()
+    print(f"\n📄 brief draft {b['brief']['revision'] + 1}, approved at {b['approved_at']}, {b['review_round']} change request(s)")
+artifacts = api.get(f"{P}/{thread_id}/artifacts")
+if artifacts.status_code == 200:
+    print(f"🗂  artifacts: {[(a['kind'], a['version'], a['content_hash'][:10]) for a in artifacts.json()['artifacts']]}")
 evidence = check(api.get(f"{P}/{thread_id}/evidence"))
 print(f"\n📚 evidence: {evidence['count']}  {evidence['verification_counts']}")
 sys.exit(0 if report.status_code == 200 else 1)

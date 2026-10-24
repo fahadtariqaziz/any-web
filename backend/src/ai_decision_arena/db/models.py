@@ -132,6 +132,29 @@ class UserMemory(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class ProjectArtifact(Base):
+    """An approved version of a session's brief (M5) or implementation plan (M6), kept for the record and for later
+    sessions (spec §10.6). One row per approval; version counts per (thread_id, kind). The same content approved twice
+    (a node re-run after a crash) is stored once (unique content hash). Linked by thread_id like chat_messages."""
+
+    __tablename__ = "project_artifacts"
+    __table_args__ = (
+        UniqueConstraint("thread_id", "kind", "version", name="uq_project_artifacts_version"),
+        UniqueConstraint("thread_id", "kind", "content_hash", name="uq_project_artifacts_content"),
+        CheckConstraint("kind IN ('brief', 'plan')", name="ck_project_artifacts_kind"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    thread_id: Mapped[str] = mapped_column(String(64), index=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    version: Mapped[int] = mapped_column(Integer)
+    content_hash: Mapped[str] = mapped_column(String(64))           # sha256 of markdown (what the user approved)
+    markdown: Mapped[str] = mapped_column(Text)
+    content: Mapped[dict] = mapped_column(JSONB, default=dict)       # ProblemBrief / ImplementationPlan as JSON
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class KnowledgeDoc(Base):
     """The knowledge base (knowledge.py): documents the chat agent can search, with Postgres full-text search.
 

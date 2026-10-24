@@ -37,6 +37,7 @@ LLM_USERS = [
     "ai_decision_arena.nodes.final_report",
     "ai_decision_arena.nodes.brief_writer",
     "ai_decision_arena.nodes.brief_validator",
+    "ai_decision_arena.nodes.brief_review",
     "ai_decision_arena.research.planner",
     "ai_decision_arena.research.extractor",
 ]
@@ -264,6 +265,7 @@ DEFAULT_BUILDERS = {
     S.BriefPartTwo: lambda system, user: S.BriefPartTwo(**build_brief(system, user).model_dump(include=set(S.BriefPartTwo.model_fields))),
     S.BriefPartThree: lambda system, user: S.BriefPartThree(**build_brief(system, user).model_dump(include=set(S.BriefPartThree.model_fields))),
     S.BriefReview: build_brief_review,
+    S.FeedbackRouting: lambda system, user: S.FeedbackRouting(reasoning="test", target="wording"),
 }
 
 
@@ -283,6 +285,23 @@ class FakeLLM:
 
     def count(self, schema_name: str) -> int:
         return sum(1 for name, _ in self.calls if name == schema_name)
+
+
+def finish_session(graph, config, answer: str = "x", review: dict | None = None, max_pauses: int = 12) -> dict:
+    """Drive a paused session to the end: answer every clarification round with `answer`, reply to every brief review
+    with `review` (default: approve). Returns the final state values."""
+    from langgraph.types import Command
+    for _ in range(max_pauses):
+        snapshot = graph.get_state(config)
+        if not snapshot.next:
+            return dict(snapshot.values)
+        payload = snapshot.interrupts[0].value
+        if payload["type"] == "clarification":
+            reply = {"answers": {q: answer for q in payload["questions"]}}
+        else:
+            reply = review or {"action": "approve"}
+        graph.invoke(Command(resume=reply), config)
+    raise AssertionError("session did not finish")
 
 
 # --- 3) fixtures -----------------------------------------------------------------------------------------------

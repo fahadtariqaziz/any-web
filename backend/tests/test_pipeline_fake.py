@@ -3,6 +3,7 @@
 from langgraph.types import Command
 
 from ai_decision_arena import schemas as S
+from tests.conftest import finish_session
 
 CONFIG = {"configurable": {"thread_id": "pipeline-test"}}
 
@@ -19,10 +20,19 @@ def test_full_pipeline_pauses_for_clarification_then_completes(graph, fake_llm, 
     assert result["status"] == "awaiting_clarification"
     assert fake_llm.count("ResearchPlan") == 0
 
-    # 2) answer → research → debate → verification → report → completion
+    # 2) answer → research → debate → verification → report → brief → paused for the user's review
     answers = {q: "about 2 years" for q in payload["questions"]}
     result = graph.invoke(Command(resume={"answers": answers}), CONFIG)
+    snapshot = graph.get_state(CONFIG)
+    assert snapshot.next == ("await_brief_review",)
+    review = snapshot.interrupts[0].value
+    assert review["type"] == "brief_review" and review["round"] == 1 and review["brief_markdown"].startswith("# ")
+    assert result["status"] == "awaiting_brief_review" and not result.get("brief_approved_at")
+
+    # 3) approve → completion
+    result = graph.invoke(Command(resume={"action": "approve"}), CONFIG)
     assert graph.get_state(CONFIG).next == ()
+    assert result["brief_approved_at"] and result["brief_review_route"] == "approved"
     assert result["status"] == "completed"
     assert result["clarification_round_count"] == 1
     assert result["clarification_answers"] == answers
@@ -56,8 +66,7 @@ def test_full_pipeline_pauses_for_clarification_then_completes(graph, fake_llm, 
 def test_quick_mode_runs_every_node_with_one_proposal(graph, fake_llm, fake_search):
     config = {"configurable": {"thread_id": "quick-test"}}
     graph.invoke({"question": "A habit tracker app for students", "mode": "quick"}, config)
-    questions = graph.get_state(config).interrupts[0].value["questions"]
-    result = graph.invoke(Command(resume={"answers": {q: "" for q in questions}}), config)
+    result = finish_session(graph, config, answer="")
     assert result["status"] == "completed"
     assert len(result["proposals"]) == 1
     assert fake_llm.count("Criticism") == 1               # critic and checker run in quick mode too
@@ -79,8 +88,7 @@ def test_judge_can_send_the_graph_back_to_research_once(graph, fake_llm, fake_se
     fake_llm.overrides[S.ProposalJudgement] = insufficient_first
     config = {"configurable": {"thread_id": "loop-test"}}
     graph.invoke({"question": "A habit tracker app for students", "mode": "full"}, config)
-    questions = graph.get_state(config).interrupts[0].value["questions"]
-    result = graph.invoke(Command(resume={"answers": {q: "x" for q in questions}}), config)
+    result = finish_session(graph, config)
     assert result["status"] == "completed"
     assert result["research_retry_count"] == 1 and result["debate_round"] == 2
     assert fake_llm.count("ResearchPlan") == 2 and fake_llm.count("ProposerOutput") == 2

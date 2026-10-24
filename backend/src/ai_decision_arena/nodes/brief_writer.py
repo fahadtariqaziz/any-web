@@ -10,8 +10,10 @@ first, then 5-6 and 7-9 in parallel, both given sections 1-4 so the brief stays 
 - assembles section 4.10, the references, from the cited ids (titles and URLs from the evidence records),
 - renders the markdown (main part ~1 page, overflow to the appendix).
 
-On a revision (the validator answered "revise") the writer also gets its previous draft and the failed checks
-with their fix instructions.
+On a revision the writer also gets its previous draft and what to change: the validator's failed checks with their
+fix instructions (verdict "revise"), or the user's change request when the review routed it to "wording". The
+draft number (`revision`) only grows within a session; a draft written after a research / proposal loop starts from
+the new facts (no previous draft), but keeps counting.
 
 Writes (owner): brief, brief_markdown, status, current_node.
 """
@@ -76,8 +78,11 @@ Labels (every statement has one):
 verified and research_backed MUST cite at least one evidence id from <evidence>; if you cannot cite one, use
 recommendation or assumption instead. Cite only ids that appear in <evidence>.
 
-Style: one sentence per item, at most ~25 words; the list sizes in the field descriptions are limits, not targets.
-The whole of sections 1-9 must stay under about {word_budget} words. Plain language, no marketing tone, no
+Style: one sentence per item, at most ~20 words. The list sizes in the field descriptions are LIMITS, not targets:
+use the low end. Items beyond what fits the page are moved to an appendix the user must still read, so every extra
+item costs the reader; never repeat a point in two sections (e.g. the MVP features are not listed again as
+requirements or scope in other words).
+Aim for about {word_target} words for sections 1-9 together (hard limit about {word_budget}). Plain language, no marketing tone, no
 repetition between sections.
 """ + BUILDER_RULES
 
@@ -96,6 +101,12 @@ This is a REVISION. <previous_draft> is your last draft and <validation_issues> 
 Fix every issue that concerns the sections of this call (follow each fix_instruction), keep what was fine, and do
 not introduce new unsupported claims."""
 
+USER_REVISION_NOTE = """
+This is a REVISION requested by the USER while reviewing the brief. <previous_draft> is the draft they reviewed and
+<validation_issues> holds their change request (the last item of <brief_feedback>). Apply it in the sections of this
+call where it belongs, keep everything else as it was, and keep the labels honest: a fact the user states is
+user_provided; never invent evidence to satisfy the request."""
+
 
 def brief_alternatives(state: ArenaState) -> list[dict]:
     """The proposals that did not win, as the appendix shows them."""
@@ -110,7 +121,27 @@ def _winner(state: ArenaState) -> dict | None:
     return next((p for p in state.get("proposals", []) if p["proposal_id"] == winner_id), None)
 
 
-def _user_content(state: ArenaState, revising: bool, part: type, first: BriefPartOne | None = None) -> str:
+def revision_mode(state: ArenaState) -> str | None:
+    """"validator" (verdict revise), "user" (the review routed a change request to wording), or None (fresh draft)."""
+    if not state.get("brief"):
+        return None
+    if (state.get("brief_validation") or {}).get("verdict") == "revise" and state.get("current_node") == "brief_validator":
+        return "validator"
+    if state.get("current_node") == "brief_review_router" and state.get("brief_review_route") == "wording":
+        return "user"
+    return None
+
+
+def _issues(state: ArenaState, mode: str) -> list[dict]:
+    if mode == "user":
+        last = state["brief_feedback"][-1]
+        return [{"check": "user_change_request", "issue": last["feedback"],
+                 "fix_instruction": "Apply the user's change request."}]
+    return [{"check": c["check_id"], "issue": c["issue"], "fix_instruction": c["fix_instruction"]}
+            for c in state["brief_validation"]["checks"] if not c["passed"]]
+
+
+def _user_content(state: ArenaState, mode: str | None, part: type, first: BriefPartOne | None = None) -> str:
     winner = _winner(state)
     verdict = state.get("verdict") or {}
     winner_id = winner["proposal_id"] if winner else None
@@ -130,29 +161,32 @@ def _user_content(state: ArenaState, revising: bool, part: type, first: BriefPar
 {evidence_block(state.get("evidence", []), max_excerpt_chars=250)}"""
     if first is not None:
         content += f"\n<sections_1_to_4>{json.dumps(first.model_dump(mode='json'), indent=1)}</sections_1_to_4>"
-    if revising:
+    if mode:
         previous = ProblemBrief.model_validate(state["brief"]).model_dump(mode="json", include=set(part.model_fields))
-        failed = [{"check": c["check_id"], "issue": c["issue"], "fix_instruction": c["fix_instruction"]}
-                  for c in state["brief_validation"]["checks"] if not c["passed"]]
         content += f"""
 <previous_draft>{json.dumps(previous, indent=1)}</previous_draft>
-<validation_issues>{json.dumps(failed, indent=1)}</validation_issues>"""
+<validation_issues>{json.dumps(_issues(state, mode), indent=1)}</validation_issues>"""
     return content
 
 
 def brief_writer_node(state: ArenaState) -> dict:
     settings = get_settings()
-    validation = state.get("brief_validation") or {}
-    revising = bool(state.get("brief")) and validation.get("verdict") == "revise"
-    revision = state.get("brief_revision_count", 0) if revising else 0
-    report("brief_writer", f"revising the brief (revision {revision}) to fix "
-                           f"{sum(1 for c in validation.get('checks', []) if not c['passed'])} issue(s)"
-           if revising else "writing the problem statement and solution brief")
+    mode = revision_mode(state)
+    revision = state["brief"]["revision"] + 1 if state.get("brief") else 0
+    if mode == "validator":
+        failed = sum(1 for c in state["brief_validation"]["checks"] if not c["passed"])
+        report("brief_writer", f"revising the brief (draft {revision + 1}) to fix {failed} issue(s) the validator found")
+    elif mode == "user":
+        report("brief_writer", f"revising the brief (draft {revision + 1}) with your change request")
+    else:
+        report("brief_writer", "writing the problem statement and solution brief")
 
-    system = SYSTEM_PROMPT.replace("{word_budget}", str(settings.brief_word_budget)) + (REVISION_NOTE if revising else "")
+    system = SYSTEM_PROMPT.replace("{word_budget}", str(settings.brief_word_budget)).replace(
+        "{word_target}", str(int(settings.brief_word_budget * 0.8)))
+    system += {"validator": REVISION_NOTE, "user": USER_REVISION_NOTE}.get(mode or "", "")
 
     def write(part: type, first: BriefPartOne | None = None):
-        return call_structured(part, system + PART_NOTE[part], _user_content(state, revising, part, first),
+        return call_structured(part, system + PART_NOTE[part], _user_content(state, mode, part, first),
                                max_tokens=PART_MAX_TOKENS[part], run_name=f"brief_writer_{part.__name__}")
 
     first = write(BriefPartOne)

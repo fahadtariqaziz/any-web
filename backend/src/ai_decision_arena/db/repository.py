@@ -4,12 +4,12 @@ saving the same session twice (a retry, a repeated request) updates rows instead
 
 from datetime import datetime, timezone
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
 from ai_decision_arena.db.engine import session_factory
 from ai_decision_arena.db.models import (ChatMessage, DecisionReport, DecisionSession, EvidenceRecord, KnowledgeDoc,
-                                         UserMemory)
+                                         ProjectArtifact, UserMemory)
 
 EVIDENCE_COLUMNS = {"evidence_id", "domain", "source_url", "source_title", "source_type",
                     "relevant_excerpt", "verification_status", "retrieved_at"}
@@ -101,6 +101,30 @@ def save_completion(thread_id: str, state: dict, status: str, metrics: dict) -> 
                 set_={"status": stmt.excluded.status, "is_conditional": stmt.excluded.is_conditional,
                       "report_json": stmt.excluded.report_json},
             ))
+
+
+def save_artifact(thread_id: str, kind: str, markdown: str, content: dict, content_hash: str, approved_at: str) -> int:
+    """Store an approved brief / plan as the next version; returns its version. The same content again (same hash)
+    returns the existing version instead of adding a row."""
+    with session_factory().begin() as db:
+        existing = db.execute(select(ProjectArtifact.version).where(
+            ProjectArtifact.thread_id == thread_id, ProjectArtifact.kind == kind,
+            ProjectArtifact.content_hash == content_hash)).scalar_one_or_none()
+        if existing is not None:
+            return existing
+        latest = db.execute(select(func.max(ProjectArtifact.version)).where(
+            ProjectArtifact.thread_id == thread_id, ProjectArtifact.kind == kind)).scalar_one_or_none() or 0
+        db.add(ProjectArtifact(thread_id=thread_id, kind=kind, version=latest + 1, content_hash=content_hash,
+                               markdown=markdown, content=content, approved_at=datetime.fromisoformat(approved_at)))
+        return latest + 1
+
+
+def list_artifacts(thread_id: str, kind: str | None = None) -> list[ProjectArtifact]:
+    query = select(ProjectArtifact).where(ProjectArtifact.thread_id == thread_id).order_by(ProjectArtifact.kind, ProjectArtifact.version)
+    if kind:
+        query = query.where(ProjectArtifact.kind == kind)
+    with session_factory()() as db:
+        return list(db.execute(query).scalars())
 
 
 def list_sessions(limit: int = 20, mode: str | None = None) -> list[DecisionSession]:

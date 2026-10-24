@@ -1,7 +1,7 @@
 "use client";
 
-// The problem statement + solution brief (M4): the document the user will approve before any planning (M5).
-// Read-only for now. The markdown is rendered by the backend (labels, reference numbers, appendix); this view adds
+// The problem statement + solution brief (M4), read-only once the session moved past the review (the review itself is
+// BriefReviewPanel). The markdown is rendered by the backend (labels, reference numbers, appendix); this view adds
 // what the validator found: the verdict, the checks, the open issues.
 
 import { ClipboardCheck, FileText, Printer } from "lucide-react";
@@ -52,6 +52,11 @@ export function BriefView({ data }: { data: BriefResponse }) {
         description={`Draft ${brief.revision + 1} · ${formatDateTime(brief.generated_at)} · ${validation.word_count} words before the appendix`}
         aside={
           <>
+            {data.approved_at && (
+              <Badge tone="emerald" size="md">
+                Approved {formatDateTime(data.approved_at)}
+              </Badge>
+            )}
             <Badge tone={failed.length ? "amber" : "emerald"} size="md">
               {passed} of {validation.checks.length} checks passed
             </Badge>

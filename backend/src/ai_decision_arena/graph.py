@@ -8,8 +8,12 @@
                                                                     └──────────────────────────────► final_report
     final_report → brief_writer → brief_validator ─┬─(revise, ≤ max_brief_revisions)──► brief_writer
                                                    ├─(clarify, loop allowed)──────────► clarification
-                                                   └─(approve)────────────────────────► completion → END
-                                                     (M5 inserts await_brief_review before completion)
+                                                   └─(approve)────────────────────────► await_brief_review (pause)
+    await_brief_review → brief_review_router ─┬─(approved)────► completion → END     (M6: planner)
+                                              ├─(wording)─────► brief_writer
+                                              ├─(requirements)► clarification
+                                              ├─(research)────► research
+                                              └─(proposal)────► proposer
     Any node that raises → its error is stored (nodes/node_wrapper.py) → completion (status failed).
 
 Every edge is "guarded": if the state carries an error, the graph goes straight to completion. Nodes are not
@@ -24,6 +28,8 @@ from typing import Callable, Literal
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
+from ai_decision_arena.brief import brief_is_approved
+from ai_decision_arena.nodes.brief_review import await_brief_review_node, brief_review_router_node
 from ai_decision_arena.nodes.brief_validator import brief_validator_node
 from ai_decision_arena.nodes.brief_writer import brief_writer_node
 from ai_decision_arena.nodes.clarification import await_clarification_node, clarification_node
@@ -50,6 +56,8 @@ NODES = {
     "final_report": final_report_node,
     "brief_writer": brief_writer_node,
     "brief_validator": brief_validator_node,
+    "await_brief_review": await_brief_review_node,
+    "brief_review_router": brief_review_router_node,
 }
 
 
@@ -76,14 +84,26 @@ def route_after_evidence_checker(state: ArenaState) -> Literal["research", "fina
     return "final_report"
 
 
-def route_after_brief_validator(state: ArenaState) -> Literal["brief_writer", "clarification", "completion"]:
+def route_after_brief_validator(state: ArenaState) -> Literal["brief_writer", "clarification", "await_brief_review"]:
     # The validator already applied the revision cap and the loop limits; here we only read its verdict.
     verdict = (state.get("brief_validation") or {}).get("verdict")
     if verdict == "revise":
         return "brief_writer"
     if verdict == "clarify":
         return "clarification"
-    return "completion"                 # approve (M5: await_brief_review)
+    return "await_brief_review"         # approve: the user reviews the validated brief
+
+
+REVIEW_ROUTES = {"wording": "brief_writer", "requirements": "clarification", "research": "research", "proposal": "proposer"}
+
+
+def route_after_brief_review(state: ArenaState) -> Literal["brief_writer", "clarification", "research", "proposer",
+                                                          "await_brief_review", "completion"]:
+    route = state.get("brief_review_route")
+    if route == "approved":
+        # Hard guard (not only the UI): the approval must match the brief in the state right now.
+        return "completion" if brief_is_approved(state) else "await_brief_review"     # M6: planner
+    return REVIEW_ROUTES.get(route or "", "await_brief_review")
 
 
 def guarded(route: Callable[[ArenaState], str] | str):
@@ -119,7 +139,10 @@ def build_graph(checkpointer: BaseCheckpointSaver | None = None):
     connect("evidence_checker", route_after_evidence_checker, ["research", "final_report"])
     connect("final_report", "brief_writer", ["brief_writer"])
     connect("brief_writer", "brief_validator", ["brief_validator"])
-    connect("brief_validator", route_after_brief_validator, ["brief_writer", "clarification"])
+    connect("brief_validator", route_after_brief_validator, ["brief_writer", "clarification", "await_brief_review"])
+    connect("await_brief_review", "brief_review_router", ["brief_review_router"])
+    connect("brief_review_router", route_after_brief_review,
+            ["brief_writer", "clarification", "research", "proposer", "await_brief_review"])
     builder.add_edge("completion", END)
 
     return builder.compile(checkpointer=checkpointer)

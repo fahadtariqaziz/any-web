@@ -84,6 +84,14 @@ class ArenaState(TypedDict, total=False):
     brief_revision_count: int            # rewrites asked by the validator for the current brief             (brief_validator;
                                          #   reset to 0 when it sends the graph back to clarification)
     brief_validation: dict               # BriefValidation of the latest draft                                (brief_validator)
+
+    # --- brief review (the user) -------------------------------- (await_brief_review / brief_review_router)
+    brief_feedback: list[dict]           # one entry per review reply: {round, action, target, feedback, at};
+                                         #   the router adds resolved_target to the last entry                    (both)
+    brief_review_round_count: int        # change requests so far (approvals not counted)                        (await_brief_review)
+    brief_review_route: str              # approved | wording | requirements | research | proposal              (brief_review_router)
+    brief_approved_at: str | None        # ISO time of the approval                                             (brief_review_router)
+    brief_approved_hash: str | None      # sha256 of the approved brief_markdown: a later edit invalidates it    (brief_review_router)
     completed_at: str
     metrics: dict                        # durations, rounds, counts (completion)
 

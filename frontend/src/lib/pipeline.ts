@@ -110,6 +110,21 @@ export const NODE_INFO: Record<string, NodeInfo> = {
     expectedSeconds: 20,
     stage: "brief",
   },
+  await_brief_review: {
+    label: "Your review",
+    headline: "Waiting for your review of the brief",
+    doing: "The validated brief is shown to you. Approve it, or say what to change: a misunderstood requirement goes back to the questions, missing facts to research, a different solution to the proposer, wording to the writer. Nothing is planned or built before you approve.",
+    expectedSeconds: 0,
+    stage: "brief",
+    waitsForUser: true,
+  },
+  brief_review_router: {
+    label: "Review router",
+    headline: "Applying your review",
+    doing: "Recording your approval, or deciding which step must handle your change request.",
+    expectedSeconds: 3,
+    stage: "brief",
+  },
   completion: {
     label: "Saving",
     headline: "Saving your session",
@@ -159,7 +174,7 @@ export function deriveActivity(status: DecisionStatus): Activity {
     // The checkpoint says which node LangGraph is executing; before the first checkpoint it is intake.
     activeNode = status.next_nodes[0] ?? lastNodeLine(lines)?.node ?? "intake";
   } else if (status.run_state === "paused") {
-    activeNode = "await_clarification";
+    activeNode = status.next_nodes[0] ?? (status.pending?.type === "brief_review" ? "await_brief_review" : "await_clarification");
   } else if (status.run_state === "interrupted") {
     activeNode = status.next_nodes[0] ?? null;
   } else {

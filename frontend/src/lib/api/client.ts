@@ -5,6 +5,7 @@
 
 import type {
   Accepted,
+  ArtifactList,
   BriefResponse,
   ChatTranscript,
   CreateDecisionRequest,
@@ -96,6 +97,11 @@ export function getReport(threadId: string): Promise<ReportResponse> {
 /** The validated problem statement + solution brief. 409 "no_brief" until the validator approved a draft. */
 export function getBrief(threadId: string): Promise<BriefResponse> {
   return request(`${BASE}/${encodeURIComponent(threadId)}/brief`);
+}
+
+/** Approved versions of the brief (and later the plan). 503 if the database cannot be read. */
+export function getArtifacts(threadId: string): Promise<ArtifactList> {
+  return request(`${BASE}/${encodeURIComponent(threadId)}/artifacts`);
 }
 
 /** Evidence kept so far, with verification status. */

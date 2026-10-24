@@ -10,6 +10,7 @@ Flow:
     POST /api/decisions/{id}/resume       → answer the pending pause (or "continue" an interrupted run)
     GET  /api/decisions/{id}/report       → the final report, once finished
     GET  /api/decisions/{id}/brief        → the validated problem statement + solution brief
+    GET  /api/decisions/{id}/artifacts    → approved versions of the brief (and later the plan)
     GET  /api/decisions/{id}/evidence     → kept evidence with verification status
     GET  /api/decisions/{id}/live         → everything produced so far (case, evidence counts, plans, scores, verdicts)
     GET  /api/decisions                   → recent sessions (from the app tables); ?mode=quick for the chat list
@@ -57,7 +58,10 @@ from ai_decision_arena.api.schemas import (
     LiveSnapshot,
     PendingPause,
     ReportResponse,
+    ArtifactList,
+    ArtifactView,
     BriefResponse,
+    BriefReviewResume,
     ResearchView,
     ResumeRequest,
     SessionList,
@@ -65,7 +69,8 @@ from ai_decision_arena.api.schemas import (
     VerificationView,
 )
 from ai_decision_arena.config import get_settings
-from ai_decision_arena.db.repository import list_sessions, save_session_status
+from ai_decision_arena.brief import brief_is_approved
+from ai_decision_arena.db.repository import list_artifacts, list_sessions, save_session_status
 from ai_decision_arena.graph import build_graph
 from ai_decision_arena.memory import valid_user_id
 from ai_decision_arena.triggers import CheckInScheduler
@@ -296,6 +301,13 @@ def resume_decision(thread_id: str, body: ResumeRequest, request: Request):
         if unknown:
             raise ApiError(422, "invalid_input", f"Answers for questions that were not asked: {unknown}")
 
+    if isinstance(body, BriefReviewResume):
+        if body.action == "request_changes" and len(body.feedback.strip()) < 3:
+            raise ApiError(422, "invalid_input", "Describe the change you want: feedback is required to request changes.")
+        if body.action == "request_changes" and payload.get("wording_only") and body.target not in ("auto", "wording"):
+            raise ApiError(422, "invalid_input", "The brief was revised the maximum number of times: only wording changes "
+                                                 "(or approval) are accepted now.")
+
     reply = body.model_dump(exclude={"type"})      # exactly what interrupt() returns inside the node
     _start(runner, thread_id, Command(resume=reply))
     return Accepted(thread_id=thread_id)
@@ -333,7 +345,23 @@ def get_brief(thread_id: str, request: Request):
         raise ApiError(409, "no_brief", f"No validated brief yet (status {values.get('status')}).")
     brief, validation = found
     return BriefResponse(thread_id=thread_id, workflow_status=values.get("status"), brief=brief,
-                         markdown=values.get("brief_markdown", ""), validation=validation)
+                         markdown=values.get("brief_markdown", ""), validation=validation,
+                         approved_at=values.get("brief_approved_at") if brief_is_approved(values) else None,
+                         review_round=values.get("brief_review_round_count", 0))
+
+
+@app.get("/api/decisions/{thread_id}/artifacts", response_model=ArtifactList, tags=["decisions"])
+def get_artifacts(thread_id: str, request: Request):
+    """Approved versions (project_artifacts table). 503 if the database cannot be read."""
+    _snapshot(request, thread_id)                       # 404 for unknown sessions
+    try:
+        rows = list_artifacts(thread_id)
+    except Exception as exc:
+        raise ApiError(503, "database_unavailable", f"Could not read the artifacts ({type(exc).__name__}).") from exc
+    return ArtifactList(thread_id=thread_id, artifacts=[
+        ArtifactView(kind=r.kind, version=r.version, content_hash=r.content_hash, markdown=r.markdown,
+                     approved_at=r.approved_at.isoformat() if r.approved_at else None, created_at=r.created_at.isoformat())
+        for r in rows])
 
 
 @app.get("/api/decisions/{thread_id}/evidence", response_model=EvidenceResponse, tags=["decisions"])

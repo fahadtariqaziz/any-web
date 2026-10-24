@@ -8,16 +8,16 @@
 3. Python decides (never the LLM):
    - clarify  → clarification: the reviewer says critical information is missing or the requirements contradict
                 each other, AND a clarification loop is allowed (limits.loops_allowed);
-   - revise   → brief_writer: a deterministic check or a high-severity criterion failed, AND
-                brief_revision_count < max_brief_revisions;
-   - approve  → the brief goes forward (M5: the user's review; until then completion). Failed checks that could
+   - revise   → brief_writer: a deterministic check failed, a high-severity criterion failed, or at least
+                MEDIUM_FAILURES_TO_REVISE medium ones did, AND brief_revision_count < max_brief_revisions;
+   - approve  → the brief goes to the user's review (await_brief_review). Failed checks that could
                 not be fixed are listed as open issues: in the brief's appendix and in unresolved_questions.
 
 Writes (owner): brief_validation, brief_revision_count, brief_markdown (re-rendered with open issues),
 unresolved_questions, research_retry_count + research_focus (clarify), status, current_node.
 """
 
-from ai_decision_arena.brief import deterministic_checks, render_brief_markdown
+from ai_decision_arena.brief import WORD_BUDGET_TOLERANCE, deterministic_checks, render_brief_markdown
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.limits import loops_allowed
 from ai_decision_arena.llm import call_structured
@@ -28,6 +28,7 @@ from ai_decision_arena.schemas import BRIEF_CHECK_IDS, BriefReview, BriefValidat
 from ai_decision_arena.state import ArenaState
 
 MAX_QUESTIONS = 2
+MEDIUM_FAILURES_TO_REVISE = 2      # one medium weakness goes forward as an open issue; two or more cost a rewrite
 
 SYSTEM_PROMPT = """You are the Brief Validator of an AI application builder. You check the problem statement and solution
 brief BEFORE the user sees it. Be strict but fair: fail a check only for a real problem a reader would notice.
@@ -45,11 +46,14 @@ Check each criterion (one entry per check id, in this order):
 7. risks_and_questions_disclosed: important risks, dependencies and unresolved questions are disclosed.
 8. claims_have_sources: research claims cite supporting sources wherever possible (labels in the text say
    verified / research with reference numbers; check them against <evidence>).
-9. concise_consistent_readable: concise (about one page before the appendix), internally consistent, and
-   understandable to technical and non-technical readers.
+9. concise_consistent_readable: concise, internally consistent, and understandable to technical and non-technical
+   readers. Length: <main_part_words> is the word count of sections 1-9 (labels and citations not counted) and
+   <word_limit> the limit for about one page; at or under the limit the length is fine, do not fail it for length. The appendix is supplementary and
+   does not count toward the page, but flag it if it mostly repeats the main part or contradicts it.
 
 severity: high = the brief would mislead the user or cannot be planned from; medium = a clear weakness; low =
-polish. fix_instruction: a concrete instruction the writer can follow.
+polish. Keep each issue to at most 2 short sentences and each fix_instruction to one; leave both empty when the
+check passes.
 
 needs_user_input: true ONLY when critical information is missing or the user's requirements contradict each other
 so that no rewrite can fix it; then ask at most 2 short questions the user can answer. Questions already in
@@ -60,7 +64,7 @@ ask: ask only if the brief cannot responsibly go forward without the answer.
 """ + BUILDER_RULES
 
 
-def _review(state: ArenaState, markdown: str, det: list[ValidationCheck]) -> BriefReview:
+def _review(state: ArenaState, markdown: str, det: list[ValidationCheck], words: int, budget: int) -> BriefReview:
     det_lines = "\n".join(f"- {c.check_id}: {'passed' if c.passed else 'FAILED: ' + c.issue}" for c in det)
     user = f"""{user_case_block(state)}
 <brief>
@@ -69,9 +73,11 @@ def _review(state: ArenaState, markdown: str, det: list[ValidationCheck]) -> Bri
 <deterministic_checks>
 {det_lines}
 </deterministic_checks>
+<main_part_words>{words}</main_part_words>
+<word_limit>{int(budget * WORD_BUDGET_TOLERANCE)}</word_limit>
 <check_order>{", ".join(BRIEF_CHECK_IDS)}</check_order>
 {evidence_block(state.get("evidence", []), max_excerpt_chars=200)}"""
-    return call_structured(BriefReview, SYSTEM_PROMPT, user, max_tokens=3500, run_name="brief_validator_llm")
+    return call_structured(BriefReview, SYSTEM_PROMPT, user, max_tokens=7000, run_name="brief_validator_llm")
 
 
 def brief_validator_node(state: ArenaState) -> dict:
@@ -98,7 +104,7 @@ def brief_validator_node(state: ArenaState) -> dict:
         verdict, reason = "revise", "Deterministic checks failed; the writer fixes them before the review."
     else:
         report("brief_validator", "reviewing the brief against the nine validation criteria")
-        review = _review(state, markdown, det)
+        review = _review(state, markdown, det, words, settings.brief_word_budget)
         llm_summary = review.summary
         checks += [ValidationCheck(check_id=c.check_id, source="llm", passed=c.passed,
                                    severity="low" if c.passed else c.severity,
@@ -111,6 +117,9 @@ def brief_validator_node(state: ArenaState) -> dict:
                 questions.append(q)
         questions = questions[:MAX_QUESTIONS]
         high = [c for c in checks if c.source == "llm" and not c.passed and c.severity == "high"]
+        medium = [c for c in checks if c.source == "llm" and not c.passed and c.severity == "medium"]
+        if len(medium) >= MEDIUM_FAILURES_TO_REVISE:
+            high += medium                       # several medium weaknesses together are worth a rewrite
         if review.needs_user_input and questions and can_clarify:
             verdict, reason = "clarify", "Critical information is missing or contradictory: asking the user before continuing."
         elif (det_failed or high) and can_revise:
@@ -135,7 +144,7 @@ def brief_validator_node(state: ArenaState) -> dict:
             unresolved = list(state.get("unresolved_questions", []))
             update["unresolved_questions"] = unresolved + [f"Open brief issue: {i}" for i in open_issues
                                                            if f"Open brief issue: {i}" not in unresolved]
-        update["status"] = "reporting"
+        update["status"] = "awaiting_brief_review"
     elif verdict == "revise":
         update["brief_revision_count"] = revisions_used + 1
         update["status"] = "writing_brief"

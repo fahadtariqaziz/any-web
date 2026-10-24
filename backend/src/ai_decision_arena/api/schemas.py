@@ -4,7 +4,7 @@ FastAPI validates every request body against these BEFORE our code runs: a malfo
 422 with a clear message, and the Swagger page (/docs) shows each model with its fields.
 
 The resume body is a "discriminated union": the `type` field says which pause you are answering,
-and FastAPI picks the matching model (ClarificationResume, ContinueResume) to validate the rest.
+and FastAPI picks the matching model (ClarificationResume, BriefReviewResume, ContinueResume) to validate the rest.
 """
 
 from typing import Annotated, Any, Literal
@@ -30,7 +30,7 @@ from ai_decision_arena.schemas import (
 # interrupted the run stopped mid-way (server restart, crash); POST /resume {"type": "continue"} picks it up
 # finished    the graph reached END (completed or failed: see workflow_status)
 RunState = Literal["running", "paused", "interrupted", "finished"]
-PauseType = Literal["clarification"]
+PauseType = Literal["clarification", "brief_review"]
 
 
 # --- requests ----------------------------------------------------------------------------------
@@ -51,6 +51,16 @@ class ClarificationResume(BaseModel):
                                                 "Leave a question out (or answer \"\") to skip it.")
 
 
+class BriefReviewResume(BaseModel):
+    """Approve the brief, or ask for changes (feedback required). target: where the change should go; "auto" lets the
+    system decide. After max_review_rounds change requests, only "wording" / "auto" are accepted."""
+
+    type: Literal["brief_review"]
+    action: Literal["approve", "request_changes"]
+    feedback: str = Field(default="", max_length=4000)
+    target: Literal["auto", "requirements", "research", "proposal", "wording"] = "auto"
+
+
 class ContinueResume(BaseModel):
     """Restart an interrupted run from its last checkpoint (like run_graph.py --resume)."""
 
@@ -58,7 +68,7 @@ class ContinueResume(BaseModel):
 
 
 ResumeRequest = Annotated[
-    ClarificationResume | ContinueResume,
+    ClarificationResume | BriefReviewResume | ContinueResume,
     Field(discriminator="type"),
 ]
 
@@ -135,6 +145,22 @@ class BriefResponse(BaseModel):
     brief: ProblemBrief
     markdown: str = Field(description="Rendered brief: main part (about one page), references, appendix.")
     validation: BriefValidation
+    approved_at: str | None = Field(default=None, description="Set once the user approved exactly this brief.")
+    review_round: int = Field(default=0, description="Change requests made so far.")
+
+
+class ArtifactView(BaseModel):
+    kind: Literal["brief", "plan"]
+    version: int
+    content_hash: str
+    approved_at: str | None = None
+    created_at: str
+    markdown: str
+
+
+class ArtifactList(BaseModel):
+    thread_id: str
+    artifacts: list[ArtifactView]
 
 
 class EvidenceResponse(BaseModel):

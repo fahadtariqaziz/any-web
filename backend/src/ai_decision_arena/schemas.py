@@ -34,6 +34,7 @@ WorkflowStatus = Literal[
     "reporting",
     "writing_brief",
     "validating_brief",
+    "awaiting_brief_review",
     "completed",
     "completed_with_uncertainty",
     "failed",
@@ -707,7 +708,7 @@ CITED_LABELS = ("verified", "research_backed")
 class BriefItem(BaseModel):
     """One labelled statement of the brief."""
 
-    text: str = Field(description="One sentence, at most ~25 words. No URLs, no evidence ids in the text.")
+    text: str = Field(description="One sentence, at most ~20 words. No URLs, no evidence ids in the text.")
     label: ClaimLabel
     evidence_ids: list[str] = Field(description="Ids from <evidence> that support it; REQUIRED for verified / research_backed. "
                                                 "Empty list if none.")
@@ -920,8 +921,8 @@ class BriefCheck(BaseModel):
     passed: bool
     severity: Level = Field(description="How much a failure matters: high = the brief misleads or cannot be planned from; "
                                         "low = polish. Use 'low' when passed.")
-    issue: str = Field(description="What is wrong, citing the section. Empty string when passed.")
-    fix_instruction: str = Field(description="Concrete instruction for the writer. Empty string when passed.")
+    issue: str = Field(description="What is wrong, citing the section, at most 2 short sentences. Empty string when passed.")
+    fix_instruction: str = Field(description="Concrete instruction for the writer, one sentence. Empty string when passed.")
 
 
 class BriefReview(BaseModel):
@@ -971,6 +972,43 @@ class BriefValidation(BaseModel):
     open_issues: list[str] = Field(default_factory=list, description="Failed checks the brief goes forward with (no revision left).")
     llm_summary: str = ""
     validated_at: datetime = Field(default_factory=utc_now)
+
+
+# ---------------------------------------------------------------------------
+# User review of the brief (spec §6)
+# ---------------------------------------------------------------------------
+
+# Where a change request goes: a misunderstanding of the requirements → clarification; a research or proposal
+# quality issue → research / proposer; wording → brief_writer.
+ReviewTarget = Literal["requirements", "research", "proposal", "wording"]
+
+
+class BriefReviewReply(BaseModel):
+    """What the user sends back when the graph is paused for the brief review."""
+
+    action: Literal["approve", "request_changes"]
+    feedback: str = Field(default="", max_length=4000, description="Required for request_changes: what to change or add.")
+    target: Literal["auto", "requirements", "research", "proposal", "wording"] = Field(
+        default="auto", description="Where the change should go; auto = the system decides from the feedback."
+    )
+
+    @model_validator(mode="after")
+    def changes_need_feedback(self) -> "BriefReviewReply":
+        if self.action == "request_changes" and len(self.feedback.strip()) < 3:
+            raise ValueError("Describe the change you want (feedback is required to request changes).")
+        return self
+
+
+class FeedbackRouting(BaseModel):
+    """LLM output: which step must handle the user's change request (only when the user chose target=auto)."""
+
+    reasoning: str = Field(description="One or two sentences: what the user is asking for and which step can do it.")
+    target: ReviewTarget = Field(
+        description="requirements = the brief misunderstood what the user wants (audience, features, platform, constraints); "
+                    "research = facts, sources or evidence are missing or wrong; proposal = the recommended solution "
+                    "itself should change (different approach, architecture, feature set); wording = the content is right "
+                    "but the text should be clearer, shorter, reordered, or a detail added or removed."
+    )
 
 
 class ErrorRecord(BaseModel):

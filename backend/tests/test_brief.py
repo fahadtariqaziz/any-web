@@ -16,7 +16,7 @@ from ai_decision_arena.brief import (
 )
 from ai_decision_arena.nodes.brief_validator import brief_validator_node
 from ai_decision_arena.nodes.brief_writer import brief_writer_node
-from tests.conftest import build_brief, build_brief_review, build_clarification, tag
+from tests.conftest import build_brief, build_brief_review, build_clarification, finish_session, tag
 
 EVIDENCE = [
     {"evidence_id": "ev_001", "source_title": "App reviews", "source_url": "https://example.org/apps/1", "domain": "apps",
@@ -91,6 +91,35 @@ def test_renderer_fits_the_page_by_moving_items_to_the_appendix():
     assert "label=" not in appendix and "_(assumption)_" in appendix          # overflow items are rendered, not repr'd
 
 
+def test_appendix_is_grouped_by_section_and_has_no_table_rows():
+    content = build_brief("", '<item id="ev_001"')
+    content.success_criteria = [S.SuccessCriterion(metric=f"Metric {i}", target=None, basis="none", evaluation_method="Test.",
+                                                   evidence_ids=[]) for i in range(6)]
+    content.requirements.integrations_and_data = ["Keyboard input"]
+    markdown, _ = render_brief_markdown(make_brief(content))
+    appendix = markdown.split("## Appendix")[1]
+    assert "### A. More on 8. Success criteria" in appendix and "### A. More on 5. Functional" in appendix
+    assert "Metric 5: no target yet" in appendix and "\n- |" not in appendix          # overflow rows are text lines
+    assert appendix.count("### A. More on 5.") == 1
+
+
+def test_bold_subheadings_are_separated_from_lists():
+    markdown, _ = render_brief_markdown(make_brief())
+    lines = markdown.splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith("**") and line.endswith("**") and i > 0:
+            assert lines[i - 1] == "", f"no blank line before {line!r}: a list would swallow it"
+
+
+def test_mvp_and_scope_never_move_to_the_appendix():
+    content = build_brief("", '<item id="ev_001"')
+    content.proposed_solution.mvp_features = [f"feature {i}" for i in range(8)]
+    content.scope.in_scope = [f"scope {i}" for i in range(6)]
+    markdown, _ = render_brief_markdown(make_brief(content), word_budget=300)     # forces the smallest caps
+    main = markdown.split("## Appendix")[0]
+    assert all(f"feature {i}" in main for i in range(8)) and all(f"scope {i}" in main for i in range(6))
+
+
 def test_word_count_ignores_labels_citations_and_urls():
     assert count_words("Users want offline mode _(research [[1]](https://example.org/a) [[2]](https://x.org/b_c))_") == 4
     assert count_words("Simple app _(you said)_") == 2
@@ -136,6 +165,8 @@ def test_missing_sections_and_word_budget_fail():
     assert not sections.passed and "7. scope" in sections.issue and "9. risks" in sections.issue
     budget = check(checks, "det_word_budget")
     assert not budget.passed and budget.severity == "medium" and "1200" in budget.issue
+    within = check(deterministic_checks(make_brief(content), EVIDENCE, 980, 900), "det_word_budget")
+    assert within.passed                                             # "about one page": up to 10% over passes
 
 
 def test_a_brief_without_citations_has_no_references_and_fails():
@@ -151,9 +182,7 @@ def debated(graph, fake_llm, fake_search) -> dict:
     """The state of a finished fake session (debate, report and an approved brief)."""
     config = {"configurable": {"thread_id": "brief-fixture"}}
     graph.invoke({"question": "A habit tracker app for students", "mode": "full"}, config)
-    questions = graph.get_state(config).interrupts[0].value["questions"]
-    graph.invoke(Command(resume={"answers": {q: "x" for q in questions}}), config)
-    state = dict(graph.get_state(config).values)
+    state = finish_session(graph, config)
     fake_llm.calls.clear()
     return state
 
@@ -163,7 +192,7 @@ def test_writer_builds_brief_with_python_references(debated, fake_llm):
     brief = S.ProblemBrief.model_validate(out["brief"])
     known = {e["evidence_id"]: e for e in debated["evidence"]}
     assert brief.references and all(str(r.url) == known[r.evidence_id]["source_url"] for r in brief.references)
-    assert brief.revision == 0 and out["status"] == "validating_brief"
+    assert brief.revision == debated["brief"]["revision"] + 1 and out["status"] == "validating_brief"
     assert "## 10. References" in out["brief_markdown"]
     assert [fake_llm.count(p) for p in ("BriefPartOne", "BriefPartTwo", "BriefPartThree")] == [1, 1, 1]
 
@@ -189,7 +218,7 @@ def test_writer_revision_gets_previous_draft_and_issues(debated, fake_llm):
     state |= brief_validator_node(state)
     out = brief_writer_node(state)
     assert "REVISION" in seen["system"] and "<previous_draft>" in seen["user"] and "ev_999" in seen["user"]
-    assert out["brief"]["revision"] == 1
+    assert out["brief"]["revision"] == state["brief"]["revision"] + 1
 
 
 def test_revision_cap_approves_with_open_issues(debated, fake_llm):
@@ -215,6 +244,22 @@ def test_high_severity_llm_failure_revises(debated, fake_llm):
     assert out["brief_validation"]["verdict"] == "revise"
     failed = [c for c in out["brief_validation"]["checks"] if not c["passed"]]
     assert [c["check_id"] for c in failed] == ["solution_not_a_copy"] and failed[0]["source"] == "llm"
+
+
+@pytest.mark.parametrize("mediums, verdict", [(1, "approve"), (2, "revise")])
+def test_several_medium_failures_revise(debated, fake_llm, mediums, verdict):
+    def weak(system, user):
+        r = build_brief_review(system, user)
+        for i in range(mediums):
+            r.checks[i] = S.BriefCheck(check_id=r.checks[i].check_id, passed=False, severity="medium",
+                                       issue="Weak.", fix_instruction="Improve.")
+        return r
+    fake_llm.overrides[S.BriefReview] = weak
+    state = debated | brief_writer_node(debated) | {"brief_revision_count": 0}
+    out = brief_validator_node(state)
+    assert out["brief_validation"]["verdict"] == verdict
+    if verdict == "approve":
+        assert len(out["brief_validation"]["open_issues"]) == 1
 
 
 def _asks(system, user):
@@ -263,11 +308,9 @@ def test_pipeline_validator_clarify_loops_back_to_the_user(graph, fake_llm, fake
     fake_llm.overrides[S.ClarificationResult] = clarifier
     config = {"configurable": {"thread_id": "brief-clarify"}}
     graph.invoke({"question": "A habit tracker app for students", "mode": "full"}, config)
-    first = graph.get_state(config).interrupts[0].value["questions"]
-    graph.invoke(Command(resume={"answers": {q: "x" for q in first}}), config)
     # the validator asked: the graph went back to clarification. The fake clarifier only asks in round 0, so the
     # validator's question reaches the user only through a real LLM; here we check the loop and its bookkeeping.
-    result = graph.get_state(config).values
+    result = finish_session(graph, config)
     assert result["status"] == "completed"
     assert fake_llm.count("BriefReview") == 2 and fake_llm.count("BriefPartOne") == 2
     assert fake_llm.count("ResearchPlan") == 2 and result["research_retry_count"] == 1

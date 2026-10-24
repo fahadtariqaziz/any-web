@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Health Companion",
-  description: "Research, doctor and patient domains on a health condition. Information only, not medical advice.",
+  title: "AI App Builder",
+  description: "Describe an app or website: the agents clarify, research, propose and validate a solution brief before planning and building it.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

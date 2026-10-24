@@ -13,6 +13,7 @@ Trust boundaries kept here:
   at the smallest caps fails the word-budget check (and costs a rewrite).
 """
 
+import hashlib
 import re
 from datetime import datetime
 
@@ -134,16 +135,17 @@ def assemble_references(content: BriefContent, evidence: list[dict]) -> list[Bri
 MAIN_CAPS = {
     "audience": 3, "current_alternatives": 3, "consequences": 2, "indicators": 2,
     "findings": 2, "limitations": 2, "gaps": 3,
-    "mvp": 6, "future": 4, "journey": 6, "why": 2,
+    "mvp": 8, "future": 4, "journey": 7, "why": 2,
     "functional": 4, "non_functional": 3, "acceptance": 3,
     "components": 5, "technologies": 5, "decisions": 2,
-    "in_scope": 5, "out_of_scope": 4, "deliverables": 4, "dependencies": 3,
+    "in_scope": 6, "out_of_scope": 4, "deliverables": 4, "dependencies": 3,
     "success": 4, "constraints": 4, "assumptions": 3, "questions": 3, "risks": 3,
 }
 # What always stays in the main part, however tight the page (spec §4: prioritise problem, evidence, solution,
 # essential features, architecture, success criteria). Every other list keeps at least one item.
-CAP_FLOORS = {"mvp": 6, "journey": 6, "in_scope": 5, "functional": 3, "success": 2, "components": 3, "risks": 2}
-CAP_LEVELS = (1.0, 0.75, 0.5, 0.0)       # tried in order until sections 1-9 fit the word budget
+CAP_FLOORS = {"mvp": 8, "journey": 7, "in_scope": 6, "functional": 3, "success": 2, "components": 3, "risks": 2}
+CAP_LEVELS = (1.0, 0.75, 0.5, 0.0)
+WORD_BUDGET_TOLERANCE = 1.10              # det_word_budget fails only above budget × this       # tried in order until sections 1-9 fit the word budget
 
 
 def caps_at(level: float) -> dict[str, int]:
@@ -154,7 +156,8 @@ class _Renderer:
     def __init__(self, brief: ProblemBrief, caps: dict[str, int]):
         self.caps = caps
         self.refs = {r.evidence_id: r for r in brief.references}
-        self.appendix: list[tuple[str, list[str]]] = []
+        self.appendix: list[tuple[str, str, list[str]]] = []      # (section key, title, lines)
+        self.section = ""
 
     def cite(self, ids: list[str]) -> str:
         return "".join(f" [[{self.refs[i].number}]]({self.refs[i].url})" for i in ids if i in self.refs).strip()
@@ -169,7 +172,7 @@ class _Renderer:
     def split(self, title: str, lines: list[str], cap: str) -> list[str]:
         n = self.caps[cap]
         if len(lines) > n:
-            self.appendix.append((title, [self.item(x) if isinstance(x, BriefItem) else x for x in lines[n:]]))
+            self.appendix.append((self.section, title, [self.item(x) if isinstance(x, BriefItem) else x for x in lines[n:]]))
         return lines[:n]
 
 
@@ -207,10 +210,12 @@ def _render(brief: ProblemBrief, alternatives: list[dict] | None, open_issues: l
             "(from the research) · **you said** · **recommended** (our recommendation) · **assumption** (not confirmed). "
             "Numbers link to the references.", ""]
 
+    r.section = "project_overview"
     out += [f"## {SECTION_TITLES['project_overview']}", ov.description.strip(), ""]
     out += _bullets([f"**Users:** " + _inline([r.item(i) for i in r.split("Users", ov.audience, "audience")], "; "),
                      f"**Context:** {r.item(ov.context)}"]) + [""]
 
+    r.section = "problem_statement"
     out += [f"## {SECTION_TITLES['problem_statement']}", r.item(ps.statement), ""]
     lines = [f"**Who and where:** {r.item(ps.who_and_context)}"]
     lines += [f"**Today:** {r.item(i)}" for i in r.split("How users cope today", ps.current_alternatives, "current_alternatives")]
@@ -219,19 +224,21 @@ def _render(brief: ProblemBrief, alternatives: list[dict] | None, open_issues: l
     lines += [f"**Indicator:** {r.item(i)}" for i in r.split("Indicators", ps.indicators, "indicators")]
     out += _bullets(lines) + [""]
 
+    r.section = "research_findings"
     out += [f"## {SECTION_TITLES['research_findings']}"]
     for label, items in (("Existing apps and user feedback", rf.apps_and_feedback),
                          ("Papers and technical literature", rf.papers_and_literature),
                          ("Feasibility and implementations", rf.feasibility_and_implementations)):
         shown = r.split(label, [r.item(i) for i in items], "findings")
-        out += [f"**{label}**"] + (_bullets(shown) if shown else ["- No usable evidence found in this domain."])
-    out += ["**Limitations of existing solutions and the opportunity**"]
+        out += ["", f"**{label}**", ""] + (_bullets(shown) if shown else ["- No usable evidence found in this domain."])
+    out += ["", "**Limitations of existing solutions and the opportunity**", ""]
     out += _bullets(r.split("Limitations and opportunity", [r.item(i) for i in rf.limitations_and_opportunity], "limitations"))
     gaps = r.split("Evidence gaps", rf.evidence_gaps, "gaps")
     if gaps:
-        out += [f"**Evidence gaps:** {_inline(gaps, '; ')}"]
+        out += ["", f"**Evidence gaps:** {_inline(gaps, '; ')}"]
     out += [""]
 
+    r.section = "proposed_solution"
     out += [f"## {SECTION_TITLES['proposed_solution']}", r.item(sol.how_it_addresses_problem), ""]
     lines = [f"**First version (MVP):** {_inline(r.split('MVP features', sol.mvp_features, 'mvp'))}"]
     if sol.future_enhancements:
@@ -240,19 +247,21 @@ def _render(brief: ProblemBrief, alternatives: list[dict] | None, open_issues: l
     lines += [f"**Why this approach:** {r.item(i)}" for i in r.split("Why this approach", sol.why_this_approach, "why")]
     out += _bullets(lines) + [""]
 
-    out += [f"## {SECTION_TITLES['requirements']}", "**Functional**"]
+    r.section = "requirements"
+    out += [f"## {SECTION_TITLES['requirements']}", "", "**Functional**", ""]
     out += _bullets(r.split("Functional requirements", [r.item(i) for i in req.functional], "functional"))
-    out += ["**Non-functional**"]
+    out += ["", "**Non-functional**", ""]
     out += _bullets(r.split("Non-functional requirements",
                             [f"{i.category.capitalize()}: {r.item(i)}" for i in req.non_functional], "non_functional"))
     if req.acceptance_criteria:
-        out += ["**Acceptance criteria**"] + _bullets(r.split("Acceptance criteria", req.acceptance_criteria, "acceptance"))
+        out += ["", "**Acceptance criteria**", ""] + _bullets(r.split("Acceptance criteria", req.acceptance_criteria, "acceptance"))
     if req.integrations_and_data:
-        r.appendix.append(("Integrations, data inputs and outputs", req.integrations_and_data))
+        r.appendix.append(("requirements", "Integrations, data inputs and outputs", req.integrations_and_data))
     if req.user_roles:
-        r.appendix.append(("User roles", req.user_roles))
+        r.appendix.append(("requirements", "User roles", req.user_roles))
     out += [""]
 
+    r.section = "architecture"
     out += [f"## {SECTION_TITLES['architecture']}", r.item(arch.overview), ""]
     comps = r.split("Components", [f"**{c.name}:** {c.responsibility}" for c in arch.components], "components")
     lines = comps + [f"**Data flow:** {arch.data_flow.strip()}"]
@@ -262,6 +271,7 @@ def _render(brief: ProblemBrief, alternatives: list[dict] | None, open_issues: l
     lines += [f"**Decision:** {r.item(i)}" for i in r.split("Architectural decisions", arch.key_decisions, "decisions")]
     out += _bullets(lines) + [""]
 
+    r.section = "scope"
     out += [f"## {SECTION_TITLES['scope']}"]
     lines = [f"**In scope:** {_inline(r.split('In scope', sc.in_scope, 'in_scope'))}",
              f"**Out of scope:** {_inline(r.split('Out of scope', sc.out_of_scope, 'out_of_scope'))}",
@@ -269,14 +279,18 @@ def _render(brief: ProblemBrief, alternatives: list[dict] | None, open_issues: l
     lines += [f"**Depends on:** {r.item(i)}" for i in r.split("Dependencies", sc.dependencies, "dependencies")]
     out += _bullets(lines) + [""]
 
-    out += [f"## {SECTION_TITLES['success_criteria']}", "| Outcome | Target | How it is measured |", "|---|---|---|"]
-    rows = []
+    r.section = "success_criteria"
+    out += [f"## {SECTION_TITLES['success_criteria']}", "", "| Outcome | Target | How it is measured |", "|---|---|---|"]
+    rows, lines = [], []
     for c in brief.success_criteria:
         target = (f"{c.target} {r.tag('user_provided' if c.basis == 'user_requirement' else 'research_backed', c.evidence_ids)}"
                   if c.target else "no target yet (no baseline)")
         rows.append(f"| {_cell(c.metric)} | {_cell(target)} | {_cell(c.evaluation_method)} |")
-    out += r.split("More success criteria", rows, "success") + [""]
+        lines.append(f"{c.metric.strip()}: {target}. Measured by: {c.evaluation_method.strip()}")
+    shown = r.split("More success criteria", lines, "success")          # overflow as text lines, not table rows
+    out += rows[:len(shown)] + [""]
 
+    r.section = "constraints_and_risks"
     out += [f"## {SECTION_TITLES['constraints_and_risks']}"]
     lines = [f"**Constraint:** {r.item(i)}" for i in r.split("Constraints", cr.constraints, "constraints")]
     lines += [f"**Assumption:** {a}" for a in r.split("Assumptions", cr.assumptions, "assumptions")]
@@ -288,6 +302,7 @@ def _render(brief: ProblemBrief, alternatives: list[dict] | None, open_issues: l
 
     word_count = count_words("\n".join(out[out.index(f"## {SECTION_TITLES['project_overview']}"):]))
 
+    r.section = "references"
     out += [f"## {SECTION_TITLES['references']}"]
     if brief.references:
         out += [f"{ref.number}. [{_cell(_title(ref.title))}]({ref.url}) · {SHORT_DOMAIN.get(ref.domain, ref.domain)} · "
@@ -298,7 +313,15 @@ def _render(brief: ProblemBrief, alternatives: list[dict] | None, open_issues: l
         out += ["No sources are cited: every statement is the user's information, a recommendation or an assumption."]
     out += [""]
 
-    appendix = [(f"A{n}. {title}", _bullets(lines)) for n, (title, lines) in enumerate(r.appendix, start=1)]
+    # A. overflow, grouped under the main section it belongs to (one heading per section, not one per list)
+    appendix: list[tuple[str, list[str]]] = []
+    for key in SECTION_KEYS:
+        groups = [(title, lines) for section, title, lines in r.appendix if section == key and lines]
+        if groups:
+            body: list[str] = []
+            for title_, lines in groups:
+                body += ["", f"**{title_}**", ""] + _bullets(lines)
+            appendix.append((f"A. More on {SECTION_TITLES[key]}", body))
     if alternatives:
         appendix.append(("B. Alternatives considered", _bullets([
             f"**{a['name']}**" + (f" (score {a['weighted_total']:.1f}/10)" if a.get("weighted_total") is not None else "")
@@ -402,8 +425,23 @@ def deterministic_checks(brief: ProblemBrief, evidence: list[dict], word_count: 
     add("det_no_unknown_urls", [f"URL not in the evidence: {u}" for u in foreign],
         "Do not write URLs in the text; cite evidence ids instead (the references are added automatically).")
 
+    # "Approximately one page" (spec §4): 10% over the budget passes; the renderer already moved what it could.
+    limit = int(word_budget * WORD_BUDGET_TOLERANCE)
     over = word_count - word_budget
-    add("det_word_budget", [f"{word_count} words in sections 1-9, budget {word_budget}"] if over > 0 else [],
-        f"Shorten sections 1-9 by about {max(over, 0)} words: one sentence per item, fewer items, no repetition.",
+    add("det_word_budget", [f"{word_count} words in sections 1-9, budget {word_budget} (limit {limit})"] if word_count > limit else [],
+        f"Shorten sections 1-9 by about {max(over, 0)} words: at most ~20 words per item, fewer items, no repetition.",
         severity="medium")
     return checks
+
+
+# --- approval ------------------------------------------------------------------------------------------------
+
+def brief_hash(markdown: str) -> str:
+    return hashlib.sha256(markdown.encode("utf-8")).hexdigest()
+
+
+def brief_is_approved(state: dict) -> bool:
+    """True only if the user approved EXACTLY the brief in the state now (any later edit invalidates the approval).
+    The planner / implementer routes check this, not only the UI."""
+    digest = state.get("brief_approved_hash")
+    return bool(state.get("brief_approved_at") and digest and digest == brief_hash(state.get("brief_markdown", "")))

@@ -13,7 +13,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { ApiError, resumeDecision } from "@/lib/api/client";
 import type { ClarificationPayload } from "@/lib/api/types";
 
-const MAX_ROUNDS = 2; // config.max_clarification_rounds
+const MAX_ROUNDS = 3; // config.max_clarification_rounds
 
 export function ClarificationForm({
   threadId,
