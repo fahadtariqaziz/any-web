@@ -5,6 +5,7 @@
 >
 > **New agent / new session?** Read section 0 (status), the current milestone in section 8, then **section 15 (how to work
 > here) and section 16 (gotchas)** before touching code. They record how the previous sessions worked and what bit them.
+> The **original product specification is saved verbatim in `docs/app-builder-spec.md`**; milestones cite it as "spec §4.3".
 >
 > **Working rule (agreed 2026-10-24):** one milestone at a time. For each: build → run its verify script → if it passes,
 > the user commits and pushes (Claude never commits) → next milestone. Ask the user when a decision is theirs.
@@ -15,6 +16,7 @@
 
 | | |
 |---|---|
+| **Spec** | `docs/app-builder-spec.md` — the user's original brief, verbatim (clarification §1, research §2, proposals §3, brief §4.1–4.10, validation §5, review §6, planning §7, implementation §8, preview + isolation §9, platform §10.1–10.11, constraints §12, outcome §13). The milestone blocks below quote the parts each one needs. |
 | **Concept (decided 2026-10-24)** | An AI application builder like Lovable: the user describes an app or website; the system clarifies, researches, proposes, critiques, judges, writes a validated problem statement + solution brief, gets approval, plans (Opus 5.5), implements (Sonnet 5.5) in an isolated session folder, and shows a live preview beside the chat. |
 | **Where we are** | **M3 done** (2026-10-24): one proposer call → 2–3 `SolutionProposal`s, critic per proposal, one judge call with the new rubric and a single winner, checker on the winner, interim report (winner + alternatives). No health prompts remain on the main path. |
 | **Next milestone** | **M4 — problem brief writer and validator** (section 8). |
@@ -338,16 +340,67 @@ Each milestone ends with its **Commit:** line, the short commit message the user
 - **Commit:** `M3: solution proposals, critic and judge`
 
 ### M4 — Brief writer + validator
-- `ProblemBrief`, `brief_writer` (Python facts → one LLM call → Python assembles references from cited ids → `render_brief_markdown`, word budget ≈ 1 page + appendix), `BriefValidation` with deterministic checks (unknown ids, unlabelled claims, invented targets, word count, required sections) + LLM checks (the 9 criteria of the spec), routing with `max_brief_revisions`, `clarify` route.
-- **Verify:** pytest (deterministic checks, revision cap, clarify route) + `scripts/verify_m4.py` on cached M3 state; prints the markdown.
+Spec: `docs/app-builder-spec.md` §4 (the document) and §5 (validation). Inputs: the clarified requirements, the evidence, the
+winning proposal + alternatives, the Critic / Judge / Checker outputs (all in state after `final_report`). Cached test state:
+`backend/.cache/debate_calculator.json` (written by `verify_m3.py`).
+
+**The brief's sections, in this order (spec §4.1–4.10).** Every item carries `label ∈ verified | research_backed |
+user_provided | recommendation | assumption` and `evidence_ids`; the LLM cites ids only, **Python renders the references**.
+1. **Project overview** — proposed name (if any), concise description, intended users / stakeholders / audience, the domain and context of the problem.
+2. **Problem statement** — the specific problem or unmet need; who experiences it and in what context; the current process / existing alternatives / how users cope today; the gap between the current situation and the desired outcome; practical consequences of leaving it unresolved; supporting evidence or measurable indicators when available. Specific, concise, **solution-neutral** (describe the problem before assuming a feature or technology is the answer).
+3. **Research findings and evidence** — the most relevant findings from existing apps and user feedback; from papers and technical literature; from feasibility analysis, open-source implementations and technical docs; limitations of existing solutions and the opportunity to improve; citations for important claims; evidence gaps clearly flagged.
+4. **Proposed solution** — how the recommended app addresses the problem; main capabilities and user-facing features; the key user journey; MVP features vs future enhancements; why this approach beats the alternatives considered.
+5. **Functional and non-functional requirements** — functional requirements; non-functional (performance, security, privacy, reliability, accessibility, scalability); integrations, data inputs/outputs, user roles where applicable; measurable / testable acceptance criteria for critical requirements when there is enough information.
+6. **Proposed architecture and technology** — high-level architecture and major components; responsibilities of frontend, backend, database, external services, AI/agent components as applicable; how components communicate and how data flows; technologies recommended from evidence, feasibility and the user's constraints; key decisions and trade-offs; **unverified technology choices are never presented as mandatory**.
+7. **Scope and deliverables** — what the initial implementation includes; exclusions / out of scope; expected deliverables (application, backend services, integrations, documentation); dependencies on external services, datasets, APIs, infrastructure.
+8. **Success criteria** — measurable outcomes that show the problem is solved (task completion rate, time saved, error reduction, adoption, reliability, model performance… as relevant); target values and evaluation methods only when justified by evidence or the user's requirements; **never invent numerical targets without a baseline** (a criterion may have `target = null`, `basis = none`).
+9. **Constraints, assumptions and risks** — technical, financial, regulatory, resource, timeline constraints; confirmed requirements separated from assumptions; unresolved questions and dependencies; the main implementation / security / privacy / operational risks with mitigations.
+10. **References** — the most relevant sources for the problem, the solution and the architecture; prefer authoritative / primary sources; claims linked to sources; research findings distinguished from agent recommendations. **Assembled by Python** from the evidence ids used in sections 1–9 (title, URL, domain, verification status).
+Length: about one page. Prioritise problem, evidence, solution, essential features, architecture, success criteria; detailed requirements or references that do not fit go to a short **appendix** (same document, rendered after the main part).
+
+**Validator (spec §5): nine checks**, each `{check_id, passed, severity, issue, fix_instruction}`:
+1. the problem is clearly stated and consistent with the clarified requirements;
+2. the solution addresses the identified problem rather than merely copying existing apps;
+3. major recommendations are supported by research or explicitly labelled as assumptions;
+4. features and architecture are technically plausible within the known constraints;
+5. the scope distinguishes essential (MVP) functionality from optional enhancements;
+6. success criteria are measurable where possible and contain no fabricated targets;
+7. important risks, dependencies and unresolved questions are disclosed;
+8. research claims have supporting sources wherever possible;
+9. the document is concise, internally consistent, and understandable to technical and non-technical readers.
+Deterministic Python checks run **before** the LLM call and fail hard: every `evidence_ids` entry exists; every `verified` /
+`research_backed` item has ≥ 1 evidence id; a success criterion with a numeric target must have `basis ∈ user_requirement |
+evidence`; all ten sections present; word budget respected. Verdict ∈ `approve | revise | clarify`.
+Routing (`route_after_brief_validator`): approve → `await_brief_review` (M5; until then → `completion`); revise → `brief_writer`
+with the validation feedback, at most `max_brief_revisions` (=2) times, then proceed with the open issues listed as unresolved;
+clarify (critical information missing or a material contradiction) → `clarification` when a round is left (spec §5 last paragraph),
+else proceed flagged.
+- Build: `ProblemBrief` + `BriefValidation` schemas, `brief_writer` node (Python facts → one LLM call → `render_brief_markdown`),
+  `brief_validator` node, state fields `brief`, `brief_markdown`, `brief_validation`, `brief_revision_count`, `unresolved_questions`,
+  `WorkflowStatus` + `writing_brief` / `validating_brief`, graph wiring after `final_report`, `GET /api/decisions/{id}/brief`,
+  `types.ts`, a read-only `BriefView` (markdown) in the admin session page. `final_report` stays as the data step before the brief.
+- **Verify:** pytest (deterministic checks, revision cap, clarify route, references assembled from ids only) +
+  `scripts/verify_m4.py` on `backend/.cache/debate_calculator.json` (2–3 Claude calls): prints the markdown, asserts all ten
+  sections, every cited id exists, no URL in the brief that is not in the evidence, ≤ ~900 words before the appendix.
 - **Commit:** `M4: problem brief writer and validator`
 
 ### M5 — Brief review pause + API + admin UI
-- `await_brief_review`, `FeedbackRouting`, resume union `BriefReviewResume`, `GET /api/decisions/{id}/brief`, `project_artifacts` table, `types.ts`, `BriefReviewPanel` in `DecisionView`, stepper stages.
+Spec §6: show the document in a readable format; ask the user to confirm it describes the problem and the intended solution;
+an **explicit accept option plus a text field** for changes or additions; feedback goes to the appropriate node and the document is
+updated; **revalidate before showing it again**; repeat until the user explicitly accepts. A misunderstanding of the requirements →
+`clarification`; a research or proposal quality issue → `research` / `proposer`; wording → `brief_writer`. **No planning or code
+generation before approval** (spec §12: brief approval and plan approval are separate checkpoints).
+- `await_brief_review`, `FeedbackRouting`, resume union `BriefReviewResume`, `project_artifacts` table, `types.ts`, `BriefReviewPanel` in `DecisionView`, stepper stages.
 - **Verify:** pytest API tests (wrong type → 409, approve → planner next, request_changes targets) + `scripts/api_flow.py --auto` extended to approve the brief.
 - **Commit:** `M5: brief review pause and API`
 
 ### M6 — Planner (Opus 5.5) + plan review pause
+Spec §7: a Claude-Code-style implementation plan on `claude-opus-5-5` (availability checked at startup, never assumed), based on
+the approved brief: phases, milestones and actionable tasks; project structure, dependencies, architecture, APIs, frontend
+components, backend services, database design, integrations; AI models / agents / tools / workflows only where the project needs
+them; testing strategy, acceptance criteria and expected outputs per major task; task dependencies and execution order; risks and
+technical decisions to settle before implementation. Detailed enough that the implementer never has to make a major architectural
+decision or contradict the approved brief. Presented for approval; revised on request.
 - `call_structured(..., model=...)` parameter; `ImplementationPlan` + Python checks (unique ids, DAG, allowlisted commands); planner prompt; `render_plan_markdown`; `await_plan_review`; API + UI panel; model availability check at startup.
 - **Verify:** pytest (DAG/command checks, revision cap, guard "no implementer without both approvals") + `scripts/verify_m6.py` on a cached approved brief (one Opus call).
 - **Commit:** `M6: Opus planner and plan review`
@@ -358,22 +411,38 @@ Each milestone ends with its **Commit:** line, the short commit message the user
 - **Commit:** `M7: session workspace and sandbox`
 
 ### M8 — Implementer (coding agent, one task per step)
+Spec §8: implement on `claude-sonnet-5-5` according to the approved plan; use tools, skills and subagents where they improve
+quality; manageable tasks with tracked progress; validate through automated tests, error handling, linting and quality checks;
+fix issues **before** marking a task complete; stay aligned with the approved brief and plan; accept user instructions through
+the chat during implementation; apply changes without overwriting working code; keep a clear record of progress and unresolved
+issues; **report genuine progress and test results only** (a build, test, install or preview counts as successful only when the
+operation itself confirmed it: exit codes and HTTP checks, never the model's say-so).
 - **Spike first (≤ 1 h):** Claude Agent SDK (`claude-agent-sdk` 0.2.x on PyPI, needs the installed Claude Code CLI) with `cwd=app/`, `model="claude-sonnet-5-5"`, built-in Read/Write/Edit/Bash/Glob/Grep, a `PreToolUse` hook enforcing section 6, `max_turns`, no settings sources loaded. Fallback if the spike fails any of: cwd/hook enforcement, API-key auth from `.env`, usage/cost reporting, independence from the user's Claude Code config → own loop with `stream_with_tools` + 5 tools (`read_file`, `write_file`, `edit_file`, `list_files`, `run_command`).
 - `implementer` node: picks the next ready task, runs the agent with task + plan/brief excerpts + file list, then Python runs `verify_commands`; status/attempts; self-loop edge; `max_task_attempts`; budget caps; progress lines; `.builder/tasks.json`.
 - **Verify:** pytest with a fake agent (task bookkeeping, attempts, caps) + `scripts/verify_m8.py`: trivial plan (static page + one test) implemented end to end; verify commands pass for real.
 - **Commit:** `M8: implementer coding agent`
 
 ### M9 — Build check, preview, change requests, completion
+Spec §9 (preview + isolation): run the generated app in an isolated environment; show it in a preview panel; refresh it when
+changes are applied; show useful build / runtime errors when it fails to start. Each session has a unique id and its own
+`generated_projects/<session>/` folder with source, configuration, dependencies and artifacts; generated code never modifies the
+builder; sessions cannot touch each other's files or runtime; conversation, approved brief, plan and execution state stay
+associated with the session; sessions can be resumed; file access, terminal commands, package installation and execution are
+restricted to the session's environment; resource usage and processes are managed so one project cannot disrupt another.
 - `build_check` (install/test/build from `plan.commands`), `preview` (processes.py), `await_change_request`, routing, `GET /api/decisions/{id}/preview` (+ `restart`, `stop`), `GET /implementation` (tasks + log tail), completion persists brief/plan/runtime, `types.ts`.
 - **Verify:** pytest (routes, fix-round cap, preview ready only after health check) + `scripts/verify_m9.py`: full pipeline `--auto` on a tiny idea; `curl` of the preview URL returns HTTP 200.
 - **Commit:** `M9: build check, preview and change requests`
 
 ### M10 — Lovable UI
+Spec §9 (interface): left = the conversation (initial prompt, clarification answers, document review, plan approval, change
+requests), context and progress preserved through the session; right = the live preview of the running app.
 - `/` and `/c/[id]`: left = chat (prompt → questions → stage chips → brief card with Approve / Request changes + target → plan card → task progress → change composer), right = `PreviewPane` (iframe, state chip, errors, refresh/restart). `/admin` keeps the detailed view with new stages. Remove health wording, update `pipeline.ts`, `chatStages.ts`, `format.ts`, layout metadata.
 - **Verify:** `npm run lint`, `tsc --noEmit`, `next build`; manual checklist in the progress log (new idea → answer → approve brief → approve plan → preview visible → one change request applied).
 - **Commit:** `M10: Lovable UI with live preview`
 
 ### M11 — Platform hardening (prompts, evals, cost, knowledge, memory, triggers, skills)
+Spec §10.1–10.11 (platform-level requirements; section 7 of this file maps each one to what exists and what to add). They apply to
+the builder itself, **not** to every generated app: a generated project gets only the AI infrastructure its approved requirements need.
 - `prompts/` registry + versions in state/DB; `backend/evals/` cases + `scripts/run_evals.py`; `token_usage`/USD per node + session budget + `/metrics`; `tool_calls` log; curated builder knowledge docs + builder skills (replace health ones); `user_memories`; idle-preview trigger (replaces check-ins); `chat.py` re-pointed as "ask about this project" (optional).
 - **Verify:** pytest + `scripts/run_evals.py` (fake-LLM cases offline; real cases behind `--live`).
 - **Commit:** `M11: platform hardening`
@@ -472,7 +541,8 @@ Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
 
 ## 15. How to work on this repo (the loop every milestone follows)
 
-1. **Start:** read section 0, the milestone block in section 8, and section 3 (what maps to what). Check `git status` is clean
+1. **Start:** read section 0, the milestone block in section 8 (it quotes the spec parts it needs; the full text is
+   `docs/app-builder-spec.md`), and section 3 (what maps to what). Check `git status` is clean
    (the user commits after each milestone; if it is not clean, ask before continuing).
 2. **Map before you change:** grep every identifier / literal you will touch across `backend/src backend/scripts backend/tests
    frontend/src` (quote the globs: `--include='*.py'`). Decide what is a mechanical rename and what needs new content.
@@ -548,6 +618,12 @@ Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
 - Every new node must be wrapped by `wrap_node` and wired with `connect(...)` so the `error → completion` guard applies; add it to
   `EXPECTED_NODES` in `tests/test_graph.py` and to `scripts/draw_graph.py` `PHASES` (the script refuses unknown nodes).
 
+**Spec**
+- Until 2026-10-24 the product spec existed only in the chat that produced this plan; a new session could not see sections
+  4.1–4.10 or the nine validation checks. It is now saved verbatim in `docs/app-builder-spec.md` and quoted in the milestone
+  blocks. Keep it that way: anything the user specifies in chat that a future agent needs goes into the spec file (verbatim,
+  dated) or into this handoff (decisions), never only into the conversation.
+
 **Live verify observations (quality, not failures)**
 - Calculator idea, M2: the papers domain is thin (3 records) and the extractor labelled two Wikipedia pages as
   `research_paper` / `technical_docs`. Revisit source-type guidance with eval cases in M11.
@@ -559,5 +635,9 @@ Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
 
 - 2026-10-24: **M3 done.** New debate schemas (`ProposedSolution`, `SolutionProposal`, `ArchitectureSketch`, `Criticism` as the critic's output, `ProposalScore`, `DomainCoverage`, `ProposalJudgement`, `Verdict` with `winning_proposal_id` / `domain_status` / `material_contradictions`, `ProposalVerification`, `ProposalResult`, interim `FinalReport`); rubric `requirements_alignment 0.30 / problem_relevance 0.20 / evidence_quality 0.20 / feasibility 0.20 / completeness 0.10`; `prompting.py`, `proposer.py`, `critic.py`, `judge.py`, `evidence_checker.py`, `final_report.py`, `chat.py` (project assistant), `graph.py` (no quick-mode skipping) rewritten; API `DebateView` / `Counters.proposals`; frontend `types.ts`, `DebateView`, `ReportView`, new `ProposalDetails`, rubric/labels/wording, chat summary. Verify: 78 pytest + eslint + tsc green; `scripts/verify_m3.py` on the calculator idea PASS: 23 evidence records, 3 proposals (lean static / expression-line PWA / math.js), 5 critic points each with real evidence ids, judge totals 7.8 / 5.6 / 5.0, winner proposal_a, decision `request_clarification` (two material contradictions: "simple" vs overbuilt B/C, "exact decimal" vs 1/3 rounding), checker 10 claims (verified 4 / partially 3 / unavailable 1 ...), report conditional with concrete next steps. Research + debate states cached in `backend/.cache/*_calculator.json` for M4.
 
+- 2026-10-24: Original product spec saved verbatim to `docs/app-builder-spec.md`; M4–M11 milestone blocks now quote the spec
+  parts they implement (brief sections 4.1–4.10, the nine validation checks, review rules, planning, implementation, preview
+  and isolation, platform requirements). Requested after a new session noticed the spec was missing from the repo.
+
 ## ▶ Next step
-**User commits M3** as `M3: solution proposals, critic and judge`. Then **M4**: `ProblemBrief` schema (sections 4.1–4.10, every item labelled verified / research_backed / user_provided / recommendation / assumption with evidence ids; references assembled by Python from cited ids), `brief_writer` node (Python facts → one LLM call → `render_brief_markdown`, ~1 page + appendix), `brief_validator` (deterministic checks: unknown ids, unlabelled claims, invented targets, word count, required sections + one LLM call on the 9 criteria), routing with `max_brief_revisions` and a `clarify` route; `final_report` stays as the data step before the brief; verify with pytest + `scripts/verify_m4.py` on `backend/.cache/debate_calculator.json`.
+**User commits M3** as `M3: solution proposals, critic and judge` (include `docs/app-builder-spec.md` and this file). Then **M4**: `ProblemBrief` schema (sections 4.1–4.10, every item labelled verified / research_backed / user_provided / recommendation / assumption with evidence ids; references assembled by Python from cited ids), `brief_writer` node (Python facts → one LLM call → `render_brief_markdown`, ~1 page + appendix), `brief_validator` (deterministic checks: unknown ids, unlabelled claims, invented targets, word count, required sections + one LLM call on the 9 criteria), routing with `max_brief_revisions` and a `clarify` route; `final_report` stays as the data step before the brief; verify with pytest + `scripts/verify_m4.py` on `backend/.cache/debate_calculator.json`.
