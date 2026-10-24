@@ -1,14 +1,12 @@
 "use client";
 
-// The final report: red flags first, overview, the three winning plans side by side, where the
-// domains agree and differ, uncertainties, next steps, your information, methodology, disclaimer.
+// The interim report: the recommended solution, why it won, the alternatives, what is uncertain, and what to
+// decide before planning the build. (M4 adds the problem statement + solution brief the user approves.)
 
-import { FileText, Printer } from "lucide-react";
+import { FileText, Printer, Trophy } from "lucide-react";
 import { useState } from "react";
 
-import { ComparisonGrid } from "@/components/report/ComparisonGrid";
-import { PerspectiveCard } from "@/components/report/PerspectiveCard";
-import { PlanDetails } from "@/components/report/PlanDetails";
+import { ProposalDetails } from "@/components/debate/ProposalDetails";
 import { RedFlagBanner } from "@/components/session/RedFlagBanner";
 import { Badge } from "@/components/ui/Badge";
 import { BulletList } from "@/components/ui/BulletList";
@@ -17,22 +15,24 @@ import { Callout } from "@/components/ui/Callout";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { KeyValueList } from "@/components/ui/KeyValueList";
 import { Markdown } from "@/components/ui/Markdown";
-import type { FinalReport, LiveSnapshot } from "@/lib/api/types";
-import { WORKFLOW_STATUS_LABEL, formatDateTime, titleCase, workflowStatusTone } from "@/lib/format";
+import type { FinalReport, LiveSnapshot, ProposalResult } from "@/lib/api/types";
+import { CONFIDENCE_TONE, LEVEL_TONE, WORKFLOW_STATUS_LABEL, formatDateTime, workflowStatusTone } from "@/lib/format";
 
 export function ReportView({ report, workflowStatus, live }: { report: FinalReport; workflowStatus: string; live: LiveSnapshot | null }) {
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const withdrawn = report.withdrawn_risk_flags.map((text) => {
     const m = /^(.*?)\s*\((.*)\)$/.exec(text);
     return m ? { flag: m[1], reason: m[2] } : { flag: text, reason: "" };
   });
   const clarifications = Object.entries(report.clarifications);
+  const all: ProposalResult[] = [...(report.winner ? [report.winner] : []), ...report.alternatives];
+  const open = all.find((r) => r.proposal.proposal_id === openId) ?? null;
 
   return (
     <div className="animate-fade-up space-y-6">
       <Card>
         <CardHeader
-          eyebrow="Final report"
+          eyebrow="Research summary"
           title={
             <span className="flex items-center gap-2">
               <FileText className="size-5 text-brand" aria-hidden />
@@ -54,10 +54,10 @@ export function ReportView({ report, workflowStatus, live }: { report: FinalRepo
         <CardBody className="space-y-4">
           <RedFlagBanner flags={report.risk_flags} withdrawn={withdrawn} />
           {report.is_conditional && (
-            <Callout tone="warning" title="Read this report as conditional">
+            <Callout tone="warning" title="Read this as conditional">
               <p>
-                Some guidance depends on unconfirmed assumptions or on claims that could not be verified at their source. The
-                uncertainties and unresolved questions are listed below; bring them to your doctor.
+                The recommendation depends on unconfirmed assumptions, thin evidence in a domain, or claims that could not be
+                verified at their source. The uncertainties and unresolved questions are listed below.
               </p>
             </Callout>
           )}
@@ -69,67 +69,42 @@ export function ReportView({ report, workflowStatus, live }: { report: FinalRepo
       </Card>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight text-slate-900">The best plan from each domain</h2>
-        <div className="grid gap-4 lg:grid-cols-3">
-          {report.domains.map((p) => (
-            <PerspectiveCard
-              key={p.domain}
-              domain={p.domain}
-              planId={p.plan?.plan_id ?? null}
-              name={p.plan?.name ?? null}
-              summary={p.plan?.summary ?? null}
-              weightedTotal={p.score?.weighted_total ?? null}
-              confidence={p.score?.confidence ?? null}
-              difficulty={p.plan?.difficulty ?? null}
-              verificationCounts={p.verification_counts}
-              objections={p.critic_key_objections}
-              unavailableReason={p.unavailable_reason || null}
-              expanded={openPlan === p.plan?.plan_id}
-              onToggle={p.plan ? () => setOpenPlan(openPlan === p.plan!.plan_id ? null : p.plan!.plan_id) : undefined}
-            />
-          ))}
-        </div>
-        {openPlan && (
+        <h2 className="text-lg font-semibold tracking-tight text-slate-900">Recommended solution</h2>
+        {report.winner ? (
+          <ProposalCard result={report.winner} open={openId === report.winner.proposal.proposal_id} onToggle={() => setOpenId(openId === report.winner!.proposal.proposal_id ? null : report.winner!.proposal.proposal_id)} why={report.why_this_solution} />
+        ) : (
+          <Callout tone="warning" title="No solution could be defended">
+            <p>{report.no_winner_reason || "The agents could not propose a defensible solution with the evidence available."}</p>
+          </Callout>
+        )}
+        {report.alternatives.length > 0 && (
+          <>
+            <h3 className="pt-2 text-sm font-semibold text-slate-700">Alternatives considered</h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              {report.alternatives.map((alt) => (
+                <ProposalCard key={alt.proposal.proposal_id} result={alt} open={openId === alt.proposal.proposal_id} onToggle={() => setOpenId(openId === alt.proposal.proposal_id ? null : alt.proposal.proposal_id)} />
+              ))}
+            </div>
+          </>
+        )}
+        {open && (
           <Card>
+            <CardHeader eyebrow={open.is_winner ? "Winner" : "Alternative"} title={open.proposal.name} />
             <CardBody>
-              {(() => {
-                const result = report.domains.find((p) => p.plan?.plan_id === openPlan);
-                if (!result?.plan) return null;
-                return (
-                  <PlanDetails
-                    plan={result.plan}
-                    score={result.score}
-                    criticism={live?.debate.criticisms.find((c) => c.plan_id === openPlan) ?? null}
-                    claims={live?.verification.results.filter((r) => r.plan_id === openPlan) ?? []}
-                    keyEvidence={result.key_evidence}
-                  />
-                );
-              })()}
+              <ProposalDetails
+                proposal={open.proposal}
+                score={open.score}
+                criticism={live?.debate.criticisms.find((c) => c.proposal_id === open.proposal.proposal_id) ?? null}
+                claims={live?.verification.results.filter((r) => r.proposal_id === open.proposal.proposal_id) ?? []}
+                keyEvidence={open.key_evidence}
+              />
             </CardBody>
           </Card>
         )}
       </section>
 
-      <Card>
-        <CardHeader eyebrow="Side by side" title="Compare the three plans" description="Routine, diet, treatments as reported, timeline and outlook, from each domain's own evidence." />
-        <CardBody>
-          <ComparisonGrid domains={report.domains} />
-        </CardBody>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader eyebrow="Consensus" title="Where the domains agree" />
-          <CardBody><BulletList items={report.where_perspectives_agree} emptyText="No shared points were identified." /></CardBody>
-        </Card>
-        <Card>
-          <CardHeader eyebrow="Disagreement" title="Where they differ" />
-          <CardBody><BulletList items={report.where_perspectives_differ} emptyText="No differences were identified." /></CardBody>
-        </Card>
-      </div>
-
       <Card className="border-brand/40">
-        <CardHeader eyebrow="Bring to your doctor" title="Next steps" description="Questions to ask and things to monitor. Nothing here is a prescription." />
+        <CardHeader eyebrow="Before planning the build" title="Next steps" description="What to confirm or decide before the implementation plan is written." />
         <CardBody><BulletList items={report.next_steps} numbered emptyText="None listed." /></CardBody>
       </Card>
 
@@ -148,26 +123,12 @@ export function ReportView({ report, workflowStatus, live }: { report: FinalRepo
         </Card>
       </div>
 
-      {report.domains.some((p) => p.verification_notes.length > 0) && (
-        <Card>
-          <CardHeader eyebrow="Evidence checker" title="Verification notes" />
-          <CardBody className="grid gap-4 md:grid-cols-3">
-            {report.domains.map((p) => (
-              <div key={p.domain} className="space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{titleCase(p.domain)}</p>
-                <BulletList items={p.verification_notes} emptyText="No notes." />
-              </div>
-            ))}
-          </CardBody>
-        </Card>
-      )}
-
       <Card>
-        <CardHeader eyebrow="Based on" title="Your information" description="The facts the plans were built on. Correct anything wrong in a new session." />
+        <CardHeader eyebrow="Based on" title="Your information" description="The facts the proposals were built on. Correct anything wrong in a new session." />
         <CardBody className="grid gap-6 md:grid-cols-2">
           <div className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Confirmed profile</h3>
-            <KeyValueList items={report.confirmed_profile} />
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Project profile</h3>
+            <KeyValueList items={report.confirmed_profile} emptyText="None recorded." />
           </div>
           <div className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Requested features</h3>
@@ -198,12 +159,66 @@ export function ReportView({ report, workflowStatus, live }: { report: FinalRepo
       </Card>
 
       <Card>
-        <CardHeader eyebrow="Methodology" title="How this report was made" />
+        <CardHeader eyebrow="Methodology" title="How this summary was made" />
         <CardBody className="space-y-3 text-sm text-slate-700">
           <Markdown compact>{report.research_methodology}</Markdown>
           <p className="rounded-lg bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">{report.disclaimer}</p>
         </CardBody>
       </Card>
     </div>
+  );
+}
+
+function ProposalCard({ result, open, onToggle, why }: { result: ProposalResult; open: boolean; onToggle: () => void; why?: string[] }) {
+  const p = result.proposal;
+  const counts = Object.entries(result.verification_counts);
+  return (
+    <article className={`rounded-xl border bg-white p-4 ${result.is_winner ? "border-brand ring-2 ring-brand/20" : "border-slate-200"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {result.is_winner && <Badge tone="brand" size="xs"><Trophy className="mr-1 inline size-3" aria-hidden />Recommended</Badge>}
+            <Badge tone="slate" size="xs" className="font-mono">{p.proposal_id}</Badge>
+            <Badge tone={LEVEL_TONE[p.difficulty]} size="xs">{p.difficulty} effort</Badge>
+            {result.score && <Badge tone={CONFIDENCE_TONE[result.score.confidence]} size="xs">{result.score.confidence} confidence</Badge>}
+          </div>
+          <h3 className="mt-1 text-base font-semibold leading-snug text-slate-900">{p.name}</h3>
+        </div>
+        {result.score?.weighted_total != null && (
+          <p className="shrink-0 text-right">
+            <span className="text-2xl font-semibold tabular-nums">{result.score.weighted_total.toFixed(1)}</span>
+            <span className="text-xs text-slate-400"> / 10</span>
+          </p>
+        )}
+      </div>
+      <Markdown compact className="mt-2 text-slate-700">{p.summary}</Markdown>
+      {why && why.length > 0 && (
+        <div className="mt-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Why this one</p>
+          <BulletList items={why} />
+        </div>
+      )}
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">First version</p>
+          <BulletList items={p.core_features.slice(0, 5)} />
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Stack</p>
+          <BulletList items={p.technologies.slice(0, 5)} />
+        </div>
+      </div>
+      {(counts.length > 0 || result.critic_key_objections.length > 0) && (
+        <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
+          {counts.map(([status, n]) => (
+            <Badge key={status} tone="slate" size="xs">{n} {status.replace(/_/g, " ")}</Badge>
+          ))}
+          {result.critic_key_objections.length > 0 && <Badge tone="amber" size="xs">{result.critic_key_objections.length} critic objection{result.critic_key_objections.length === 1 ? "" : "s"}</Badge>}
+        </div>
+      )}
+      <button type="button" onClick={onToggle} aria-expanded={open} className="mt-3 text-xs font-medium text-brand hover:underline">
+        {open ? "Hide details" : "Full proposal, scores, critique and evidence"}
+      </button>
+    </article>
   );
 }

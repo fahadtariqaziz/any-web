@@ -1,5 +1,5 @@
-"""Shared prompt building blocks, so every agent describes the user's case and the
-evidence the same way (and so a change here reaches all agents at once)."""
+"""Shared prompt building blocks, so every agent describes the user's idea and the evidence the same way
+(and so a change here reaches all agents at once)."""
 
 import json
 
@@ -22,7 +22,7 @@ Ground rules (always apply):
 
 
 def user_case_block(state: ArenaState) -> str:
-    """Everything known about the user, as XML-ish tags (user text is wrapped as data)."""
+    """Everything known about the user's idea, as XML-ish tags (user text is wrapped as data)."""
     return f"""<user_input>
 <question>{state.get("question", "")}</question>
 <extra_context>{state.get("user_context", "")}</extra_context>
@@ -45,11 +45,11 @@ def evidence_block(evidence: list[dict], max_excerpt_chars: int = 350) -> str:
         return "<evidence>(none)</evidence>"
     items = []
     for e in evidence:
-        patient = e.get("feedback_context") or {}
+        feedback = e.get("feedback_context") or {}
         extra = ""
-        if patient:
-            extra = (f'\n  <patient recurring="{patient.get("is_recurring")}">'
-                     f'{patient.get("experience_described", "")}</patient>')
+        if feedback:
+            extra = (f'\n  <feedback product="{feedback.get("product", "")}" type="{feedback.get("feedback_type", "")}" '
+                     f'recurring="{feedback.get("is_recurring")}">{feedback.get("experience_described", "")}</feedback>')
         items.append(
             f'<item id="{e["evidence_id"]}" domain="{e["domain"]}" type="{e["source_type"]}" '
             f'strength="{e.get("evidence_strength", "unknown")}" relevance="{e["relevance_score"]:.2f}">\n'
@@ -62,16 +62,15 @@ def evidence_block(evidence: list[dict], max_excerpt_chars: int = 350) -> str:
     return "<evidence>\n" + "\n".join(items) + "\n</evidence>"
 
 
-def plans_block(plans: list[dict]) -> str:
-    """CarePlan dicts as the Critic and Judge see them (full detail: they must judge it)."""
-    if not plans:
-        return "<plans>(none)</plans>"
+def proposals_block(proposals: list[dict]) -> str:
+    """SolutionProposal dicts as the Critic and Judge see them (full detail: they must judge it)."""
+    if not proposals:
+        return "<proposals>(none)</proposals>"
     items = []
-    for p in plans:
-        body = {k: v for k, v in p.items() if k not in ("plan_id", "domain", "round")}
-        items.append(f'<plan id="{p["plan_id"]}" domain="{p["domain"]}">\n'
-                     f"{json.dumps(body, indent=1)}\n</plan>")
-    return "<plans>\n" + "\n".join(items) + "\n</plans>"
+    for p in proposals:
+        body = {k: v for k, v in p.items() if k not in ("proposal_id", "round")}
+        items.append(f'<proposal id="{p["proposal_id"]}">\n{json.dumps(body, indent=1)}\n</proposal>')
+    return "<proposals>\n" + "\n".join(items) + "\n</proposals>"
 
 
 def criticisms_block(criticisms: list[dict]) -> str:
@@ -85,7 +84,7 @@ def criticisms_block(criticisms: list[dict]) -> str:
             f'{p["issue"]} Fix: {p.get("suggested_improvement") or "-"}</point>'
             for p in c["points"]
         )
-        items.append(f'<criticism plan="{c["plan_id"]}">\n{points}\n  <overall>{c["overall_assessment"]}</overall>\n</criticism>')
+        items.append(f'<criticism proposal="{c["proposal_id"]}">\n{points}\n  <overall>{c["overall_assessment"]}</overall>\n</criticism>')
     return "<criticisms>\n" + "\n".join(items) + "\n</criticisms>"
 
 

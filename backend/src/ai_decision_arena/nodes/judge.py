@@ -1,57 +1,50 @@
-"""Node 6 — Judge: score every plan on the rubric and pick the best plan PER PERSPECTIVE.
+"""Node 6 — Judge: score every proposal on the rubric in ONE call and pick the strongest.
 
-Three LLM calls in parallel (one per lane) return criterion scores + "is this lane's evidence
-sufficient?". Python then:
+Python then:
 - computes weighted totals from the configured rubric weights (never trusts LLM math),
-- picks the winner of each lane (highest weighted total),
-- makes the routing decision by combining the lanes AND the loop limits.
+- picks the winner (highest weighted total),
+- makes the routing decision by combining sufficiency, contradictions, questions AND the loop limits.
 
-Writes (owner): scores, verdict, research_retry_count (+1 when sending the graph back to
-research or clarification), status, current_node.
+Writes (owner): scores, verdict, research_retry_count (+1 when sending the graph back to research or
+clarification), research_focus (when looping), status, current_node.
 """
 
 import json
-
-from langsmith.utils import ContextThreadPoolExecutor
 
 from ai_decision_arena.config import RUBRIC_DESCRIPTIONS, get_settings
 from ai_decision_arena.limits import loops_allowed
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
-from ai_decision_arena.prompting import (
-    BUILDER_RULES,
-    criticisms_block,
-    evidence_block,
-    domain_label,
-    plans_block,
-    user_case_block,
-)
-from ai_decision_arena.schemas import DOMAINS, DomainJudgement, PlanScore, Verdict
+from ai_decision_arena.prompting import BUILDER_RULES, criticisms_block, evidence_block, proposals_block, user_case_block
+from ai_decision_arena.schemas import DOMAINS, ProposalJudgement, ProposalScore, Verdict
 from ai_decision_arena.state import ArenaState
 
-SYSTEM_PROMPT = """You are the Judge agent of Health Decision Arena. You compare the plans written for ONE lens,
-the {domain_label}, and decide which one best fits THIS user.
+MAX_QUESTIONS = 2
 
-First write your step-by-step reasoning (the `reasoning` field), then score. Score every plan on each rubric
-criterion from 0 to 10 with a one-sentence explanation. The weighted
-total is computed by the system afterwards; do not compute it yourself.
+SYSTEM_PROMPT = """You are the Judge agent of an AI application builder. You compare ALL the proposed solutions and decide which
+one best fits the user's requirements and the evidence.
+
+First write your step-by-step reasoning (the `reasoning` field), then score every proposal on each rubric criterion
+from 0 to 10 with a one-sentence explanation. The weighted total and the winner are computed by the system
+afterwards; do not compute them yourself.
 
 <rubric>
 {rubric}
 </rubric>
 
-Consider: the user's case, each plan, the Critic's points (a verified problem weighs more than a possible
-risk), and the evidence (strength, relevance, gaps, conflicts). Scores are a reasoning aid, not truth:
-explain them. Be strict on safety: a plan with a serious unaddressed safety risk must not score above 4 on
-safety. Reward plans whose medications/treatments are reported by the evidence, not assumed.
+Consider: the user's requirements and constraints, each proposal, the Critic's points (a verified problem weighs
+more than a possible risk), and the evidence (strength, relevance, gaps, conflicts). Scores are a reasoning aid,
+not truth: explain them. Reward solutions that address the gaps users complain about and whose technology choices
+are backed by evidence; penalise copies of existing apps, unsupported claims, and a first version that cannot be
+built as described.
 
-If <risk_flags> is non-empty the plans are "emergency first" by design: judge them mainly on whether the
-urgent-care guidance is correct, unconditional and easy to follow; the after-assessment content is secondary
-and thin evidence for it should lower evidence_quality, not make evidence_sufficient false.
-
-evidence_sufficient: true only if this lens's evidence lets you defend a best plan for this user. If not,
-say why and list required_evidence a follow-up search should find (at most 4 items).
-clarification_questions: at most 2, and ONLY if the user's answer would change which plan wins; otherwise empty.
+evidence_sufficient: true only if the evidence lets you defend a best solution for this user. If not, say why and
+list required_evidence a follow-up search should find (at most 4 items).
+domain_coverage: for each research domain (apps, papers, tech), whether its evidence was sufficient, insufficient
+or absent, in one sentence each.
+material_contradictions: contradictions between the user's requirements, the proposals or the evidence that must be
+resolved before planning; empty if none.
+clarification_questions: at most 2, and ONLY if the user's answer would change which proposal wins; otherwise empty.
 """ + BUILDER_RULES
 
 
@@ -62,132 +55,132 @@ def _rubric_text() -> str:
     )
 
 
-def _judge_lane(state: ArenaState, domain: str) -> DomainJudgement | None:
-    plans = [p for p in state.get("care_plans", []) if p["domain"] == domain]
-    if not plans:
-        return None
-    criticisms = [c for c in state.get("criticisms", []) if c["plan_id"].startswith(domain + "_")]
-    user_content = f"""{user_case_block(state)}
-{plans_block(plans)}
-{criticisms_block(criticisms)}
-{evidence_block(state.get("evidence", []), max_excerpt_chars=200)}
-<evidence_gaps>{json.dumps(state.get("evidence_gaps", []), indent=1)}</evidence_gaps>
-<conflicting_claims>{json.dumps(state.get("conflicting_claims", []), indent=1)}</conflicting_claims>"""
-
-    out = call_structured(
-        DomainJudgement,
-        SYSTEM_PROMPT.replace("{domain_label}", domain_label(domain)).replace("{rubric}", _rubric_text()),
-        user_content,
-        max_tokens=6000,
-        run_name=f"judge_{domain}_llm",
-    )
-    report("judge", f"{domain} domain: scored {len(out.scores)} plan(s), evidence {'sufficient' if out.evidence_sufficient else 'insufficient'}")
-    return out
-
-
-def weighted_total(score: PlanScore, weights: dict[str, float]) -> float:
+def weighted_total(score: ProposalScore, weights: dict[str, float]) -> float:
     return round(sum(weights.get(c.criterion, 0.0) * c.score for c in score.criterion_scores), 2)
 
 
-def _criterion(score: PlanScore, name: str) -> float:
+def _criterion(score: ProposalScore, name: str) -> float:
     return next((c.score for c in score.criterion_scores if c.criterion == name), 0.0)
+
+
+def _domain_status_defaults(state: ArenaState, sufficient: bool) -> dict[str, str]:
+    evidence = state.get("evidence", [])
+    return {d: ("sufficient" if sufficient else "insufficient") if any(e["domain"] == d for e in evidence) else "no_evidence"
+            for d in DOMAINS}
 
 
 def judge_node(state: ArenaState) -> dict:
     weights = get_settings().rubric_weights
-    condition = state.get("project_name", "the condition")
+    proposals = state.get("proposals", [])
     known_evidence = {e["evidence_id"] for e in state.get("evidence", [])}
-    report("judge", "scoring plans on the rubric (3 domains in parallel)")
-
-    with ContextThreadPoolExecutor(max_workers=len(DOMAINS)) as pool:
-        results = list(pool.map(lambda p: _judge_lane(state, p), DOMAINS))
-
-    scores: list[dict] = []
-    winners: dict[str, str] = {}
-    status: dict[str, str] = {}
-    required: list[str] = []
-    questions: list[str] = []
+    can_debate, can_research, can_clarify, blocked = loops_allowed(state)
+    update: dict = {"current_node": "judge"}
     reasons: list[str] = []
 
-    for domain, out in zip(DOMAINS, results):
-        label = domain_label(domain).split(" (")[0]
-        if out is None:
-            lane_kind = (state.get("proposer_lane_status") or {}).get(domain, "no_evidence")
-            note = (state.get("proposer_notes") or {}).get(domain, "")
-            if lane_kind == "declined":
-                # The Proposer had evidence but chose not to build a plan (e.g. emergency first).
-                # More research cannot change that, so this lane neither blocks nor loops.
-                status[domain] = "declined"
-                reasons.append(f"[{domain}] Proposer deliberately returned no plan: {note[:300]}")
-            else:
-                status[domain] = "no_plans"
-                required.append(f"Usable sources for the {label.lower()} on {condition}: routine, diet, medications, timeline.")
-                why = "evidence too thin" if lane_kind == "thin" else "no usable evidence"
-                reasons.append(f"[{domain}] No plans ({why} for this domain).")
-            continue
+    # --- Nothing to judge: the Proposer returned no proposals ---------------------------------
+    if not proposals:
+        kind = state.get("proposer_status", "no_evidence")
+        note = state.get("proposer_notes", "") or ""
+        required = ["Usable sources about this idea: existing solutions and what their users complain about, "
+                    "established approaches, and technical feasibility."]
+        reasons.append(f"No proposals ({kind}). {note[:300]}".strip())
+        if kind in ("thin", "no_evidence") and can_research:
+            decision, status_text = "request_more_research", "researching"
+            update["research_retry_count"] = state.get("research_retry_count", 0) + 1
+            update["research_focus"] = required
+            reasons.append("Running a focused follow-up search before judging.")
+        else:
+            decision, status_text = "insufficient_evidence", "verifying"
+            reasons.append(f"Cannot propose a solution with the evidence available and no loop is possible "
+                           f"({', '.join(blocked) or 'proposer declined'}).")
+        update["scores"] = []
+        update["verdict"] = Verdict(decision=decision, reason="\n".join(reasons), winning_proposal_id=None,
+                                    domain_status=_domain_status_defaults(state, sufficient=False),
+                                    required_evidence=required).model_dump(mode="json")
+        update["status"] = status_text
+        report("judge", f"decision: {decision}; no proposals to score")
+        return update
 
-        lane_plan_ids = {p["plan_id"] for p in state.get("care_plans", []) if p["domain"] == domain}
-        lane_scores: list[PlanScore] = []
-        for s in out.scores:
-            if s.plan_id not in lane_plan_ids:
-                continue   # the LLM scored a plan that does not exist in this domain: ignore
-            s.weighted_total = weighted_total(s, weights)
-            s.supporting_evidence_ids = [eid for eid in s.supporting_evidence_ids if eid in known_evidence]
-            lane_scores.append(s)
-        unscored = sorted(lane_plan_ids - {s.plan_id for s in lane_scores})
+    # --- One call scores every proposal -------------------------------------------------------
+    report("judge", f"scoring {len(proposals)} proposal(s) on the rubric")
+    user_content = f"""{user_case_block(state)}
+{proposals_block(proposals)}
+{criticisms_block(state.get("criticisms", []))}
+{evidence_block(state.get("evidence", []), max_excerpt_chars=200)}
+<evidence_gaps>{json.dumps(state.get("evidence_gaps", []), indent=1)}</evidence_gaps>
+<conflicting_claims>{json.dumps(state.get("conflicting_claims", []), indent=1)}</conflicting_claims>"""
+    out = call_structured(
+        ProposalJudgement,
+        SYSTEM_PROMPT.replace("{rubric}", _rubric_text()),
+        user_content,
+        max_tokens=7000,
+        run_name="judge_llm",
+    )
 
-        if lane_scores:
-            # Highest weighted total wins; ties go to the better-evidenced plan.
-            best = max(lane_scores, key=lambda s: (s.weighted_total, _criterion(s, "evidence_quality")))
-            winners[domain] = best.plan_id
-        scores += [s.model_dump(mode="json") for s in lane_scores]
+    ids = {p["proposal_id"] for p in proposals}
+    scores: list[ProposalScore] = []
+    for s in out.scores:
+        if s.proposal_id not in ids:
+            continue   # the LLM scored a proposal that does not exist: ignore
+        s.weighted_total = weighted_total(s, weights)
+        s.supporting_evidence_ids = [eid for eid in s.supporting_evidence_ids if eid in known_evidence]
+        scores.append(s)
+    unscored = sorted(ids - {s.proposal_id for s in scores})
+    # Highest weighted total wins; ties go to the better-evidenced proposal.
+    winner = max(scores, key=lambda s: (s.weighted_total, _criterion(s, "evidence_quality"))).proposal_id if scores else None
 
-        sufficient = out.evidence_sufficient and bool(lane_scores)
-        status[domain] = "sufficient" if sufficient else "insufficient"
-        if not sufficient:
-            required += out.required_evidence or [f"[{domain}] {out.insufficiency_reason or 'More evidence needed.'}"]
-        questions += [q for q in out.clarification_questions
-                      if q.strip().lower() not in {x.strip().lower() for x in questions}]   # exact-duplicate guard
-        note = f" Unscored plans: {unscored}." if unscored else ""
-        reasons.append(f"[{domain}] {out.comparison}{note}")
+    domain_status = _domain_status_defaults(state, sufficient=out.evidence_sufficient)
+    for c in out.domain_coverage:
+        domain_status[c.domain] = c.status
+    questions: list[str] = []
+    for q in out.clarification_questions:
+        if q.strip() and q.strip().lower() not in {x.lower() for x in questions}:
+            questions.append(q.strip())
+    questions = questions[:MAX_QUESTIONS]
+    contradictions = [c.strip() for c in out.material_contradictions if c.strip()]
+    required = list(out.required_evidence)
+    sufficient = out.evidence_sufficient and winner is not None
+    if not sufficient and not required:
+        required = [out.insufficiency_reason or "More evidence needed to defend a best solution."]
+    reasons.append(out.comparison + (f" Unscored proposals: {unscored}." if unscored else ""))
+    if contradictions:
+        reasons.append("Material contradictions: " + "; ".join(contradictions))
 
-    # --- Routing decision: Python has the final say, bounded by the loop limits -----------------
-    # limits.loops_allowed applies the debate/research/clarification caps and the session time budget.
-    can_debate, can_research, can_clarify, blocked = loops_allowed(state)
-    blocking = [p for p, v in status.items() if v in ("insufficient", "no_plans")]   # 'declined' never blocks
-    all_sufficient = not blocking
-    wants_clarification = bool(questions) and not all_sufficient
-
-    update: dict = {"scores": scores, "current_node": "judge"}
-    if all_sufficient:
+    # --- Routing: Python has the final say, bounded by the loop limits -----------------------
+    if contradictions and not questions and can_clarify:
+        questions = [f"The research found a contradiction to resolve: {c} Which should we follow?" for c in contradictions[:MAX_QUESTIONS]]
+    if sufficient and not contradictions:
         decision, status_text = "proceed", "verifying"
-        declined = [p for p, v in status.items() if v == "declined"]
-        reasons.append("Every domain that offered a plan has a defensible best plan"
-                       + (f" (no plan from: {', '.join(declined)})." if declined else "."))
-    elif wants_clarification and can_clarify:
+        reasons.append(f"A defensible best solution exists ({winner}).")
+    elif questions and can_clarify:
         decision, status_text = "request_clarification", "debating"
         update["research_retry_count"] = state.get("research_retry_count", 0) + 1
         update["research_focus"] = required + ["The user just answered the Judge's follow-up questions "
                                                "(see <clarification_answers>): re-check what those answers change."]
-        reasons.append("The user's answers would change the ranking: asking before researching again.")
-    elif can_research:
+        reasons.append("The user's answers would change the outcome: asking before continuing.")
+    elif not sufficient and can_research:
         decision, status_text = "request_more_research", "researching"
         update["research_retry_count"] = state.get("research_retry_count", 0) + 1
         update["research_focus"] = list(required)
-        reasons.append("Evidence is insufficient for at least one domain: running a focused follow-up search.")
+        reasons.append("The evidence is insufficient: running a focused follow-up search.")
+    elif sufficient:
+        decision, status_text = "proceed", "verifying"
+        reasons.append("Contradictions remain but no clarification loop is possible: continuing with them recorded.")
     else:
         decision, status_text = "insufficient_evidence", "verifying"
         reasons.append(f"Evidence remains insufficient and the loop limits are reached ({', '.join(blocked) or 'no loop possible'}): "
                        "continuing with the uncertainty stated.")
 
+    update["scores"] = [s.model_dump(mode="json") for s in scores]
     update["verdict"] = Verdict(
         decision=decision,
         reason="\n".join(reasons),
-        winning_plan_ids=winners,
-        domain_status=status,
-        required_evidence=required,
-        clarification_questions=questions,
+        winning_proposal_id=winner,
+        domain_status=domain_status,
+        required_evidence=required if not sufficient else [],
+        material_contradictions=contradictions,
+        clarification_questions=questions if decision == "request_clarification" else [],
     ).model_dump(mode="json")
     update["status"] = status_text
-    report("judge", f"decision: {decision}; winners: {winners}")
+    report("judge", f"decision: {decision}; winner: {winner}")
     return update

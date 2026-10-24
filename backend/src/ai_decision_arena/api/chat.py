@@ -18,7 +18,7 @@ from fastapi.responses import StreamingResponse
 from ai_decision_arena.api.errors import ApiError
 from ai_decision_arena.api.runner import graph_config
 from ai_decision_arena.api.schemas import ChatMessageRequest, ChatMessageView, ChatTranscript, ClarificationTurn
-from ai_decision_arena.chat import stream_reply
+from ai_decision_arena.chat import stream_reply, summary_from_report
 from ai_decision_arena.db.repository import add_chat_message, list_chat_messages
 
 log = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ def get_chat(thread_id: str, request: Request):
         question=values.get("question"),
         project_name=values.get("project_name"),
         clarifications=[ClarificationTurn(question=q, answer=a) for q, a in values.get("clarification_answers", {}).items()],
-        onboarding_summary=values.get("onboarding_summary"),
+        onboarding_summary=summary_from_report(values.get("final_report")),
         ready=ready,
         messages=_messages(thread_id) if ready else [],
     )

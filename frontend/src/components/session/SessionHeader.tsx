@@ -54,7 +54,7 @@ export function SessionHeader({ status, now }: { status: DecisionStatus; now: nu
       <dl className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500">
         <Stat label="Active time" value={formatDuration(status.active_seconds)} />
         <Stat label="Sources kept" value={c.evidence} />
-        <Stat label="Care plans" value={c.care_plans} />
+        <Stat label="Proposals" value={c.proposals} />
         <Stat label="Claims checked" value={c.claims_checked} />
         {c.debate_round > 0 && <Stat label="Debate round" value={c.debate_round} />}
         {c.research_passes > 1 && <Stat label="Research passes" value={c.research_passes} />}

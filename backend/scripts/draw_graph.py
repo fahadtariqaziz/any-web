@@ -26,12 +26,10 @@ LABELS = {
     ("clarification", "await_clarification"): "needs answers (max 2 rounds)",
     ("await_clarification", "clarification"): "user answered",
     ("clarification", "research"): "enough info",
-    ("proposer", "critic"): "full mode",
-    ("proposer", "judge"): "quick mode: no critic",
+    ("proposer", "critic"): "2-3 proposals",
     ("judge", "research"): "more research (bounded)",
     ("judge", "clarification"): "ask the user",
     ("judge", "evidence_checker"): "proceed",
-    ("judge", "final_report"): "proceed, quick mode",
     ("evidence_checker", "research"): "material evidence gap",
     ("evidence_checker", "final_report"): "claims checked",
 }

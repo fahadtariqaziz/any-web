@@ -2,6 +2,8 @@
 
 from langgraph.types import Command
 
+from ai_decision_arena import schemas as S
+
 CONFIG = {"configurable": {"thread_id": "pipeline-test"}}
 
 
@@ -32,37 +34,62 @@ def test_full_pipeline_pauses_for_clarification_then_completes(graph, fake_llm, 
     assert all(e["source_url"].startswith("https://example.org/") for e in result["evidence"])
     assert {e["domain"] for e in result["evidence"]} == {"apps", "papers", "tech"}
 
-    # debate: one winner per lane, scores computed, verdict proceed
-    assert set(result["verdict"]["winning_plan_ids"]) == {"apps", "papers", "tech"}
+    # debate: 2 proposals, one critique each, one winner, verdict proceed
+    assert [p["proposal_id"] for p in result["proposals"]] == ["proposal_a", "proposal_b"]
+    assert [c["proposal_id"] for c in result["criticisms"]] == ["proposal_a", "proposal_b"]
+    assert result["verdict"]["winning_proposal_id"] == "proposal_a"
     assert result["verdict"]["decision"] == "proceed"
     assert result["debate_round"] == 1
 
     # verification + report
     assert result["checker_verdict"]["decision"] == "proceed"
+    assert all(v["proposal_id"] == "proposal_a" for v in result["verification_results"])
     report = result["final_report"]
-    assert [p["domain"] for p in report["domains"]] == ["apps", "papers", "tech"]
-    assert all(p["plan"] for p in report["domains"])
+    assert report["winner"]["proposal"]["proposal_id"] == "proposal_a" and report["winner"]["is_winner"] is True
+    assert [a["proposal"]["proposal_id"] for a in report["alternatives"]] == ["proposal_b"]
+    assert report["winner"]["key_evidence"][0]["url"].startswith("https://example.org/")
     assert report["is_conditional"] is False
     assert result["metrics"]["evidence_count"] == len(result["evidence"])
-    assert "onboarding_summary" not in result                 # full mode: no chat summary
+    assert "onboarding_summary" not in result
 
 
-def test_quick_mode_skips_critic_and_checker(graph, fake_llm, fake_search):
+def test_quick_mode_runs_every_node_with_one_proposal(graph, fake_llm, fake_search):
     config = {"configurable": {"thread_id": "quick-test"}}
     graph.invoke({"question": "A habit tracker app for students", "mode": "quick"}, config)
     questions = graph.get_state(config).interrupts[0].value["questions"]
     result = graph.invoke(Command(resume={"answers": {q: "" for q in questions}}), config)
     assert result["status"] == "completed"
-    assert fake_llm.count("CriticOutput") == 0
-    assert fake_llm.count("PlanVerification") == 0
-    assert result["onboarding_summary"]["opening"]
+    assert len(result["proposals"]) == 1
+    assert fake_llm.count("Criticism") == 1               # critic and checker run in quick mode too
+    assert fake_llm.count("ProposalVerification") == 1
+    assert result["final_report"]["winner"]["proposal"]["proposal_id"] == "proposal_a"
     assert all(v == "(skipped by user)" for v in result["clarification_answers"].values())
 
 
-def test_a_failing_node_ends_the_session_as_failed(graph, fake_llm, fake_search, monkeypatch):
+def test_judge_can_send_the_graph_back_to_research_once(graph, fake_llm, fake_search):
+    from tests.conftest import build_judgement
+    calls = {"n": 0}
+
+    def insufficient_first(system, user):
+        calls["n"] += 1
+        j = build_judgement(system, user)
+        if calls["n"] == 1:
+            return j.model_copy(update={"evidence_sufficient": False, "insufficiency_reason": "thin", "required_evidence": ["pricing"]})
+        return j
+    fake_llm.overrides[S.ProposalJudgement] = insufficient_first
+    config = {"configurable": {"thread_id": "loop-test"}}
+    graph.invoke({"question": "A habit tracker app for students", "mode": "full"}, config)
+    questions = graph.get_state(config).interrupts[0].value["questions"]
+    result = graph.invoke(Command(resume={"answers": {q: "x" for q in questions}}), config)
+    assert result["status"] == "completed"
+    assert result["research_retry_count"] == 1 and result["debate_round"] == 2
+    assert fake_llm.count("ResearchPlan") == 2 and fake_llm.count("ProposerOutput") == 2
+    assert result["verdict"]["decision"] == "proceed"
+
+
+def test_a_failing_node_ends_the_session_as_failed(graph, fake_llm, fake_search):
     def boom(system, user):
         raise RuntimeError("simulated bug")
-    from ai_decision_arena import schemas as S
     fake_llm.overrides[S.ProposerOutput] = boom
     config = {"configurable": {"thread_id": "fail-test"}}
     graph.invoke({"question": "A habit tracker app for students", "mode": "full"}, config)

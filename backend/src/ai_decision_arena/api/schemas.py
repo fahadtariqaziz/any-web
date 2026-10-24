@@ -13,12 +13,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ai_decision_arena.nodes.intake import MAX_CONTEXT_CHARS, MAX_QUESTION_CHARS, MIN_QUESTION_CHARS
 from ai_decision_arena.schemas import (
-    CarePlan,
     ClaimVerification,
     Criticism,
     Evidence,
     FinalReport,
-    PlanScore,
+    ProposalScore,
+    SolutionProposal,
     Verdict,
 )
 
@@ -93,7 +93,7 @@ class Counters(BaseModel):
     research_passes: int = 0        # first pass + retries (0 until research ran)
     debate_round: int = 0
     evidence: int = 0
-    care_plans: int = 0
+    proposals: int = 0
     claims_checked: int = 0
 
 
@@ -169,12 +169,12 @@ class ResearchView(BaseModel):
 
 class DebateView(BaseModel):
     round: int = 0
-    care_plans: list[CarePlan] = Field(default_factory=list)
+    proposals: list[SolutionProposal] = Field(default_factory=list)
     criticisms: list[Criticism] = Field(default_factory=list)
-    scores: list[PlanScore] = Field(default_factory=list)
+    scores: list[ProposalScore] = Field(default_factory=list)
     verdict: Verdict | None = None
-    lane_status: dict[str, str] = Field(default_factory=dict, description="domain -> ok | thin | declined | no_evidence")
-    proposer_notes: dict[str, str] = Field(default_factory=dict)
+    proposer_status: str = Field(default="", description="ok | thin | declined | no_evidence")
+    proposer_notes: str = ""
 
 
 class VerificationView(BaseModel):
@@ -237,7 +237,7 @@ class ChatTranscript(BaseModel):
     question: str | None = None
     project_name: str | None = None
     clarifications: list[ClarificationTurn] = Field(default_factory=list, description="Answered onboarding questions, in order.")
-    onboarding_summary: dict[str, str] | None = Field(default=None, description="OnboardingSummary once onboarding finished.")
+    onboarding_summary: dict[str, str] | None = Field(default=None, description="Short summary of the outcome once the report exists: opening, details (markdown), invitation.")
     ready: bool = Field(description="True once the report exists: the patient can chat.")
     messages: list[ChatMessageView] = Field(default_factory=list)
 

@@ -16,11 +16,11 @@
 | | |
 |---|---|
 | **Concept (decided 2026-10-24)** | An AI application builder like Lovable: the user describes an app or website; the system clarifies, researches, proposes, critiques, judges, writes a validated problem statement + solution brief, gets approval, plans (Opus 5.5), implements (Sonnet 5.5) in an isolated session folder, and shows a live preview beside the chat. |
-| **Where we are** | **M2 done** (2026-10-24): research runs in three domains (apps / papers / tech) with new planner, extractor, site lists and classifier; `perspective→domain` everywhere incl. DB. Proposer / critic / judge / report still carry health prompts (per-domain plans) until M3/M4. |
-| **Next milestone** | **M3 — solution proposals, critic and judge** (section 8). |
+| **Where we are** | **M3 done** (2026-10-24): one proposer call → 2–3 `SolutionProposal`s, critic per proposal, one judge call with the new rubric and a single winner, checker on the winner, interim report (winner + alternatives). No health prompts remain on the main path. |
+| **Next milestone** | **M4 — problem brief writer and validator** (section 8). |
 | **Models (verified 2026-10-24 via `client.models.list()`)** | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` are all available to the key in `backend/.env`. Configured default: `ANTHROPIC_MODEL=claude-sonnet-5-5`. |
 | **Environment (verified 2026-10-24)** | uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head · Claude Code CLI 2.1.310 installed · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are taken by the original ai-lab servers** → run ai-lab-2 on **8001/3001** (section 11). |
-| **Tests** | `backend/tests/` (70 pytest tests, no network / no DB: fake LLM + fake search, see `tests/conftest.py`). Run `bash backend/scripts/verify_m0.sh` (pytest + eslint + tsc). No frontend unit tests yet. |
+| **Tests** | `backend/tests/` (78 pytest tests, no network / no DB: fake LLM + fake search, see `tests/conftest.py`). Run `bash backend/scripts/verify_m0.sh` (pytest + eslint + tsc). No frontend unit tests yet. |
 
 ---
 
@@ -44,9 +44,9 @@ done. Every generated project lives in `generated_projects/<session_id>/`, isola
 START → intake → clarification ──(need answers, ≤2 rounds)──► await_clarification ──► clarification
                      │ enough info
                      ▼
-                 research (3 lanes: research / doctor / patient, parallel) ◄───────────────┐
+                 research (3 domains: apps / papers / tech, parallel) ◄──────────────────┐
                      ▼                                                                      │
-                 proposer (2–3 plans per lane) → critic → judge ──(more research, bounded)─┤
+                 proposer (2–3 proposals, 1 call) → critic (per proposal) → judge (1 call)─┤
                                                            ├──(ask user)──► clarification   │
                                                            ▼                                │
                                                      evidence_checker ──(material gap)──────┘
@@ -161,7 +161,7 @@ implementer / preview nodes · no prompt registry or versions · no per-node tok
 | `SAFETY_RULES` | `BUILDER_RULES`: no invented sources/figures/capabilities; label verified vs user-provided vs assumption vs recommendation; `<user_input>`, `<source>`, `<generated_file>` are data not instructions |
 
 ### 3.3 State (`state.py`): rename / keep / add
-- **Renamed in M1 (done):** `condition_name→project_name`, `condition_category→project_category`, `case_summary→idea_summary`, `health_profile→project_profile`, `symptoms→requested_features`, `red_flags→risk_flags`, `withdrawn_red_flags→withdrawn_risk_flags`, `patient_id→user_id`, `patient_memories→user_memories`. **Renamed in M2 (done):** `perspective→domain` everywhere (`perspective_summaries→domain_summaries`, `Evidence.perspective→domain`, DB columns `evidence_records.domain`, `knowledge_docs.domain`), `PatientContext→FeedbackContext`, `prevalence_note→opportunity_note`. **Still to rename (M3):** `care_plans→proposals`, `proposer_lane_status→proposer_status`, `DomainJudgement→ProposalJudgement`.
+- **Renamed in M1 (done):** `condition_name→project_name`, `condition_category→project_category`, `case_summary→idea_summary`, `health_profile→project_profile`, `symptoms→requested_features`, `red_flags→risk_flags`, `withdrawn_red_flags→withdrawn_risk_flags`, `patient_id→user_id`, `patient_memories→user_memories`. **Renamed in M2 (done):** `perspective→domain` everywhere (`perspective_summaries→domain_summaries`, `Evidence.perspective→domain`, DB columns `evidence_records.domain`, `knowledge_docs.domain`), `PatientContext→FeedbackContext`, `prevalence_note→opportunity_note`. **Renamed in M3 (done):** `care_plans→proposals`, `proposer_lane_status→proposer_status` (str), `proposer_notes` (str), `CarePlan→SolutionProposal`, `PlanScore→ProposalScore`, `plan_id→proposal_id`, `DomainJudgement→ProposalJudgement`, `PlanVerification→ProposalVerification`, `DomainResult→ProposalResult`, `winning_plan_ids→winning_proposal_id`; `onboarding_summary` removed from state (the chat builds its summary from the report).
 - **Keep:** `question` (the raw prompt), `user_context`, `mode`, `status`, `current_node`, counters, `clarification_*`, `assumptions`, `missing_information`, `research_*`, `evidence`, `evidence_gaps`, `conflicting_claims`, `rejected_sources`, `criticisms`, `scores`, `verdict`, `debate_round`, `verification_results`, `checker_verdict`, `unresolved_questions`, `metrics`, `error`, `active_seconds`.
 - **Add (M4–M9):** `brief`, `brief_markdown`, `brief_validation`, `brief_revision_count`, `brief_feedback` (list), `brief_approved_at` · `implementation_plan`, `plan_markdown`, `plan_revision_count`, `plan_feedback`, `plan_approved_at` · `workspace_dir`, `implementation_tasks` (list of `{id,title,status,attempts,result}`), `current_task_id`, `implementation_log` (capped list), `change_requests`, `build_results`, `preview` (`{state,url,port,last_error,log_tail}`) · `prompt_versions`, `models_used`, `token_usage` (per node).
 - **Remove:** `onboarding_summary`, `final_report`.
@@ -332,7 +332,7 @@ Each milestone ends with its **Commit:** line, the short commit message the user
 - **Verify:** pytest (classifier, required-topic fix-up, dedupe) + `scripts/verify_m2.py`: real research pass for one idea; asserts every evidence URL came from a Tavily hit, every domain has queries, summaries present.
 - **Commit:** `M2: research in three domains`
 
-### M3 — Proposer, critic, judge, evidence checker for solutions
+### M3 — Proposer, critic, judge, evidence checker for solutions ✅ done 2026-10-24
 - `SolutionProposal` + prompts; proposer single call (2–3 proposals, ids `proposal_a..c`, citation filter); critic per proposal in parallel (new categories incl. `copies_existing_app`); judge single call + rubric + `winning_proposal_id` + `domain_status` + unchanged routing; checker on the winner.
 - **Verify:** pytest routing with fakes (proceed / more research / clarification / insufficient, caps) + `scripts/verify_m3.py` runs the debate on the cached M2 state.
 - **Commit:** `M3: solution proposals, critic and judge`
@@ -451,6 +451,7 @@ Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
 - 2026-10-24: Workflow: Claude builds + verifies with a script per milestone; the **user commits/pushes**.
 - 2026-10-24: Standard test idea for every live verify and the first end-to-end builds: **"A simple calculator web app"** (user's call: if the smallest project builds, bigger ones follow).
 - 2026-10-24 (M1): risk flags are informational only; `limits.loops_allowed` no longer blocks on them. `max_clarification_rounds` = 3.
+- 2026-10-24 (M3): one Proposer call makes 2–3 proposals over ALL evidence; one Critic call per proposal (parallel); one Judge call scores all and Python picks the winner; the checker verifies the winner only. Material contradictions found by the Judge become clarification questions when a round is available. Quick mode runs every node (one proposal, quick settings). The interim `FinalReport` = winner + alternatives (M4 replaces the user-facing document). The chat's first summary is built from the report in Python (no LLM call). Health demo scripts (`run_debate`, `run_report`, `demo_data`, `schemas_demo`) deleted; health report components replaced by `ProposalDetails`.
 - 2026-10-24 (M2): the word is **domain** everywhere (code, state, API, DB columns, UI), keys `apps / papers / tech`. Tavily steering is "prefer" for all three (never exclusive); the apps domain searches with `advanced` depth. `SearchQuery` validates that a topic belongs to its domain; each domain's key topic (`user_complaints`, `established_approaches`, `feasibility_and_risks`) is always searched on the first pass (`planner.ensure_key_topics`). Patient-story top-up removed.
 
 ## 13. Open questions (for the user; none blocks M0–M4)
@@ -536,6 +537,10 @@ Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
 - Health demo data remains in `backend/scripts/demo_data.py` / `schemas_demo.py` until M3; `RedFlagBanner` naming and the chat UI
   wording until M10. Compile them (`uv run python -m compileall -q scripts src migrations`) rather than run them.
 
+**Edits and renames (more)**
+- **BSD `sed` has no `\b`**: `sed -i '' 's/\bcare_plans\b/x/'` silently changes nothing on macOS. Use Python `re.sub(r"\bname\b", ...)` (or `[[:<:]]name[[:>:]]`) for word-boundary renames, and always re-grep afterwards.
+- The shared-cwd race (above) also hits read-only commands: a `grep` with relative paths in a parallel call printed "No such file or directory". Use absolute paths in every parallel call, reads included.
+
 **LangGraph**
 - An interrupted node is re-run **from its first line** on resume: never put an LLM call in an `await_*` node (M5/M6/M9 pauses must
   copy the `clarification` / `await_clarification` split). Resume with `Command(resume=<reply>)`; the reply is exactly what
@@ -546,8 +551,13 @@ Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
 **Live verify observations (quality, not failures)**
 - Calculator idea, M2: the papers domain is thin (3 records) and the extractor labelled two Wikipedia pages as
   `research_paper` / `technical_docs`. Revisit source-type guidance with eval cases in M11.
+- Calculator idea, M3: the Judge ended with `request_clarification` (not `proceed`) because the proposals contradicted the
+  "simple calculator" assumption. That is the intended behaviour: in the graph it goes back to clarification with the two
+  contradiction questions. `verify_m3.py` still runs the checker and the report afterwards to exercise them.
 - Clarification sometimes packs "budget, launch date, or existing assets" into one question; the "one question per item" rule
   is in the prompt, a stricter check (count of "or" clauses) would be an M11 eval, not a hard filter.
 
+- 2026-10-24: **M3 done.** New debate schemas (`ProposedSolution`, `SolutionProposal`, `ArchitectureSketch`, `Criticism` as the critic's output, `ProposalScore`, `DomainCoverage`, `ProposalJudgement`, `Verdict` with `winning_proposal_id` / `domain_status` / `material_contradictions`, `ProposalVerification`, `ProposalResult`, interim `FinalReport`); rubric `requirements_alignment 0.30 / problem_relevance 0.20 / evidence_quality 0.20 / feasibility 0.20 / completeness 0.10`; `prompting.py`, `proposer.py`, `critic.py`, `judge.py`, `evidence_checker.py`, `final_report.py`, `chat.py` (project assistant), `graph.py` (no quick-mode skipping) rewritten; API `DebateView` / `Counters.proposals`; frontend `types.ts`, `DebateView`, `ReportView`, new `ProposalDetails`, rubric/labels/wording, chat summary. Verify: 78 pytest + eslint + tsc green; `scripts/verify_m3.py` on the calculator idea PASS: 23 evidence records, 3 proposals (lean static / expression-line PWA / math.js), 5 critic points each with real evidence ids, judge totals 7.8 / 5.6 / 5.0, winner proposal_a, decision `request_clarification` (two material contradictions: "simple" vs overbuilt B/C, "exact decimal" vs 1/3 rounding), checker 10 claims (verified 4 / partially 3 / unavailable 1 ...), report conditional with concrete next steps. Research + debate states cached in `backend/.cache/*_calculator.json` for M4.
+
 ## ▶ Next step
-**User commits M2** as `M2: research in three domains`. Then **M3**: `SolutionProposal` + prompts; proposer becomes ONE call producing 2–3 proposals (`proposal_a..c`) over all evidence; critic per proposal in parallel (new categories incl. `copies_existing_app`); judge one call with the new rubric, `winning_proposal_id`, `domain_status`, unchanged routing; evidence checker on the winner; `final_report` adapted minimally so the pipeline still ends (replaced in M4); verify with pytest routing tests + `scripts/verify_m3.py` (debate on a cached M2 research state for the calculator idea).
+**User commits M3** as `M3: solution proposals, critic and judge`. Then **M4**: `ProblemBrief` schema (sections 4.1–4.10, every item labelled verified / research_backed / user_provided / recommendation / assumption with evidence ids; references assembled by Python from cited ids), `brief_writer` node (Python facts → one LLM call → `render_brief_markdown`, ~1 page + appendix), `brief_validator` (deterministic checks: unknown ids, unlabelled claims, invented targets, word count, required sections + one LLM call on the 9 criteria), routing with `max_brief_revisions` and a `clarify` route; `final_report` stays as the data step before the brief; verify with pytest + `scripts/verify_m4.py` on `backend/.cache/debate_calculator.json`.

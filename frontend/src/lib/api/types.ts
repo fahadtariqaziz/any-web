@@ -36,7 +36,7 @@ export interface Counters {
   research_passes: number;
   debate_round: number;
   evidence: number;
-  care_plans: number;
+  proposals: number;
   claims_checked: number;
 }
 
@@ -92,14 +92,14 @@ export interface CriticismPoint {
   category: string;
   issue: string;
   severity: Level;
-  basis: "evidence" | "clinical_reasoning";
+  basis: "evidence" | "engineering_judgement";
   is_verified_problem: boolean;
   evidence_ids: string[];
   suggested_improvement: string;
 }
 
 export interface Criticism {
-  plan_id: string;
+  proposal_id: string;
   points: CriticismPoint[];
   overall_assessment: string;
 }
@@ -107,26 +107,26 @@ export interface Criticism {
 export interface Verdict {
   decision: "proceed" | "request_more_research" | "request_clarification" | "insufficient_evidence";
   reason: string;
-  winning_plan_ids: Record<string, string>;
-  domain_status: Record<string, string>; // sufficient | insufficient | no_plans | declined
+  winning_proposal_id: string | null;
+  domain_status: Record<string, string>; // sufficient | insufficient | no_evidence
   required_evidence: string[];
+  material_contradictions: string[];
   clarification_questions: string[];
 }
 
 export interface DebateView {
   round: number;
-  care_plans: CarePlan[];
+  proposals: SolutionProposal[];
   criticisms: Criticism[];
-  scores: PlanScore[];
+  scores: ProposalScore[];
   verdict: Verdict | null;
-  lane_status: Record<string, string>;
-  proposer_notes: Record<string, string>;
+  proposer_status: string; // ok | thin | declined | no_evidence
+  proposer_notes: string;
 }
 
 export interface ClaimVerification {
   claim: string;
-  plan_id: string | null;
-  domain: string;
+  proposal_id: string | null;
   evidence_ids: string[];
   status: VerificationStatus;
   notes: string;
@@ -137,8 +137,8 @@ export interface ClaimVerification {
 export interface CheckerVerdict {
   decision: string;
   reason: string;
-  gaps_by_lane: Record<string, string[]>;
-  summaries: Record<string, string>;
+  material_gaps: string[];
+  summary: string;
   claims_checked: number;
 }
 
@@ -162,7 +162,7 @@ export interface LiveSnapshot {
 
 // --- session list (GET /api/decisions) ---------------------------------------------------------
 
-/** "full" = admin view (every pause), "quick" = patient chat (fast, no pauses after the questions). */
+/** "full" = admin view (every pause), "quick" = fast profile (fewer searches, one proposal). */
 export type SessionMode = "full" | "quick";
 
 export interface SessionSummary {
@@ -213,6 +213,15 @@ export type VerificationStatus =
   | "irrelevant"
   | "unavailable";
 
+export interface FeedbackContext {
+  product: string;
+  feedback_type: "complaint" | "praise" | "feature_request" | "workaround" | "mixed";
+  experience_described: string;
+  is_recurring: boolean;
+  context: string;
+  relevant_to_idea: boolean;
+}
+
 export interface Evidence {
   evidence_id: string;
   domain: Domain;
@@ -226,7 +235,7 @@ export interface Evidence {
   is_direct_quote: boolean;
   claims_supported: string[];
   limitations: string[];
-  feedback_context: { is_recurring: boolean; experience_described: string } | null;
+  feedback_context: FeedbackContext | null;
   sentiment: "positive" | "negative" | "mixed" | "neutral" | null;
   relevance_score: number;
   reliability_notes: string;
@@ -240,30 +249,41 @@ export interface EvidenceResponse {
   evidence: Evidence[];
 }
 
-// --- final report (GET /report) ------------------------------------------------------------------
+// --- proposals and the report (GET /report) ------------------------------------------------------
 
-export interface CarePlan {
-  plan_id: string;
-  domain: Domain;
+export interface ArchitectureSketch {
+  frontend: string;
+  backend: string;
+  database: string;
+  external_services: string[];
+  ai_components: string;
+}
+
+export interface SolutionProposal {
+  proposal_id: string;
   round: number;
   name: string;
   summary: string;
-  daily_routine: string[];
-  diet: string[];
-  medications_treatments: string[];
-  expected_timeline: string;
-  prevalence_and_outlook: string;
+  problem_addressed: string;
+  target_users: string;
+  core_features: string[];
+  future_features: string[];
+  user_journey: string[];
+  architecture: ArchitectureSketch;
+  technologies: string[];
+  how_it_beats_alternatives: string;
   benefits: string[];
   drawbacks_risks: string[];
   assumptions: string[];
   difficulty: Level;
-  safety_notes: string;
+  feasibility_notes: string;
+  security_privacy_notes: string;
   supporting_evidence_ids: string[];
   evidence_gaps: string[];
 }
 
-export interface PlanScore {
-  plan_id: string;
+export interface ProposalScore {
+  proposal_id: string;
   criterion_scores: { criterion: string; score: number; explanation: string }[];
   weighted_total: number | null;
   key_benefits: string[];
@@ -274,15 +294,21 @@ export interface PlanScore {
   remaining_risks: string[];
 }
 
-export interface DomainResult {
-  domain: Domain;
-  plan: CarePlan | null;
-  score: PlanScore | null;
-  key_evidence: { evidence_id: string; title: string; url: string; verification_status: VerificationStatus }[];
+export interface EvidenceRef {
+  evidence_id: string;
+  title: string;
+  url: string;
+  verification_status: VerificationStatus;
+}
+
+export interface ProposalResult {
+  proposal: SolutionProposal;
+  score: ProposalScore | null;
+  is_winner: boolean;
+  key_evidence: EvidenceRef[];
   critic_key_objections: string[];
   verification_counts: Record<string, number>;
   verification_notes: string[];
-  unavailable_reason: string;
 }
 
 export interface FinalReport {
@@ -296,9 +322,10 @@ export interface FinalReport {
   assumptions: string[];
   research_methodology: string;
   overview: string;
-  domains: DomainResult[];
-  where_perspectives_agree: string[];
-  where_perspectives_differ: string[];
+  winner: ProposalResult | null;
+  alternatives: ProposalResult[];
+  no_winner_reason: string;
+  why_this_solution: string[];
   is_conditional: boolean;
   uncertainties: string[];
   unsupported_claims: string[];
@@ -315,14 +342,12 @@ export interface ReportResponse {
   report: FinalReport;
 }
 
-// --- patient chat (backend api/chat.py) ------------------------------------------------------------
+// --- project chat (backend api/chat.py) ----------------------------------------------------------
 
-/** The short message that ends onboarding (backend schemas.OnboardingSummary). */
+/** The short message that ends the research phase (built from the report, backend chat.summary_from_report). */
 export interface OnboardingSummary {
   opening: string;
-  doctors_say: string;
-  patients_say: string;
-  research_says: string;
+  details: string; // markdown
   invitation: string;
 }
 
@@ -338,8 +363,8 @@ export interface ChatTranscript {
   mode: SessionMode;
   question: string | null;
   project_name: string | null;
-  clarifications: { question: string; answer: string }[]; // answered onboarding questions, in order
+  clarifications: { question: string; answer: string }[]; // answered questions, in order
   onboarding_summary: OnboardingSummary | null;
-  ready: boolean; // the report exists: the patient can chat
+  ready: boolean; // the report exists: the user can chat
   messages: ChatMessage[];
 }

@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 
-import type { PlanScore } from "@/lib/api/types";
+import type { ProposalScore } from "@/lib/api/types";
 import { RUBRIC } from "@/lib/format";
 
 /** The Judge's five criterion scores as bars, with the weight of each and the explanation on demand. */
-export function ScoreBars({ score, compact = false }: { score: PlanScore; compact?: boolean }) {
+export function ScoreBars({ score, compact = false }: { score: ProposalScore; compact?: boolean }) {
   const [showWhy, setShowWhy] = useState(false);
   const byKey = Object.fromEntries(score.criterion_scores.map((c) => [c.criterion, c]));
   return (

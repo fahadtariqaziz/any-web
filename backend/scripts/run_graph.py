@@ -28,7 +28,7 @@ from langgraph.types import Command
 
 from ai_decision_arena.checkpointing import postgres_checkpointer
 from ai_decision_arena.graph import build_graph
-from print_helpers import print_case, print_red_flags, print_report, stream_graph
+from print_helpers import print_case, print_risk_flags, print_report, stream_graph
 
 parser = argparse.ArgumentParser(description="Run Health Decision Arena end to end.")
 parser.add_argument("question", nargs="*", help='your app idea (default: "A simple calculator web app")')
@@ -87,7 +87,7 @@ def print_outcome(result):
     if result["status"] == "failed":
         err = result.get("error") or {}
         sys.exit(f"❌ {err.get('category', 'error')} in {err.get('node', '?')}: {err.get('message', '')}")
-    print_red_flags(result)
+    print_risk_flags(result)
     print_case(result)
     print_report(result)
 
@@ -121,7 +121,7 @@ with saver_context as saver:
                 sys.exit(f"❌ No saved session with thread_id {thread_id} in the database.")
             print(f"📂 Loaded session {thread_id} from PostgreSQL  |  status: {snapshot.values.get('status')}  "
                   f"|  condition: {snapshot.values.get('project_name')}")
-            print_red_flags(snapshot.values)                  # show saved warnings once, then not again
+            print_risk_flags(snapshot.values)                  # show saved warnings once, then not again
             shown_red_flags.update(snapshot.values.get("risk_flags", []))
             if snapshot.interrupts:                           # paused at a clarification question
                 result, payload = snapshot.values, snapshot.interrupts[0].value

@@ -4,27 +4,27 @@ const STEPS = [
   {
     icon: MessageCircleQuestion,
     title: "You answer a few questions",
-    text: "The clarification agent asks 5–6 questions that change the research: confirmed type, duration, symptoms, treatments, other conditions, routine and goals. Skipping is fine; the agents state their assumptions.",
+    text: "The clarification agent asks 4–6 questions that change the solution: who the users are, the goal, must-have features, platform and constraints, alternatives you know, how you will judge success. Skipping is fine; the agents state their assumptions.",
   },
   {
     icon: Search,
     title: "Three domains of research",
-    text: "Research papers, clinical guidance and patient communities are searched separately. Every kept source becomes a short, cited evidence record. Sources are rejected with a stated reason.",
+    text: "Existing apps and their users' feedback, research papers and technical literature, and technical feasibility are searched separately. Every kept source becomes a short, cited evidence record; rejected sources get a stated reason.",
   },
   {
     icon: Scale,
-    title: "Plans are proposed, challenged and scored",
-    text: "Each lane proposes 2–3 care plans from its own evidence. A Critic challenges every plan against all evidence. A Judge scores them on fit, safety, evidence, practicality and completeness.",
+    title: "Solutions are proposed, challenged and scored",
+    text: "A Proposer designs 2–3 different solutions from all the evidence. A Critic challenges each one. A Judge scores them on requirements alignment, problem relevance, evidence quality, feasibility and completeness.",
   },
   {
     icon: BookOpenCheck,
     title: "Claims are verified at the source",
-    text: "The winning plans' claims are re-checked against the exact sources they cite and marked verified, partly supported, unsupported or contradicted.",
+    text: "The winning proposal's claims are re-checked against the exact sources they cite and marked verified, partly supported, unsupported or contradicted.",
   },
   {
     icon: FileText,
-    title: "A report to bring to your doctor",
-    text: "One best plan per domain, where they agree and differ, what remains uncertain, and the questions to ask next.",
+    title: "A summary you can act on",
+    text: "The recommended solution, the alternatives, why it won, what remains uncertain, and what to decide before planning the build.",
   },
 ];
 
@@ -51,12 +51,12 @@ export function HowItWorks() {
           </li>
         ))}
       </ol>
-      <div className="flex gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-        <ShieldCheck className="mt-0.5 size-5 shrink-0 text-red-600" aria-hidden />
+      <div className="flex gap-3 rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-900">
+        <ShieldCheck className="mt-0.5 size-5 shrink-0 text-teal-700" aria-hidden />
         <p>
-          <span className="font-semibold">Safety first.</span> If your message or answers mention emergency warning signs,
-          the agents pause and ask you whether to continue. The tool never diagnoses, never invents doses and never
-          advises stopping a medication.
+          <span className="font-semibold">Nothing is invented.</span> Every source URL comes from a real search result, cited
+          ids are checked by code, and claims are labelled by how well their sources support them. Gaps and assumptions
+          are listed, not hidden.
         </p>
       </div>
     </section>

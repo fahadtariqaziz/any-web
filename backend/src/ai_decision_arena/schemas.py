@@ -101,7 +101,7 @@ ProjectCategory = Literal[
 ]
 
 EVIDENCE_ID_PATTERN = r"^ev_\d{3,}$"                       # ev_001, ev_002, ...
-PLAN_ID_PATTERN = r"^(apps|papers|tech)_[a-c]$"     # apps_a, papers_b, tech_c (per-domain plans until M3)
+PROPOSAL_ID_PATTERN = r"^proposal_[a-c]$"                # proposal_a, proposal_b, proposal_c
 
 
 def utc_now() -> datetime:
@@ -402,66 +402,76 @@ class ConflictingClaim(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Debate: Proposer → Critic → Judge (each works per domain)
+# Debate: Proposer → Critic → Judge (2-3 solution proposals built from ALL the evidence)
 # ---------------------------------------------------------------------------
 
-class ProposedPlan(BaseModel):
-    """LLM output: one way of managing the condition, built from ONE domain's evidence.
-    plan_id and domain are assigned by Python afterwards (see CarePlan)."""
+class ArchitectureSketch(BaseModel):
+    """High-level architecture of one proposal. Use "none" when a part is not needed."""
 
-    name: str = Field(description='Short descriptive name, e.g. "Low-carb diet with daily walking and metformin".')
-    summary: str = Field(description="What this approach is and how it addresses the user's situation, 2-3 sentences.")
-    daily_routine: list[str] = Field(description="Concrete routine elements reported in the evidence (exercise, monitoring, sleep...).")
-    diet: list[str] = Field(description="Dietary guidance reported in the evidence. Respect the user's constraints.")
-    medications_treatments: list[str] = Field(
-        description="Medicines/therapies AS REPORTED in the evidence, labelled 'commonly prescribed', 'reported by "
-                    "patients', etc. Never invent doses. Empty list if the evidence names none."
-    )
-    expected_timeline: str = Field(description="How long until progress is typically seen, per the evidence; 'not covered by evidence' if unknown.")
-    prevalence_and_outlook: str = Field(description="Is the condition common or rare, and the general outlook, per this domain's evidence.")
+    frontend: str = Field(description='E.g. "Next.js web app", "React Native app", or "none" for an API-only service.')
+    backend: str = Field(description='E.g. "FastAPI service", "serverless functions", "none (static site)".')
+    database: str = Field(description='E.g. "PostgreSQL", "browser localStorage", "none".')
+    external_services: list[str] = Field(description="Third-party APIs or services (payments, auth, email, maps...). Empty list if none.")
+    ai_components: str = Field(description='LLM / ML parts only if the idea needs them, e.g. "none" or "Claude for summaries".')
+
+
+class ProposedSolution(BaseModel):
+    """LLM output: one way of building the user's idea, grounded in the evidence.
+    proposal_id and round are assigned by Python afterwards (see SolutionProposal)."""
+
+    name: str = Field(description='Short descriptive name, e.g. "Offline-first PWA calculator with history".')
+    summary: str = Field(description="What this solution is and how it addresses the user's problem, 2-3 sentences.")
+    problem_addressed: str = Field(description="The specific problem or gap it targets, from the user's requirements and the evidence.")
+    target_users: str = Field(description="Who it is for, as the user and the evidence describe them.")
+    core_features: list[str] = Field(description="Features essential for the first version (MVP), 3-8 items.")
+    future_features: list[str] = Field(description="Enhancements that can wait. Empty list if none.")
+    user_journey: list[str] = Field(description="The key steps a user takes, 3-7 items.")
+    architecture: ArchitectureSketch
+    technologies: list[str] = Field(description='Technology choices with a short reason each, e.g. "React (large ecosystem; user prefers it)".')
+    how_it_beats_alternatives: str = Field(description="How it does better than the existing products in the evidence, naming the gaps it closes.")
     benefits: list[str]
     drawbacks_risks: list[str]
-    assumptions: list[str] = Field(description="Things assumed about the user because they were not stated.")
-    difficulty: Level = Field(description="How hard this plan is to follow day to day.")
-    safety_notes: str = Field(description="Interactions, who should avoid it, when to see a doctor. Never advise stopping prescribed medication.")
+    assumptions: list[str] = Field(description="Things assumed about the user or the project because they were not stated.")
+    difficulty: Level = Field(description="How hard the MVP is to build.")
+    feasibility_notes: str = Field(description="Technical feasibility within the user's constraints: dependencies, limits, costs.")
+    security_privacy_notes: str = Field(description="Data handled, auth, compliance; 'none needed' if nothing sensitive.")
     supporting_evidence_ids: list[str] = Field(description="ONLY ids from the evidence given, e.g. ['ev_003'].")
-    evidence_gaps: list[str] = Field(description="What this plan relies on that the evidence does not cover. Empty list if none.")
+    evidence_gaps: list[str] = Field(description="What this solution relies on that the evidence does not cover. Empty list if none.")
 
 
 class ProposerOutput(BaseModel):
-    """LLM output of the Proposer for ONE domain."""
+    """LLM output of the Proposer: all proposals at once."""
 
-    plans: list[ProposedPlan] = Field(
-        description="2-3 meaningfully different plans. Only 1 if the evidence genuinely supports a single approach. "
-                    "Empty list if the evidence is too thin to build any plan."
+    proposals: list[ProposedSolution] = Field(
+        description="2-3 meaningfully different solutions. Only 1 if the requirements and evidence allow a single defensible "
+                    "approach. Empty list if the evidence is too thin to propose anything."
     )
-    why_fewer_than_two: str = Field(description="Explanation when fewer than 2 plans are returned; empty string otherwise.")
+    why_fewer_than_two: str = Field(description="Explanation when fewer than 2 proposals are returned; empty string otherwise.")
     evidence_too_thin: bool = Field(
-        description="True if you returned fewer than 2 plans BECAUSE the evidence is insufficient (a follow-up search "
-                    "could help). False if the evidence is fine but the situation allows only one safe approach, or none "
-                    "(e.g. an emergency that needs care before any plan)."
+        description="True if you returned fewer than 2 proposals BECAUSE the evidence is insufficient (a follow-up search "
+                    "could help). False if the evidence is fine but the requirements allow only one approach."
     )
 
 
-class CarePlan(ProposedPlan):
-    """A proposal as stored in state: ProposedPlan + identity assigned by Python."""
+class SolutionProposal(ProposedSolution):
+    """A proposal as stored in state: ProposedSolution + identity assigned by Python."""
 
-    plan_id: str = Field(pattern=PLAN_ID_PATTERN)
-    domain: Domain
-    round: int = Field(ge=1, description="Debate round that produced this plan.")
+    proposal_id: str = Field(pattern=PROPOSAL_ID_PATTERN)
+    round: int = Field(ge=1, description="Debate round that produced this proposal.")
 
 
 CriticismCategory = Literal[
-    "safety_risk",
     "unsupported_claim",
     "contradicts_evidence",
-    "anecdotal_only",
-    "outdated_guidance",
-    "not_fit_for_user",            # ignores the user's profile, symptoms or constraints
-    "missing_consideration",
-    "hard_to_follow",
-    "interaction_or_contraindication",
+    "copies_existing_app",          # no real improvement over the alternatives users complain about
+    "missing_requirement",          # a user requirement is not covered
+    "ignores_constraint",           # platform, budget, timeline, tech preference, compliance
+    "infeasible",                   # cannot be built as described within the constraints
+    "scope_too_large",              # the first version is too big to build and verify
+    "security_privacy_risk",
+    "weak_assumption",
     "better_alternative",
+    "missing_consideration",
 ]
 
 
@@ -469,38 +479,32 @@ class CriticismPoint(BaseModel):
     category: CriticismCategory
     issue: str
     severity: Level
-    basis: Literal["evidence", "clinical_reasoning"] = Field(
-        description="'evidence' only when backed by evidence_ids; otherwise 'clinical_reasoning'."
+    basis: Literal["evidence", "engineering_judgement"] = Field(
+        description="'evidence' only when backed by evidence_ids; otherwise 'engineering_judgement'."
     )
     is_verified_problem: bool = Field(description="True = demonstrated problem, False = possible risk.")
     evidence_ids: list[str] = Field(description="Evidence ids that back this point. Empty list if none.")
-    suggested_improvement: str = Field(description="Actionable fix for the plan, or empty string.")
+    suggested_improvement: str = Field(description="Actionable fix for the proposal, or empty string.")
 
 
 class Criticism(BaseModel):
-    """The Critic's assessment of ONE plan."""
+    """The Critic's assessment of ONE proposal (also the output schema of one Critic call)."""
 
-    plan_id: str = Field(pattern=PLAN_ID_PATTERN)
-    points: list[CriticismPoint] = Field(description="Meaningful weaknesses only, at most 6. Empty list if the plan is sound.")
+    proposal_id: str = Field(pattern=PROPOSAL_ID_PATTERN)
+    points: list[CriticismPoint] = Field(description="Meaningful weaknesses only, at most 6. Empty list if the proposal is sound.")
     overall_assessment: str
 
 
-class CriticOutput(BaseModel):
-    """LLM output of the Critic for ONE domain (all its plans)."""
-
-    criticisms: list[Criticism] = Field(description="Exactly one entry per plan given.")
-
-
 class CriterionScore(BaseModel):
-    criterion: str = Field(description='Rubric key, e.g. "fit_to_user".')
+    criterion: str = Field(description='Rubric key, e.g. "requirements_alignment".')
     score: float = Field(ge=0, le=10)
     explanation: str
 
 
-class PlanScore(BaseModel):
-    """The Judge's scores for ONE plan. weighted_total is computed in Python, not by the LLM."""
+class ProposalScore(BaseModel):
+    """The Judge's scores for ONE proposal. weighted_total is computed in Python, not by the LLM."""
 
-    plan_id: str = Field(pattern=PLAN_ID_PATTERN)
+    proposal_id: str = Field(pattern=PROPOSAL_ID_PATTERN)
     criterion_scores: list[CriterionScore] = Field(description="One entry per rubric criterion, in rubric order.")
     weighted_total: float | None = Field(default=None, ge=0, le=10)
     key_benefits: list[str]
@@ -518,37 +522,46 @@ def expected_rubric_criteria() -> set[str]:
     return set(get_settings().rubric_weights)
 
 
-class DomainJudgement(BaseModel):
-    """LLM output of the Judge for ONE domain. The routing decision is made in Python
-    by combining the three domains (see nodes/judge.py).
+class DomainCoverage(BaseModel):
+    domain: Domain
+    status: Literal["sufficient", "insufficient", "no_evidence"]
+    note: str = Field(description="One sentence: what this domain's evidence did or did not establish.")
+
+
+class ProposalJudgement(BaseModel):
+    """LLM output of the Judge: all proposals compared in ONE call. The winner and the routing decision are
+    computed in Python (see nodes/judge.py).
 
     `reasoning` is the FIRST field on purpose (chain of thought): structured output is written in field order,
-    so Claude thinks the plans through before it commits to any score."""
+    so Claude thinks the proposals through before it commits to any score."""
 
-    reasoning: str = Field(description="Think step by step BEFORE scoring, 3-6 short sentences: for each plan its main "
+    reasoning: str = Field(description="Think step by step BEFORE scoring, 3-8 short sentences: for each proposal its main "
                                        "strength, its main weakness (Critic points, evidence), and how it fits this user.")
-    scores: list[PlanScore] = Field(description="One entry per plan given.")
-    comparison: str = Field(description="Why the plans rank the way they do, 2-4 sentences.")
-    evidence_sufficient: bool = Field(
-        description="True if this domain's evidence supports a defensible best plan for THIS user."
-    )
+    scores: list[ProposalScore] = Field(description="One entry per proposal given.")
+    comparison: str = Field(description="Why the proposals rank the way they do, 2-4 sentences.")
+    evidence_sufficient: bool = Field(description="True if the evidence lets you defend a best solution for THIS user.")
     insufficiency_reason: str = Field(description="Why the evidence is insufficient; empty string if sufficient.")
     required_evidence: list[str] = Field(description="What a follow-up search should look for. Empty list if sufficient.")
+    domain_coverage: list[DomainCoverage] = Field(description="One entry per research domain (apps, papers, tech).")
+    material_contradictions: list[str] = Field(
+        description="Contradictions between the user's requirements, the proposals or the evidence that must be resolved "
+                    "before planning. Empty list if none."
+    )
     clarification_questions: list[str] = Field(
-        description="Questions for the USER whose answers would change the ranking. Empty list if none."
+        description="Questions for the USER whose answers would change which proposal wins. At most 2; empty list if none."
     )
 
     @model_validator(mode="after")
-    def scores_are_complete(self) -> "DomainJudgement":
-        ids = [s.plan_id for s in self.scores]
+    def scores_are_complete(self) -> "ProposalJudgement":
+        ids = [s.proposal_id for s in self.scores]
         if len(ids) != len(set(ids)):
-            raise ValueError(f"duplicate plan_id in scores: {ids}")
+            raise ValueError(f"duplicate proposal_id in scores: {ids}")
         expected = expected_rubric_criteria()
         for s in self.scores:
             got = [c.criterion for c in s.criterion_scores]
             if sorted(got) != sorted(expected):
                 raise ValueError(
-                    f"{s.plan_id}: criterion_scores must contain exactly these criteria once each: "
+                    f"{s.proposal_id}: criterion_scores must contain exactly these criteria once each: "
                     f"{sorted(expected)}; got {got}"
                 )
         if not self.evidence_sufficient and not self.insufficiency_reason.strip():
@@ -557,53 +570,47 @@ class DomainJudgement(BaseModel):
 
 
 class Verdict(BaseModel):
-    """The Judge's routing decision, assembled in Python from the three PerspectiveJudgements.
-    Drives the conditional edge after the Judge node."""
+    """The Judge's routing decision, assembled in Python. Drives the conditional edge after the Judge node."""
 
     decision: JudgeDecision
     reason: str
-    winning_plan_ids: dict[str, str] = Field(
-        default_factory=dict, description="domain -> plan_id with the highest weighted_total."
-    )
-    domain_status: dict[str, str] = Field(
-        default_factory=dict,
-        description="domain -> 'sufficient' | 'insufficient' | 'no_plans' (nothing to judge, research may help) "
-                    "| 'declined' (Proposer deliberately returned no plan, e.g. emergency; research will not help).",
-    )
+    winning_proposal_id: str | None = Field(default=None, description="The proposal with the highest weighted_total.")
+    domain_status: dict[str, str] = Field(default_factory=dict, description="domain -> sufficient | insufficient | no_evidence")
     required_evidence: list[str] = Field(default_factory=list, description="What Research should look for next.")
+    material_contradictions: list[str] = Field(default_factory=list)
     clarification_questions: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
-# Verification, report, errors (Phase 6)
+# Verification and the interim report (the problem brief replaces the report in M4)
 # ---------------------------------------------------------------------------
 
 CheckedStatus = Literal["verified", "partially_supported", "unsupported", "contradicted", "irrelevant", "unavailable"]
 
 
 class ClaimCheck(BaseModel):
-    """LLM output: one factual claim of a plan, checked against the evidence it cites."""
+    """LLM output: one factual claim of a proposal, checked against the evidence it cites."""
 
-    claim: str = Field(description="The claim as the plan states it, shortened if long.")
-    evidence_ids: list[str] = Field(description="Ids the plan cites for this claim. Empty list if it cites none.")
+    claim: str = Field(description="The claim as the proposal states it, shortened if long.")
+    evidence_ids: list[str] = Field(description="Ids the proposal cites for this claim. Empty list if it cites none.")
     status: CheckedStatus
     notes: str = Field(description="One sentence: what the cited excerpt actually says, and why this status.")
-    is_anecdotal: bool = Field(description="True if the only support is individual patient reports.")
-    is_material: bool = Field(description="True if the plan's core guidance would change were this claim wrong.")
+    is_anecdotal: bool = Field(description="True if the only support is individual user reports.")
+    is_material: bool = Field(description="True if the proposal's core design would change were this claim wrong.")
 
 
-class PlanVerification(BaseModel):
-    """LLM output of the Evidence Checker for ONE plan."""
+class ProposalVerification(BaseModel):
+    """LLM output of the Evidence Checker for ONE proposal."""
 
     claims: list[ClaimCheck] = Field(description="Checkable factual claims, most important first, at most 10.")
-    overall: str = Field(description="Two sentences: how well the plan is supported by its evidence.")
+    overall: str = Field(description="Two sentences: how well the proposal is supported by its evidence.")
     material_gaps: list[str] = Field(
         description="For each MATERIAL claim that is unsupported, contradicted or unavailable: what a follow-up "
                     "search should look for. Empty list if none."
     )
 
     @model_validator(mode="after")
-    def gaps_match_failures(self) -> "PlanVerification":
+    def gaps_match_failures(self) -> "ProposalVerification":
         failing = [c for c in self.claims if c.is_material and c.status in ("unsupported", "contradicted", "unavailable")]
         if failing and not self.material_gaps:
             raise ValueError("material claims failed verification but material_gaps is empty: say what a follow-up search should find.")
@@ -614,11 +621,10 @@ class ClaimVerification(BaseModel):
     """Evidence Checker result for one factual claim, as stored in state."""
 
     claim: str
-    plan_id: str | None = None
-    domain: str = ""
+    proposal_id: str | None = None
     evidence_ids: list[str] = Field(default_factory=list)
     status: VerificationStatus
-    notes: str = Field(description="Why this status. For rejected evidence, the reason it was rejected.")
+    notes: str = Field(description="Why this status.")
     is_anecdotal: bool = False
     is_material: bool = False
 
@@ -630,49 +636,32 @@ class EvidenceRef(BaseModel):
     verification_status: VerificationStatus
 
 
-class DomainResult(BaseModel):
-    """One of the three answers the user receives: the best plan of a domain."""
+class ProposalResult(BaseModel):
+    """One proposal as it appears in the report: the proposal plus what the Critic, Judge and Checker said about it."""
 
-    domain: Domain
-    plan: CarePlan | None = Field(description="None when the domain produced no defensible plan.")
-    score: PlanScore | None = None
+    proposal: SolutionProposal
+    score: ProposalScore | None = None
+    is_winner: bool = False
     key_evidence: list[EvidenceRef] = Field(default_factory=list)
     critic_key_objections: list[str] = Field(default_factory=list)
     verification_counts: dict[str, int] = Field(default_factory=dict, description="status -> number of claims")
     verification_notes: list[str] = Field(default_factory=list)
-    unavailable_reason: str = Field(default="", description="Why there is no plan, when plan is None.")
 
 
 class ReportNarrative(BaseModel):
-    """LLM output: the human-readable parts of the final report. Everything else is assembled in Python."""
+    """LLM output: the human-readable parts of the interim report. Everything else is assembled in Python."""
 
-    overview: str = Field(description="4-6 plain-language sentences for the user: what the three domains say, "
-                                      "where they agree, the main caveat. No new facts.")
-    where_perspectives_agree: list[str] = Field(description="Points the research, doctor and patient plans share. Empty list if none.")
-    where_perspectives_differ: list[str] = Field(description="Where they differ or disagree, and why. Empty list if none.")
+    overview: str = Field(description="4-6 plain-language sentences: the problem, the recommended solution, why, and the "
+                                      "main caveat. No new facts, no numbers that are not in the input.")
+    why_this_solution: list[str] = Field(description="Why the winner beats the alternatives, 2-5 points. Empty list if there is no winner.")
     key_uncertainties: list[str] = Field(description="What remains unknown or weakly supported, at most 6.")
-    next_steps: list[str] = Field(description="Questions to bring to a doctor and things to monitor, at most 6. Never prescribe.")
-
-
-class OnboardingSummary(BaseModel):
-    """LLM output, patient chat only: the short message that ends onboarding and opens the chat."""
-
-    opening: str = Field(description="One warm sentence in the second person saying you now understand their health "
-                                     "situation; name the condition and one personal detail they shared.")
-    doctors_say: str = Field(description="Markdown bullet list, 3-7 bullets plus sub-bullets for examples: the concrete "
-                                         "advice a doctor would give this patient (what, how much, how often, what to "
-                                         "track). Empty string if there is no doctor plan.")
-    patients_say: str = Field(description="Markdown bullet list, 3-7 bullets plus sub-bullets for examples: the concrete "
-                                          "things other people with this condition do (specific foods, times, amounts, "
-                                          "habits). Empty string if there is no patient plan.")
-    research_says: str = Field(description="Markdown bullet list, 3-7 bullets plus sub-bullets for examples: specific "
-                                           "findings of studies (what was tried, how much, what changed), in plain "
-                                           "words. Empty string if there is no research plan.")
-    invitation: str = Field(description="One sentence inviting them to talk about diet, daily routine, how they feel, "
-                                        "medicines or doctor visits.")
+    next_steps: list[str] = Field(description="What to confirm or decide before planning the build, at most 6.")
 
 
 class FinalReport(BaseModel):
+    """Interim report (M3): the debate's outcome. The problem statement + solution brief (M4) becomes the document
+    the user reviews; the data assembled here feeds that brief."""
+
     generated_at: datetime = Field(default_factory=utc_now)
     original_question: str
     project_name: str
@@ -683,14 +672,15 @@ class FinalReport(BaseModel):
     assumptions: list[str] = Field(default_factory=list)
     research_methodology: str
     overview: str
-    domains: list[DomainResult] = Field(description="Research, doctor and patient results, in that order.")
-    where_perspectives_agree: list[str]
-    where_perspectives_differ: list[str]
-    is_conditional: bool = Field(description="True if the guidance depends on unconfirmed assumptions or unverified claims.")
+    winner: ProposalResult | None = Field(description="None when no proposal could be defended.")
+    alternatives: list[ProposalResult] = Field(default_factory=list)
+    no_winner_reason: str = ""
+    why_this_solution: list[str] = Field(default_factory=list)
+    is_conditional: bool = Field(description="True if the recommendation depends on unconfirmed assumptions or unverified claims.")
     uncertainties: list[str]
     unsupported_claims: list[str]
     unresolved_questions: list[str]
-    next_steps: list[str] = Field(description="E.g. questions to bring to a doctor, what to monitor.")
+    next_steps: list[str]
     risk_flags: list[str]
     withdrawn_risk_flags: list[str] = Field(default_factory=list, description='"flag (reason)" for flags later answers contradicted.')
     disclaimer: str

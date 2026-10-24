@@ -1,34 +1,30 @@
-"""Step 4.2 — run ONLY the Research node on a saved, already-clarified state (no questions).
+"""Run intake + the Research node on an idea and cache the state for later steps (no clarification round).
 
 Run from the backend/ folder:
-    uv run python scripts/run_research.py
-
-Saves the resulting state to backend/.cache/research_state.json so run_debate.py can
-reuse it without paying for research again.
+    uv run python scripts/run_research.py "A simple calculator web app"
+Saves backend/.cache/research_state.json so later scripts can reuse the research without paying for it again.
 """
 
 import json
+import sys
 from pathlib import Path
 
-from langgraph.graph import END, START, StateGraph
-
+from ai_decision_arena.config import session_mode
+from ai_decision_arena.nodes.intake import intake_node
 from ai_decision_arena.nodes.research import research_node
-from ai_decision_arena.state import ArenaState
-from demo_data import CLARIFIED_STATE
-from print_helpers import print_research, stream_graph
+from print_helpers import print_case, print_research
 
 CACHE_FILE = Path(__file__).resolve().parent.parent / ".cache" / "research_state.json"
 
-builder = StateGraph(ArenaState)
-builder.add_node("research", research_node)
-builder.add_edge(START, "research")
-builder.add_edge("research", END)
-graph = builder.compile()
+question = " ".join(sys.argv[1:]) or "A simple calculator web app"
+with session_mode("full"):
+    state = {"question": question, "user_context": "", "mode": "full"}
+    state.update(intake_node(state))
+    state["assumptions"] = ["No clarification round in this script: the agents work from the idea as written."]
+    state.update(research_node(state))
 
-print("🔎 Researching 3 domains (planner → Tavily → 3 evidence extractors). Usually takes about 1 minute...")
-result, _ = stream_graph(graph, CLARIFIED_STATE, {"run_name": "research_demo", "metadata": {"step": "4.2"}})
-print_research(result)
-
+print_case(state)
+print_research(state)
 CACHE_FILE.parent.mkdir(exist_ok=True)
-CACHE_FILE.write_text(json.dumps(result, indent=2, default=str))
-print(f"\n💾 Saved state to {CACHE_FILE} (used by run_debate.py)")
+CACHE_FILE.write_text(json.dumps(state, indent=2, default=str))
+print(f"\n💾 State saved to {CACHE_FILE}")

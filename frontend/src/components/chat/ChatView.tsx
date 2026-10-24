@@ -28,19 +28,19 @@ import { WorkingChip } from "./WorkingChip";
 const POLL_MS = 1000; // onboarding takes ~30 s: poll a bit faster than the admin view so the chip feels live
 const SKIPPED = "(skipped by user)"; // what the backend stores for an unanswered question
 
-// Shown when intake decided the first message isn't about health (e.g. "can i do fun").
-const OFF_TOPIC_REPLY = `I'm your health support companion, so that's not something I can help with. What I can do is support you in feeling better, with:
+// Shown when intake decided the first message isn't an app or website idea (e.g. "can i do fun").
+const OFF_TOPIC_REPLY = `I build apps and websites from ideas, so that's not something I can help with. Tell me what you want to build and I will:
 
-- **what doctors recommend** for your condition
-- **what other patients** found helpful in their daily life
-- **the right diet and exercise**, based on doctors' advice and research
+- **ask a few questions** to understand the users, the goal and the must-have features
+- **research** existing apps and what their users say, relevant papers, and what is technically feasible
+- **propose, critique and judge** solutions, then write a brief you can review
 
-Tell me what's going on with your health, for example "I have type 2 diabetes" or "I get migraines a few times a week".`;
+Try something like "A simple calculator web app" or "A website for my bakery with online pre-orders".`;
 
 export function ChatView({ threadId }: { threadId: string }) {
   const { status, error: statusError, refresh } = useDecision(threadId, POLL_MS);
   const { refresh: refreshList } = useChatList();
-  // A first message that wasn't about health: the next message starts a fresh chat in its place.
+  // A first message that wasn't an idea: the next message starts a fresh chat in its place.
   const { start: startOver, sending: startingOver, error: startOverError } = useStartChat({ replace: true });
 
   // Transcript: re-fetched whenever the onboarding moves on (paused / finished / new answers / report).
@@ -189,13 +189,13 @@ export function ChatView({ threadId }: { threadId: string }) {
         onSend={startOver}
         disabled={startingOver}
         autoFocus
-        placeholder="Tell me about your health, e.g. “I have sugar”"
+        placeholder="Describe the app or website you want to build"
       />
     );
   } else if (ready) {
-    composer = <Composer key="chat" onSend={sendMessage} disabled={streaming !== null} autoFocus placeholder="Ask anything about your health" />;
+    composer = <Composer key="chat" onSend={sendMessage} disabled={streaming !== null} autoFocus placeholder="Ask about the research or the proposed solution" />;
   } else {
-    composer = <Composer key="wait" onSend={() => {}} disabled placeholder={failed ? "This chat ended" : "One moment, I'm reading up on your situation…"} />;
+    composer = <Composer key="wait" onSend={() => {}} disabled placeholder={failed ? "This chat ended" : "One moment, I'm researching your idea…"} />;
   }
 
   return (
@@ -253,7 +253,7 @@ export function ChatView({ threadId }: { threadId: string }) {
 
               {failed && !offTopic && (
                 <div className="space-y-2 text-neutral-200">
-                  <p>I&apos;m sorry, something went wrong while I was reading up on your situation.</p>
+                  <p>I&apos;m sorry, something went wrong while I was researching your idea.</p>
                   {status.error && <p className="text-xs text-neutral-500">{status.error.message}</p>}
                   <Link href="/" className="inline-block text-sm text-teal-300 hover:underline">
                     Start a new chat
@@ -286,7 +286,7 @@ export function ChatView({ threadId }: { threadId: string }) {
         <div className="shrink-0 px-4 pb-3">
           <div className="mx-auto w-full max-w-3xl space-y-2">
             {composer}
-            <p className="text-center text-xs text-neutral-500">Health information and support, not a medical diagnosis.</p>
+            <p className="text-center text-xs text-neutral-500">Research-backed planning. Facts are labelled by how well their sources support them.</p>
           </div>
         </div>
       )}

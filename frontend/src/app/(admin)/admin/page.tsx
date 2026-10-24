@@ -7,14 +7,14 @@ export default function Home() {
   return (
     <div className="space-y-10">
       <section className="mx-auto max-w-3xl space-y-4 text-center">
-        <p className="text-xs font-semibold uppercase tracking-widest text-brand">Three domains, one honest report</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-brand">Three domains, one honest brief</p>
         <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-          Understand a health condition the way research, doctors and patients see it
+          Turn an app idea into a researched, honest plan
         </h1>
         <p className="text-base text-slate-600 sm:text-lg">
-          Describe your condition. AI agents ask you a few questions, research the web from three domains, debate
-          care plans, verify every claim against its source, and write a report you can bring to your doctor. You watch
-          every step as it happens.
+          Describe what you want to build. AI agents ask you a few questions, research existing apps, papers and
+          feasibility, propose and judge solutions, verify every claim against its source, and summarise what to build
+          and why. You watch every step as it happens.
         </p>
       </section>
 

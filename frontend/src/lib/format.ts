@@ -101,12 +101,12 @@ export const RUN_STATE_META: Record<RunState, { label: string; tone: Tone }> = {
 };
 
 export const WORKFLOW_STATUS_LABEL: Record<string, string> = {
-  intake: "Understanding your message",
+  intake: "Understanding your idea",
   awaiting_clarification: "Waiting for your answers",
   researching: "Researching",
-  debating: "Debating care plans",
+  debating: "Debating solutions",
   verifying: "Verifying evidence",
-  reporting: "Writing the report",
+  reporting: "Writing the summary",
   completed: "Completed",
   completed_with_uncertainty: "Completed with uncertainty",
   failed: "Failed",
@@ -136,10 +136,10 @@ export const LEVEL_TONE: Record<Level, Tone> = { low: "emerald", medium: "amber"
 export const CONFIDENCE_TONE: Record<Level, Tone> = { low: "red", medium: "amber", high: "emerald" };
 
 export const RUBRIC: { key: string; label: string; weight: number }[] = [
-  { key: "fit_to_user", label: "Fit to you", weight: 0.3 },
-  { key: "safety", label: "Safety", weight: 0.25 },
+  { key: "requirements_alignment", label: "Requirements alignment", weight: 0.3 },
+  { key: "problem_relevance", label: "Problem relevance", weight: 0.2 },
   { key: "evidence_quality", label: "Evidence quality", weight: 0.2 },
-  { key: "practicality", label: "Practicality", weight: 0.15 },
+  { key: "feasibility", label: "Feasibility", weight: 0.2 },
   { key: "completeness", label: "Completeness", weight: 0.1 },
 ];
 

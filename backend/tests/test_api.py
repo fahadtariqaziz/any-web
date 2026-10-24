@@ -80,11 +80,13 @@ def test_start_pause_resume_report(client):
     assert status["workflow_status"] == "completed"
     assert status["has_report"] is True
     assert status["error"] is None
-    assert status["counters"]["evidence"] > 0 and status["counters"]["care_plans"] > 0
+    assert status["counters"]["evidence"] > 0 and status["counters"]["proposals"] > 0
 
     report = client.get(f"/api/decisions/{thread_id}/report")
     assert report.status_code == 200
-    assert [p["domain"] for p in report.json()["report"]["domains"]] == ["apps", "papers", "tech"]
+    body = report.json()["report"]
+    assert body["winner"]["proposal"]["proposal_id"] == "proposal_a"
+    assert [a["proposal"]["proposal_id"] for a in body["alternatives"]] == ["proposal_b"]
 
     evidence = client.get(f"/api/decisions/{thread_id}/evidence").json()
     assert evidence["count"] == status["counters"]["evidence"]

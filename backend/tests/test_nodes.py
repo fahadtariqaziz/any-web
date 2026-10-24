@@ -5,11 +5,15 @@ import pytest
 from ai_decision_arena import schemas as S
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.nodes.clarification import clarification_node
+from ai_decision_arena.nodes.critic import critic_node
+from ai_decision_arena.nodes.evidence_checker import evidence_checker_node
 from ai_decision_arena.nodes.intake import InvalidInputError, intake_node
 from ai_decision_arena.nodes.judge import judge_node, weighted_total
 from ai_decision_arena.nodes.proposer import proposer_node
-from tests.conftest import build_intake, build_judgement
+from tests.conftest import _solution, build_clarification, build_intake, build_judgement, build_proposer
 
+
+# --- intake + clarification -------------------------------------------------------------------------
 
 def test_intake_rejects_short_input_without_calling_the_llm(fake_llm):
     with pytest.raises(InvalidInputError):
@@ -50,7 +54,6 @@ def test_clarification_asks_in_round_one_and_merges_answers_later(fake_llm, base
 
 def test_three_clarification_rounds_are_allowed_but_not_four(fake_llm, base_state):
     def always_asks(system, user):
-        from tests.conftest import build_clarification
         r = build_clarification(system, user)
         return r.model_copy(update={"need_clarification": True, "questions": ["Anything else about the users?"], "assumptions": []})
     fake_llm.overrides[S.ClarificationResult] = always_asks
@@ -73,73 +76,134 @@ def test_clarification_drops_questions_already_answered(fake_llm, base_state):
     assert out["clarification_questions"] == ["Which features must the first version have?"]
 
 
+# --- proposer / critic / judge / checker --------------------------------------------------------------
+
 def _evidence(eid: str, domain: str) -> dict:
     return S.Evidence(evidence_id=eid, domain=domain, source_title="t", source_url="https://e.org/x",
-                      source_type="research_paper", relevant_excerpt="e", is_direct_quote=False,
+                      source_type="review_site", relevant_excerpt="e", is_direct_quote=False,
                       relevance_score=0.9).model_dump(mode="json")
 
 
-def test_proposer_builds_plans_per_lane_and_drops_unknown_citations(fake_llm, base_state):
+def _proposals(*ids: str) -> list[dict]:
+    return [S.SolutionProposal(**_solution(i, ["ev_001"]).model_dump(), proposal_id=i, round=1).model_dump(mode="json") for i in ids]
+
+
+def test_proposer_assigns_ids_and_drops_unknown_citations(fake_llm, base_state):
     state = dict(base_state, evidence=[_evidence("ev_001", "apps"), _evidence("ev_002", "papers")])
 
     def cites_unknown(system, user):
-        from tests.conftest import build_proposer
         out = build_proposer(system, user)
-        for p in out.plans:
+        for p in out.proposals:
             p.supporting_evidence_ids = p.supporting_evidence_ids + ["ev_999"]
         return out
     fake_llm.overrides[S.ProposerOutput] = cites_unknown
 
     out = proposer_node(state)
-    ids = sorted(p["plan_id"] for p in out["care_plans"])
-    assert ids == ["apps_a", "apps_b", "papers_a", "papers_b"]      # no tech evidence → no tech plan
-    assert out["proposer_lane_status"] == {"apps": "ok", "papers": "ok", "tech": "no_evidence"}
-    for p in out["care_plans"]:
-        assert "ev_999" not in p["supporting_evidence_ids"]
+    assert [p["proposal_id"] for p in out["proposals"]] == ["proposal_a", "proposal_b"]
+    assert out["proposer_status"] == "ok" and out["proposer_notes"] == ""
+    for p in out["proposals"]:
+        assert "ev_999" not in p["supporting_evidence_ids"] and "ev_001" in p["supporting_evidence_ids"]
         assert any("not found" in g for g in p["evidence_gaps"])
     assert out["debate_round"] == 1 and out["criticisms"] == [] and out["scores"] == []
 
 
-def _plans(*ids: str) -> list[dict]:
-    return [S.CarePlan(name=i, summary="s", daily_routine=[], diet=[], medications_treatments=[], expected_timeline="",
-                       prevalence_and_outlook="", benefits=[], drawbacks_risks=[], assumptions=[], difficulty="low",
-                       safety_notes="", supporting_evidence_ids=[], evidence_gaps=[], plan_id=i,
-                       domain=i.split("_")[0], round=1).model_dump(mode="json") for i in ids]
+def test_proposer_without_evidence_proposes_nothing_and_calls_no_llm(fake_llm, base_state):
+    out = proposer_node(base_state)
+    assert out["proposals"] == [] and out["proposer_status"] == "no_evidence"
+    assert fake_llm.calls == []
 
 
-def test_judge_computes_totals_in_python_and_picks_a_winner_per_lane(fake_llm, base_state):
-    state = dict(base_state, debate_round=1, care_plans=_plans("apps_a", "apps_b", "papers_a", "tech_a"),
-                 proposer_lane_status={"apps": "ok", "papers": "ok", "tech": "ok"})
+def test_proposer_thin_evidence_is_flagged(fake_llm, base_state):
+    fake_llm.overrides[S.ProposerOutput] = lambda s, u: S.ProposerOutput(proposals=[], why_fewer_than_two="too thin", evidence_too_thin=True)
+    out = proposer_node(dict(base_state, evidence=[_evidence("ev_001", "apps")]))
+    assert out["proposals"] == [] and out["proposer_status"] == "thin" and out["proposer_notes"] == "too thin"
+
+
+def test_critic_reviews_every_proposal_and_owns_the_ids(fake_llm, base_state):
+    state = dict(base_state, evidence=[_evidence("ev_001", "apps")], proposals=_proposals("proposal_a", "proposal_b"))
+
+    def wrong_id_and_fake_evidence(system, user):
+        from tests.conftest import build_critic
+        c = build_critic(system, user)
+        c.proposal_id = "proposal_c"                       # the LLM echoed a wrong id
+        c.points[0].evidence_ids = ["ev_999"]              # and cited a non-existent record
+        c.points[0].basis = "evidence"
+        return c
+    fake_llm.overrides[S.Criticism] = wrong_id_and_fake_evidence
+
+    out = critic_node(state)
+    assert [c["proposal_id"] for c in out["criticisms"]] == ["proposal_a", "proposal_b"]   # Python owns the identity
+    assert out["criticisms"][0]["points"][0]["evidence_ids"] == []
+    assert out["criticisms"][0]["points"][0]["basis"] == "engineering_judgement"
+
+
+def test_judge_computes_totals_in_python_and_picks_the_winner(fake_llm, base_state):
+    state = dict(base_state, debate_round=1, evidence=[_evidence("ev_001", "apps")],
+                 proposals=_proposals("proposal_a", "proposal_b", "proposal_c"), proposer_status="ok")
     out = judge_node(state)
     assert out["verdict"]["decision"] == "proceed"
-    assert out["verdict"]["winning_plan_ids"] == {"apps": "apps_a", "papers": "papers_a", "tech": "tech_a"}
+    assert out["verdict"]["winning_proposal_id"] == "proposal_a"
+    assert set(out["verdict"]["domain_status"]) == set(S.DOMAINS)
     weights = get_settings().rubric_weights
+    assert len(out["scores"]) == 3
     for s in out["scores"]:
-        assert s["weighted_total"] == weighted_total(S.PlanScore.model_validate(s), weights)
+        assert s["weighted_total"] == weighted_total(S.ProposalScore.model_validate(s), weights)
     assert out["status"] == "verifying"
 
 
-def test_judge_requests_research_when_a_lane_is_insufficient(fake_llm, base_state):
+def test_judge_requests_research_when_evidence_is_insufficient(fake_llm, base_state):
     def insufficient(system, user):
         j = build_judgement(system, user)
         return j.model_copy(update={"evidence_sufficient": False, "insufficiency_reason": "thin",
-                                    "required_evidence": ["prevalence data"]})
-    fake_llm.overrides[S.DomainJudgement] = insufficient
-    state = dict(base_state, debate_round=1, care_plans=_plans("apps_a", "papers_a", "tech_a"),
-                 proposer_lane_status={"apps": "ok", "papers": "ok", "tech": "ok"})
+                                    "required_evidence": ["pricing data"]})
+    fake_llm.overrides[S.ProposalJudgement] = insufficient
+    state = dict(base_state, debate_round=1, proposals=_proposals("proposal_a", "proposal_b"))
     out = judge_node(state)
     assert out["verdict"]["decision"] == "request_more_research"
     assert out["research_retry_count"] == 1
-    assert "prevalence data" in out["research_focus"]
+    assert "pricing data" in out["research_focus"]
+
+
+def test_judge_asks_the_user_when_a_contradiction_needs_resolving(fake_llm, base_state):
+    def contradiction(system, user):
+        return build_judgement(system, user).model_copy(update={"material_contradictions": ["Offline use vs. cloud sync requirement."]})
+    fake_llm.overrides[S.ProposalJudgement] = contradiction
+    out = judge_node(dict(base_state, debate_round=1, proposals=_proposals("proposal_a", "proposal_b")))
+    assert out["verdict"]["decision"] == "request_clarification"
+    assert out["verdict"]["clarification_questions"] and "Offline use" in out["verdict"]["clarification_questions"][0]
+    assert out["verdict"]["material_contradictions"] == ["Offline use vs. cloud sync requirement."]
 
 
 def test_judge_stops_looping_at_the_caps(fake_llm, base_state):
     def insufficient(system, user):
         return build_judgement(system, user).model_copy(update={"evidence_sufficient": False, "insufficiency_reason": "thin"})
-    fake_llm.overrides[S.DomainJudgement] = insufficient
+    fake_llm.overrides[S.ProposalJudgement] = insufficient
     s = get_settings()
     state = dict(base_state, debate_round=s.max_debate_rounds, research_retry_count=s.max_research_retries,
-                 care_plans=_plans("apps_a", "papers_a", "tech_a"))
+                 proposals=_proposals("proposal_a", "proposal_b"))
     out = judge_node(state)
     assert out["verdict"]["decision"] == "insufficient_evidence"
     assert "research_retry_count" not in out
+
+
+def test_judge_with_no_proposals_requests_research_without_calling_the_llm(fake_llm, base_state):
+    out = judge_node(dict(base_state, proposals=[], proposer_status="thin", proposer_notes="too thin"))
+    assert out["verdict"]["decision"] == "request_more_research"
+    assert out["verdict"]["winning_proposal_id"] is None and out["scores"] == []
+    assert fake_llm.calls == []
+
+
+def test_evidence_checker_verifies_only_the_winner(fake_llm, base_state):
+    state = dict(base_state, evidence=[_evidence("ev_001", "apps")], proposals=_proposals("proposal_a", "proposal_b"),
+                 verdict={"decision": "proceed", "winning_proposal_id": "proposal_b"})
+    out = evidence_checker_node(state)
+    assert fake_llm.count("ProposalVerification") == 1
+    assert all(r["proposal_id"] == "proposal_b" for r in out["verification_results"])
+    assert out["checker_verdict"]["decision"] == "proceed" and out["checker_verdict"]["claims_checked"] == 1
+    assert out["evidence"][0]["verification_status"] == "verified"
+
+
+def test_evidence_checker_without_winner_skips_the_llm(fake_llm, base_state):
+    out = evidence_checker_node(dict(base_state, proposals=[], verdict={"decision": "insufficient_evidence", "winning_proposal_id": None}))
+    assert out["verification_results"] == [] and out["status"] == "reporting"
+    assert fake_llm.calls == []

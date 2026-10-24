@@ -3,7 +3,7 @@
 1. User triggers (already there): POST /api/decisions starts onboarding, /resume continues it, a chat message
    starts a chat turn.
 2. Scheduled trigger (this module): a background scheduler inside the API process looks every
-   CHECK_IN_INTERVAL_SECONDS for patient chats that have been quiet for CHECK_IN_QUIET_HOURS and lets the
+   CHECK_IN_INTERVAL_SECONDS for project chats that have been quiet for CHECK_IN_QUIET_HOURS and lets the
    chat agent write ONE short check-in ("How did the night-shift meals go?"). It shows up in the chat as a
    normal assistant message (kind "check_in"). A chat whose last message is already a check-in is skipped.
 3. Manual trigger: POST /api/triggers/check-ins runs the same job now (for testing: quiet_hours=0).
@@ -27,7 +27,7 @@ from ai_decision_arena.llm import get_llm
 log = logging.getLogger(__name__)
 
 CHECK_IN_TOKENS = 300
-CHECK_IN_INSTRUCTION = """(System trigger, not a message from the patient.) The patient has not written for a while.
+CHECK_IN_INSTRUCTION = """(System trigger, not a message from the user.) The user has not written for a while.
 Write ONE short, warm check-in message to them (2-3 sentences): refer to something specific from your conversation or
 their plan (a meal idea, a habit they wanted to try, a question for their doctor), ask how it is going, and invite
 them to share. No new advice, no lists, no disclaimers, no tools."""
@@ -41,7 +41,7 @@ def write_check_in(graph, thread_id: str) -> str | None:
     history = [m for m in list_chat_messages(thread_id)][-10:]
     messages = [SystemMessage(content=SYSTEM_PROMPT.replace("{context}", build_context(state)))]
     # The conversation must start with a user turn: the onboarding summary stands in for it (it is in the context).
-    messages.append(HumanMessage(content="(Onboarding finished; the summary above was shown to the patient.)"))
+    messages.append(HumanMessage(content="(Onboarding finished; the summary above was shown to the user.)"))
     for m in history:
         messages.append(HumanMessage(content=m.content) if m.role == "user" else AIMessage(content=m.content))
     messages.append(HumanMessage(content=CHECK_IN_INSTRUCTION))

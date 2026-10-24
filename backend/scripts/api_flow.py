@@ -82,8 +82,10 @@ body = check(report)
 if report.status_code == 200:
     r = body["report"]
     print(f"\n📋 {r['project_name']}\n{r['overview']}")
-    for item in r["domains"]:
-        print(f"   {item['domain']}: {(item.get('plan') or {}).get('name', item.get('unavailable_reason'))}")
+    winner = r.get("winner")
+    print(f"   winner: {winner['proposal']['name'] if winner else r.get('no_winner_reason')}")
+    for alt in r.get("alternatives", []):
+        print(f"   alternative: {alt['proposal']['name']}")
 evidence = check(api.get(f"{P}/{thread_id}/evidence"))
 print(f"\n📚 evidence: {evidence['count']}  {evidence['verification_counts']}")
 sys.exit(0 if report.status_code == 200 else 1)

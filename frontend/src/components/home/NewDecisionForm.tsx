@@ -14,10 +14,10 @@ const MAX_CHARS = 4000; // same limits as the backend (intake.py)
 const MIN_CHARS = 3;
 
 const EXAMPLES = [
-  "I have type 2 diabetes, diagnosed last year",
-  "I get migraines twice a week",
-  "My father was told he has high blood pressure",
-  "I was diagnosed with hypothyroidism and feel tired all the time",
+  "A simple calculator web app",
+  "A website for my bakery with online pre-orders for pickup",
+  "A habit tracker app for university students",
+  "An internal tool to track customer support tickets",
 ];
 
 export function NewDecisionForm() {
@@ -60,7 +60,7 @@ export function NewDecisionForm() {
     >
       <div className="space-y-2">
         <label htmlFor="question" className="block text-sm font-medium text-slate-800">
-          Your condition or symptoms
+          Your app or website idea
         </label>
         <textarea
           id="question"
@@ -70,12 +70,12 @@ export function NewDecisionForm() {
           maxLength={MAX_CHARS}
           rows={4}
           autoFocus
-          placeholder="e.g. I have type 2 diabetes, diagnosed last year. I take metformin and want to lose some weight."
+          placeholder="e.g. A habit tracker app for university students who keep abandoning their study routines. Mobile first, free."
           className="w-full resize-y rounded-xl border border-slate-300 p-3.5 text-base text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
           required
         />
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-          <span>Write in your own words. Nothing you type is used to diagnose you.</span>
+          <span>Write in your own words: who it is for, what it must do, any constraints.</span>
           <span>
             {question.length} / {MAX_CHARS}
           </span>
@@ -106,7 +106,7 @@ export function NewDecisionForm() {
           aria-expanded={showContext}
         >
           <ChevronDown className={`size-4 transition ${showContext ? "rotate-180" : ""}`} aria-hidden />
-          Add context <span className="font-normal text-slate-500">(optional: diet, budget, medications, goals)</span>
+          Add context <span className="font-normal text-slate-500">(optional: audience, budget, timeline, tech preferences)</span>
         </button>
         {showContext && (
           <textarea
@@ -116,7 +116,7 @@ export function NewDecisionForm() {
             onKeyDown={onKeyDown}
             maxLength={MAX_CHARS}
             rows={2}
-            placeholder="e.g. vegetarian, limited budget, already taking metformin 500 mg twice a day"
+            placeholder="e.g. must work offline, no budget for paid APIs, I know React, launch in 2 months"
             className="mt-2 w-full resize-y rounded-xl border border-slate-300 p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
           />
         )}

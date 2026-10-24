@@ -21,6 +21,14 @@ def test_every_node_can_fail_to_completion(graph):
     assert sources >= EXPECTED_NODES - {"completion"}
 
 
+def test_proposer_always_goes_to_the_critic(graph):
+    """Quick sessions no longer skip the Critic or the Evidence Checker (M3 decision)."""
+    edges = {(e.source, e.target) for e in graph.get_graph().edges}
+    assert ("proposer", "critic") in edges
+    assert ("proposer", "judge") not in edges
+    assert ("judge", "final_report") not in edges
+
+
 def test_route_after_clarification():
     assert G.route_after_clarification({"need_clarification": True}) == "await_clarification"
     assert G.route_after_clarification({"need_clarification": False}) == "research"
@@ -32,6 +40,7 @@ def test_route_after_judge_reads_the_decision_only():
     assert G.route_after_judge({"verdict": {"decision": "request_clarification"}}) == "clarification"
     assert G.route_after_judge({"verdict": {"decision": "proceed"}}) == "evidence_checker"
     assert G.route_after_judge({"verdict": {"decision": "insufficient_evidence"}}) == "evidence_checker"
+    assert G.route_after_judge({"mode": "quick", "verdict": {"decision": "proceed"}}) == "evidence_checker"
     assert G.route_after_judge({}) == "evidence_checker"
 
 
@@ -39,12 +48,6 @@ def test_route_after_evidence_checker():
     assert G.route_after_evidence_checker({"checker_verdict": {"decision": "request_more_research"}}) == "research"
     assert G.route_after_evidence_checker({"checker_verdict": {"decision": "proceed"}}) == "final_report"
     assert G.route_after_evidence_checker({}) == "final_report"
-
-
-def test_quick_mode_skips_double_check_by_default():
-    assert G.route_after_proposer({"mode": "full"}) == "critic"
-    assert G.route_after_proposer({"mode": "quick"}) == "judge"
-    assert G.route_after_judge({"mode": "quick", "verdict": {"decision": "proceed"}}) == "final_report"
 
 
 def test_guarded_route_goes_to_completion_on_error():

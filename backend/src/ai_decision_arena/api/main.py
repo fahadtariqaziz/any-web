@@ -174,7 +174,7 @@ def _counters(values: dict) -> Counters:
         research_passes=research_passes,
         debate_round=values.get("debate_round", 0),
         evidence=len(values.get("evidence", [])),
-        care_plans=len(values.get("care_plans", [])),
+        proposals=len(values.get("proposals", [])),
         claims_checked=len(values.get("verification_results", [])),
     )
 
@@ -357,12 +357,12 @@ def get_live(thread_id: str, request: Request):
         ),
         debate=DebateView(
             round=values.get("debate_round", 0),
-            care_plans=values.get("care_plans", []),
+            proposals=values.get("proposals", []),
             criticisms=values.get("criticisms", []),
             scores=values.get("scores", []),
             verdict=values.get("verdict") or None,
-            lane_status=values.get("proposer_lane_status", {}),
-            proposer_notes=values.get("proposer_notes", {}),
+            proposer_status=values.get("proposer_status", ""),
+            proposer_notes=values.get("proposer_notes", "") or "",
         ),
         verification=VerificationView(
             results=values.get("verification_results", []),

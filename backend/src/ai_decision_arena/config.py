@@ -32,18 +32,22 @@ load_dotenv(ENV_FILE, override=False)
 
 # Judge rubric: criterion -> weight. The descriptions are shown to the Judge verbatim.
 DEFAULT_RUBRIC = {
-    "fit_to_user": 0.30,
-    "safety": 0.25,
+    "requirements_alignment": 0.30,
+    "problem_relevance": 0.20,
     "evidence_quality": 0.20,
-    "practicality": 0.15,
+    "feasibility": 0.20,
     "completeness": 0.10,
 }
 RUBRIC_DESCRIPTIONS = {
-    "fit_to_user": "Matches THIS user's condition, profile, symptoms, goals and constraints (diet, budget, preferences).",
-    "safety": "Avoids harm: respects contraindications, interactions, red flags; never suggests stopping prescribed treatment.",
-    "evidence_quality": "Backed by relevant, strong, recent evidence (guidelines/trials > references > anecdotes), with few gaps.",
-    "practicality": "Realistic to follow day to day given the user's situation (effort, cost, access).",
-    "completeness": "Covers routine, diet, medications/treatments, expected timeline and prevalence/outlook.",
+    "requirements_alignment": "Matches THIS user's clarified requirements and constraints (audience, must-have features, "
+                              "platform, budget, timeline, technology preferences).",
+    "problem_relevance": "Addresses the underlying problem and the gaps users of existing alternatives complain about, "
+                         "instead of copying an existing app.",
+    "evidence_quality": "Backed by relevant, strong evidence (papers, official docs, maintained repositories, aggregated "
+                        "reviews > single anecdotes), with few gaps.",
+    "feasibility": "Buildable as a first version within the constraints: proven technologies, available APIs, manageable "
+                   "dependencies and risks.",
+    "completeness": "Covers users, MVP features, user journey, architecture, technologies, security / privacy and future scope.",
 }
 
 

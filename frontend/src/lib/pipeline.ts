@@ -13,12 +13,12 @@ export interface Stage {
 }
 
 export const STAGES: Stage[] = [
-  { id: "intake", label: "Intake", blurb: "Understanding your message" },
+  { id: "intake", label: "Intake", blurb: "Understanding your idea" },
   { id: "clarify", label: "Questions", blurb: "A few questions for you" },
   { id: "research", label: "Research", blurb: "Three domains of evidence" },
   { id: "debate", label: "Debate", blurb: "Propose, critique, judge" },
-  { id: "verify", label: "Verification", blurb: "Claims checked at source" },
-  { id: "report", label: "Report", blurb: "One plan per domain" },
+  { id: "verify", label: "Verification", blurb: "Winner's claims checked at source" },
+  { id: "report", label: "Report", blurb: "Winner, alternatives, open questions" },
 ];
 
 export interface NodeInfo {
@@ -33,15 +33,15 @@ export interface NodeInfo {
 export const NODE_INFO: Record<string, NodeInfo> = {
   intake: {
     label: "Intake",
-    headline: "Understanding your message",
-    doing: "Reading what you wrote and extracting the facts you stated: the condition, symptoms, current treatments, constraints, and any emergency warning signs.",
+    headline: "Understanding your idea",
+    doing: "Reading what you wrote and extracting the facts you stated: the idea, who it is for, the requested features, constraints, and any risky aspects.",
     expectedSeconds: 6,
     stage: "intake",
   },
   clarification: {
     label: "Clarification",
     headline: "Working out what to ask you",
-    doing: "Deciding which questions would change the research for your situation, and merging the answers you gave into your profile.",
+    doing: "Deciding which questions would change the research or the solution, and merging the answers you gave into the project facts.",
     expectedSeconds: 9,
     stage: "clarify",
   },
@@ -62,37 +62,37 @@ export const NODE_INFO: Record<string, NodeInfo> = {
   },
   proposer: {
     label: "Proposer",
-    headline: "Drafting care plans",
-    doing: "Each lane builds two or three care plans from its own evidence only, so the three domains stay distinct. Every plan covers routine, diet, treatments as reported, timeline and outlook.",
-    expectedSeconds: 22,
+    headline: "Designing solution proposals",
+    doing: "Designing two or three meaningfully different solutions from all the evidence: the problem addressed, first-version features, user journey, architecture, technologies, and how each beats the existing alternatives.",
+    expectedSeconds: 40,
     stage: "debate",
   },
   critic: {
     label: "Critic",
-    headline: "Challenging every plan",
-    doing: "Each plan is checked against all the evidence from the three lanes: missing considerations, safety issues, weak or outdated sources, and poor fit to your situation.",
-    expectedSeconds: 45,
+    headline: "Challenging every proposal",
+    doing: "Each proposal is checked against all the evidence and your requirements: unsupported claims, ignored constraints, copies of existing apps, feasibility, security and scope.",
+    expectedSeconds: 35,
     stage: "debate",
   },
   judge: {
     label: "Judge",
-    headline: "Scoring plans and picking winners",
-    doing: "Scoring every plan on the rubric (fit to you 30%, safety 25%, evidence quality 20%, practicality 15%, completeness 10%) and choosing one winner per lane. It may send the agents back for more research or ask you a question.",
-    expectedSeconds: 16,
+    headline: "Scoring proposals and picking the strongest",
+    doing: "Scoring every proposal on the rubric (requirements alignment 30%, problem relevance 20%, evidence quality 20%, feasibility 20%, completeness 10%) and choosing the winner. It may send the agents back for more research or ask you a question.",
+    expectedSeconds: 30,
     stage: "debate",
   },
   evidence_checker: {
     label: "Evidence check",
-    headline: "Verifying claims against their sources",
-    doing: "Re-reading the sources the three winning plans cite and marking each claim as verified, partially supported, unsupported or contradicted. Material gaps can trigger one focused research pass.",
+    headline: "Verifying the winner's claims against their sources",
+    doing: "Re-reading the sources the winning proposal cites and marking each claim as verified, partially supported, unsupported or contradicted. Material gaps can trigger one focused research pass.",
     expectedSeconds: 25,
     stage: "verify",
   },
   final_report: {
     label: "Report writer",
-    headline: "Writing your report",
-    doing: "Assembling the three winning plans with their scores and evidence, then writing the overview, where the domains agree and differ, the uncertainties and the next steps.",
-    expectedSeconds: 12,
+    headline: "Writing the summary",
+    doing: "Assembling the winning proposal, the alternatives, the scores and the verified evidence, then writing the overview, why this solution, the uncertainties and the next steps.",
+    expectedSeconds: 15,
     stage: "report",
   },
   completion: {
@@ -232,12 +232,12 @@ export function subProgress(lines: ProgressLine[], node: string | null): SubProg
   }
 
   if (["proposer", "critic", "judge", "evidence_checker"].includes(node)) {
-    const lanes = Object.fromEntries(DOMAINS.map((p) => [p, "working"])) as Record<Domain, LaneState>;
-    for (const p of DOMAINS) if (msgs.some((m) => m.startsWith(`${p} domain:`))) lanes[p] = "done";
-    const done = DOMAINS.filter((p) => lanes[p] === "done").length;
-    const decided = msgs.some((m) => m.startsWith("decision:"));
-    if (decided) return { summary: "Decision made", lanes, fraction: 1 };
-    return { summary: `${done} of 3 domains finished`, lanes, fraction: done / 3 };
+    if (msgs.some((m) => m.startsWith("decision:"))) return { summary: "Decision made", lanes: null, fraction: 1 };
+    const proposalLines = msgs.filter((m) => /^proposal_[a-c]:/.test(m)).length;
+    if (proposalLines > 0) return { summary: `${proposalLines} proposal${proposalLines === 1 ? "" : "s"} done`, lanes: null, fraction: Math.min(proposalLines / 3, 0.9) };
+    const designing = msgs.find((m) => /^\d+ proposal/.test(m));
+    if (designing) return { summary: designing, lanes: null, fraction: 1 };
+    return none;
   }
 
   return none;

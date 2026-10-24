@@ -39,7 +39,7 @@ LLM_USERS = [
     "ai_decision_arena.research.extractor",
 ]
 
-PLAN_ID_RE = re.compile(r'<plan id="([a-z]+_[a-c])"')
+PROPOSAL_ID_RE = re.compile(r'<proposal id="(proposal_[a-c])"')
 EVIDENCE_ID_RE = re.compile(r'<item id="(ev_\d+)"')
 SOURCE_RE = re.compile(r'<source index="(\d+)" type="([a-z_]+)" domain="([a-z]+)"')
 
@@ -124,72 +124,71 @@ def build_extraction(system: str, user: str) -> S.ExtractionResult:
     )
 
 
-def _plan(name: str, ids: list[str]) -> S.ProposedPlan:
-    return S.ProposedPlan(
-        name=name, summary="A plan.", daily_routine=["walk 30 min"], diet=["more vegetables"],
-        medications_treatments=[], expected_timeline="weeks", prevalence_and_outlook="common, manageable",
-        benefits=["simple"], drawbacks_risks=["slow"], assumptions=[], difficulty="low",
-        safety_notes="Discuss with your doctor.", supporting_evidence_ids=ids, evidence_gaps=[],
+def _solution(name: str, ids: list[str]) -> S.ProposedSolution:
+    return S.ProposedSolution(
+        name=name, summary="A solution.", problem_addressed="Students lose track of their habits.", target_users="students",
+        core_features=["track habits", "daily reminder"], future_features=["sharing"], user_journey=["open the app", "tick a habit"],
+        architecture=S.ArchitectureSketch(frontend="Next.js", backend="none (static)", database="localStorage",
+                                          external_services=[], ai_components="none"),
+        technologies=["Next.js (user prefers it)"], how_it_beats_alternatives="Works offline.", benefits=["simple"],
+        drawbacks_risks=["no sync"], assumptions=[], difficulty="low", feasibility_notes="Feasible.",
+        security_privacy_notes="none needed", supporting_evidence_ids=ids, evidence_gaps=[],
     )
 
 
 def build_proposer(system: str, user: str) -> S.ProposerOutput:
     ids = EVIDENCE_ID_RE.findall(user)
     if not ids:
-        return S.ProposerOutput(plans=[], why_fewer_than_two="no evidence", evidence_too_thin=True)
-    plans = [_plan("Plan A", ids[:1]), _plan("Plan B", ids[:1])]
+        return S.ProposerOutput(proposals=[], why_fewer_than_two="no evidence", evidence_too_thin=True)
+    proposals = [_solution("Lean first version", ids[:1]), _solution("Differentiated product", ids[:1])]
     if "QUICK SESSION" in system:
-        plans = plans[:1]
-    return S.ProposerOutput(plans=plans, why_fewer_than_two="quick session" if len(plans) < 2 else "", evidence_too_thin=False)
+        proposals = proposals[:1]
+    return S.ProposerOutput(proposals=proposals, why_fewer_than_two="quick session" if len(proposals) < 2 else "",
+                            evidence_too_thin=False)
 
 
-def build_critic(system: str, user: str) -> S.CriticOutput:
-    return S.CriticOutput(criticisms=[
-        S.Criticism(
-            plan_id=pid,
-            points=[S.CriticismPoint(category="missing_consideration", issue="No monitoring step.", severity="low",
-                                     basis="clinical_reasoning", is_verified_problem=False, evidence_ids=[],
-                                     suggested_improvement="Add monitoring.")],
-            overall_assessment="Reasonable.",
-        )
-        for pid in PLAN_ID_RE.findall(user)
-    ])
-
-
-def build_judgement(system: str, user: str) -> S.DomainJudgement:
-    criteria = list(get_settings().rubric_weights)
-    scores = []
-    for i, pid in enumerate(PLAN_ID_RE.findall(user)):
-        value = 8.0 if i == 0 else 6.0          # the first plan of each domain wins, deterministically
-        scores.append(S.PlanScore(
-            plan_id=pid,
-            criterion_scores=[S.CriterionScore(criterion=c, score=value, explanation="test") for c in criteria],
-            key_benefits=["simple"], key_drawbacks=["slow"], confidence="medium", confidence_reason="test",
-            supporting_evidence_ids=[], remaining_risks=[],
-        ))
-    return S.DomainJudgement(
-        reasoning="Plan A is better supported.", scores=scores, comparison="A over B.",
-        evidence_sufficient=True, insufficiency_reason="", required_evidence=[], clarification_questions=[],
+def build_critic(system: str, user: str) -> S.Criticism:
+    ids = PROPOSAL_ID_RE.findall(user)
+    return S.Criticism(
+        proposal_id=ids[0] if ids else "proposal_a",
+        points=[S.CriticismPoint(category="missing_consideration", issue="No onboarding step.", severity="low",
+                                 basis="engineering_judgement", is_verified_problem=False, evidence_ids=[],
+                                 suggested_improvement="Add a first-run guide.")],
+        overall_assessment="Reasonable.",
     )
 
 
-def build_verification(system: str, user: str) -> S.PlanVerification:
+def build_judgement(system: str, user: str) -> S.ProposalJudgement:
+    criteria = list(get_settings().rubric_weights)
+    scores = []
+    for i, pid in enumerate(PROPOSAL_ID_RE.findall(user)):
+        value = 8.0 if i == 0 else 6.0          # the first proposal wins, deterministically
+        scores.append(S.ProposalScore(
+            proposal_id=pid,
+            criterion_scores=[S.CriterionScore(criterion=c, score=value, explanation="test") for c in criteria],
+            key_benefits=["simple"], key_drawbacks=["no sync"], confidence="medium", confidence_reason="test",
+            supporting_evidence_ids=[], remaining_risks=[],
+        ))
+    return S.ProposalJudgement(
+        reasoning="Proposal A is better supported.", scores=scores, comparison="A over B.",
+        evidence_sufficient=True, insufficiency_reason="", required_evidence=[],
+        domain_coverage=[S.DomainCoverage(domain=d, status="sufficient", note="covered") for d in S.DOMAINS],
+        material_contradictions=[], clarification_questions=[],
+    )
+
+
+def build_verification(system: str, user: str) -> S.ProposalVerification:
     cited = EVIDENCE_ID_RE.findall(tag("cited_evidence", user))
-    return S.PlanVerification(
-        claims=[S.ClaimCheck(claim="Walking helps.", evidence_ids=cited[:1], status="verified" if cited else "unavailable",
-                             notes="test", is_anecdotal=False, is_material=False)],
+    return S.ProposalVerification(
+        claims=[S.ClaimCheck(claim="Users complain about sync.", evidence_ids=cited[:1],
+                             status="verified" if cited else "unavailable", notes="test", is_anecdotal=False, is_material=False)],
         overall="Well supported.", material_gaps=[],
     )
 
 
 def build_narrative(system: str, user: str) -> S.ReportNarrative:
-    return S.ReportNarrative(overview="Overview.", where_perspectives_agree=["walking"], where_perspectives_differ=[],
-                             key_uncertainties=[], next_steps=["Ask your doctor about monitoring."])
-
-
-def build_summary(system: str, user: str) -> S.OnboardingSummary:
-    return S.OnboardingSummary(opening="Hi.", doctors_say="- walk", patients_say="- walk", research_says="- walk",
-                               invitation="Ask me anything.")
+    return S.ReportNarrative(overview="Overview.", why_this_solution=["works offline"], key_uncertainties=[],
+                             next_steps=["Confirm the platform."])
 
 
 DEFAULT_BUILDERS = {
@@ -198,11 +197,10 @@ DEFAULT_BUILDERS = {
     S.ResearchPlan: build_research_plan,
     S.ExtractionResult: build_extraction,
     S.ProposerOutput: build_proposer,
-    S.CriticOutput: build_critic,
-    S.DomainJudgement: build_judgement,
-    S.PlanVerification: build_verification,
+    S.Criticism: build_critic,
+    S.ProposalJudgement: build_judgement,
+    S.ProposalVerification: build_verification,
     S.ReportNarrative: build_narrative,
-    S.OnboardingSummary: build_summary,
 }
 
 

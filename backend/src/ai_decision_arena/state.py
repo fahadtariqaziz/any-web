@@ -60,22 +60,21 @@ class ArenaState(TypedDict, total=False):
                                          # sends the graph back (judge / evidence_checker), cleared by research
 
     # --- debate ------------------------------------------- (proposer/critic/judge)
-    care_plans: list[dict]               # CarePlan, 2-3 per domain      (proposer)
-    proposer_notes: dict[str, str]       # domain -> why fewer than 2 plans (proposer)
-    proposer_lane_status: dict[str, str]  # domain -> ok | thin | declined | no_evidence (proposer)
-    criticisms: list[dict]               # Criticism, one per plan            (critic)
-    scores: list[dict]                   # PlanScore, one per plan            (judge)
-    verdict: dict                        # Verdict                            (judge)
+    proposals: list[dict]                # SolutionProposal, 2-3 per round        (proposer)
+    proposer_notes: str                  # why fewer than 2 proposals             (proposer)
+    proposer_status: str                 # ok | thin | declined | no_evidence     (proposer)
+    criticisms: list[dict]               # Criticism, one per proposal            (critic)
+    scores: list[dict]                   # ProposalScore, one per proposal        (judge)
+    verdict: dict                        # Verdict                                (judge)
     debate_round: int                    # +1 each time the proposer starts a new round
 
     # --- verification ------------------------------------------ (evidence_checker)
-    verification_results: list[dict]     # ClaimVerification for the current winning plans
-    checker_verdict: dict                # {decision, reason, gaps_by_lane, summaries}
+    verification_results: list[dict]     # ClaimVerification for the winning proposal
+    checker_verdict: dict                # {decision, reason, material_gaps, summary, claims_checked}
     # (evidence[].verification_status is also written here)
 
     # --- output ------------------------------------------- (final_report/completion)
-    final_report: dict                   # FinalReport
-    onboarding_summary: dict             # OnboardingSummary, quick mode only: the chat's first answer (final_report)
+    final_report: dict                   # FinalReport (interim; the problem brief replaces it in M4)
     unresolved_questions: list[str]      # appended by evidence_checker, finalized by final_report
     completed_at: str
     metrics: dict                        # durations, rounds, counts (completion)

@@ -48,7 +48,7 @@ export function DecisionView() {
 
   const activity = useMemo(() => (status ? deriveActivity(status) : null), [status]);
   const version = status
-    ? `${status.run_state}|${activity?.finishedCount ?? 0}|${status.pending?.type ?? ""}|${status.counters.care_plans}|${status.counters.evidence}|${status.counters.claims_checked}`
+    ? `${status.run_state}|${activity?.finishedCount ?? 0}|${status.pending?.type ?? ""}|${status.counters.proposals}|${status.counters.evidence}|${status.counters.claims_checked}`
     : "";
   const { data: live } = useLive(threadId, version, !!status);
   const finishedWithReport = status?.run_state === "finished" && status.has_report;
@@ -128,7 +128,7 @@ export function DecisionView() {
     );
   }
 
-  const planCount = live?.debate.care_plans.length ?? status.counters.care_plans;
+  const planCount = live?.debate.proposals.length ?? status.counters.proposals;
   const evidenceCount = status.counters.evidence;
 
   return (
