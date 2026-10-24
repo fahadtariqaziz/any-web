@@ -4,7 +4,7 @@ FastAPI validates every request body against these BEFORE our code runs: a malfo
 422 with a clear message, and the Swagger page (/docs) shows each model with its fields.
 
 The resume body is a "discriminated union": the `type` field says which pause you are answering,
-and FastAPI picks the matching model (ClarificationResume, BriefReviewResume, ContinueResume) to validate the rest.
+and FastAPI picks the matching model (ClarificationResume, BriefReviewResume, PlanReviewResume, ContinueResume).
 """
 
 from typing import Annotated, Any, Literal
@@ -18,6 +18,7 @@ from ai_decision_arena.schemas import (
     Evidence,
     BriefValidation,
     FinalReport,
+    ImplementationPlan,
     ProblemBrief,
     ProposalScore,
     SolutionProposal,
@@ -30,7 +31,7 @@ from ai_decision_arena.schemas import (
 # interrupted the run stopped mid-way (server restart, crash); POST /resume {"type": "continue"} picks it up
 # finished    the graph reached END (completed or failed: see workflow_status)
 RunState = Literal["running", "paused", "interrupted", "finished"]
-PauseType = Literal["clarification", "brief_review"]
+PauseType = Literal["clarification", "brief_review", "plan_review"]
 
 
 # --- requests ----------------------------------------------------------------------------------
@@ -61,6 +62,14 @@ class BriefReviewResume(BaseModel):
     target: Literal["auto", "requirements", "research", "proposal", "wording"] = "auto"
 
 
+class PlanReviewResume(BaseModel):
+    """Approve the implementation plan, or ask for changes (feedback required; refused after max_plan_revisions)."""
+
+    type: Literal["plan_review"]
+    action: Literal["approve", "request_changes"]
+    feedback: str = Field(default="", max_length=4000)
+
+
 class ContinueResume(BaseModel):
     """Restart an interrupted run from its last checkpoint (like run_graph.py --resume)."""
 
@@ -68,7 +77,7 @@ class ContinueResume(BaseModel):
 
 
 ResumeRequest = Annotated[
-    ClarificationResume | BriefReviewResume | ContinueResume,
+    ClarificationResume | BriefReviewResume | PlanReviewResume | ContinueResume,
     Field(discriminator="type"),
 ]
 
@@ -122,6 +131,7 @@ class DecisionStatus(BaseModel):
     error: ErrorInfo | None = Field(default=None, description="The graph's stored error, or a crash of the background run.")
     has_report: bool = False
     has_brief: bool = Field(default=False, description="True once a validated brief exists (GET /brief).")
+    has_plan: bool = Field(default=False, description="True once the planner wrote a plan (GET /plan).")
     # Pipeline view (9.3): where the graph is, independent of the in-memory progress lines.
     current_node: str | None = Field(default=None, description="Last node that finished (written by the node itself).")
     next_nodes: list[str] = Field(default_factory=list,
@@ -147,6 +157,19 @@ class BriefResponse(BaseModel):
     validation: BriefValidation
     approved_at: str | None = Field(default=None, description="Set once the user approved exactly this brief.")
     review_round: int = Field(default=0, description="Change requests made so far.")
+
+
+class PlanResponse(BaseModel):
+    """The implementation plan (spec §7), readable from the plan review pause on."""
+
+    thread_id: str
+    workflow_status: str | None = None
+    plan: ImplementationPlan
+    markdown: str
+    revision: int = 0
+    model: str = Field(default="", description="Model that wrote it (after the availability check).")
+    approved_at: str | None = Field(default=None, description="Set once the user approved exactly this plan.")
+    tasks: list[dict[str, Any]] = Field(default_factory=list, description="The implementer's work list.")
 
 
 class ArtifactView(BaseModel):

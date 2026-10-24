@@ -38,6 +38,7 @@ LLM_USERS = [
     "ai_decision_arena.nodes.brief_writer",
     "ai_decision_arena.nodes.brief_validator",
     "ai_decision_arena.nodes.brief_review",
+    "ai_decision_arena.nodes.planner",
     "ai_decision_arena.research.planner",
     "ai_decision_arena.research.extractor",
 ]
@@ -251,6 +252,30 @@ def build_brief_review(system: str, user: str) -> S.BriefReview:
     )
 
 
+def build_plan(system: str, user: str) -> S.ImplementationPlan:
+    """A small valid plan covering the MVP features listed in <mvp_features>."""
+    import json as _json
+    mvp = _json.loads(tag("mvp_features", user) or "[]")
+    return S.ImplementationPlan(
+        summary="A static habit tracker.", tech_stack=["Vite (fast dev server)"], project_structure=["src/main.js: entry"],
+        dependencies=["vitest: tests"], architecture="One page, local storage.", data_model="localStorage: habits[]",
+        api_endpoints=[], frontend_components=["HabitList: shows habits"], backend_services=[], integrations=[],
+        ai_components="none",
+        phases=[S.PlanPhase(id="P1", name="Setup", goal="Project runs."), S.PlanPhase(id="P2", name="Features", goal="MVP works.")],
+        tasks=[
+            S.PlanTask(id="T1", phase="P1", title="Scaffold the project", description="Vite + vitest.", depends_on=[],
+                       files=["package.json", "src/main.js"], acceptance_criteria=["npm test passes"], verify_commands=["npm test"]),
+            S.PlanTask(id="T2", phase="P2", title="Habit tracking", description="Add and tick habits.", depends_on=["T1"],
+                       files=["src/habits.js"], acceptance_criteria=["ticking updates streak"],
+                       verify_commands=["npx vitest run tests/habits.test.js"]),
+        ],
+        feature_coverage=[S.FeatureCoverage(feature=f, task_ids=["T2"]) for f in mvp],
+        testing_strategy=["unit tests with vitest"],
+        commands=S.PlanCommands(install=["npm install"], test=["npm test"], build=["npm run build"], dev="npm run dev"),
+        risks_and_decisions=["localStorage can be cleared"],
+    )
+
+
 DEFAULT_BUILDERS = {
     S.IntakeResult: build_intake,
     S.ClarificationResult: build_clarification,
@@ -265,6 +290,7 @@ DEFAULT_BUILDERS = {
     S.BriefPartTwo: lambda system, user: S.BriefPartTwo(**build_brief(system, user).model_dump(include=set(S.BriefPartTwo.model_fields))),
     S.BriefPartThree: lambda system, user: S.BriefPartThree(**build_brief(system, user).model_dump(include=set(S.BriefPartThree.model_fields))),
     S.BriefReview: build_brief_review,
+    S.ImplementationPlan: build_plan,
     S.FeedbackRouting: lambda system, user: S.FeedbackRouting(reasoning="test", target="wording"),
 }
 
@@ -275,12 +301,18 @@ class FakeLLM:
     def __init__(self):
         self.calls: list[tuple[str, str | None]] = []
         self.overrides: dict[type, object] = {}
+        self.kwargs: list[dict] = []
 
-    def __call__(self, schema, system_prompt, user_content, *, max_tokens=None, run_name=None):
+    def __call__(self, schema, system_prompt, user_content, *, max_tokens=None, run_name=None, model=None,
+                 effort=None, timeout=None):
         self.calls.append((schema.__name__, run_name))
-        builder = self.overrides.get(schema) or DEFAULT_BUILDERS[schema]
+        self.kwargs.append({"schema": schema, "model": model, "effort": effort, "timeout": timeout})
+        # A runtime subclass (e.g. plan.plan_schema_for) uses its base class's builder, then its own validators run.
+        base = next(c for c in schema.__mro__ if c in self.overrides or c in DEFAULT_BUILDERS)
+        builder = self.overrides.get(base) or DEFAULT_BUILDERS[base]
         result = builder(system_prompt, user_content)
-        assert isinstance(result, schema), f"builder for {schema.__name__} returned {type(result).__name__}"
+        if not isinstance(result, schema):
+            result = schema.model_validate(result.model_dump())
         return result
 
     def count(self, schema_name: str) -> int:
@@ -289,7 +321,7 @@ class FakeLLM:
 
 def finish_session(graph, config, answer: str = "x", review: dict | None = None, max_pauses: int = 12) -> dict:
     """Drive a paused session to the end: answer every clarification round with `answer`, reply to every brief review
-    with `review` (default: approve). Returns the final state values."""
+    with `review` (default: approve), approve every plan. Returns the final state values."""
     from langgraph.types import Command
     for _ in range(max_pauses):
         snapshot = graph.get_state(config)
@@ -298,6 +330,8 @@ def finish_session(graph, config, answer: str = "x", review: dict | None = None,
         payload = snapshot.interrupts[0].value
         if payload["type"] == "clarification":
             reply = {"answers": {q: answer for q in payload["questions"]}}
+        elif payload["type"] == "plan_review":
+            reply = {"action": "approve"}
         else:
             reply = review or {"action": "approve"}
         graph.invoke(Command(resume=reply), config)
@@ -311,6 +345,8 @@ def fake_llm(monkeypatch) -> FakeLLM:
     fake = FakeLLM()
     for module in LLM_USERS:
         monkeypatch.setattr(f"{module}.call_structured", fake)
+    # The planner checks its model against GET /v1/models: no network in tests.
+    monkeypatch.setattr("ai_decision_arena.nodes.planner.resolve_model", lambda wanted: (wanted, ""))
     return fake
 
 

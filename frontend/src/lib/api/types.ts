@@ -6,7 +6,7 @@
 /** What the HTTP layer knows about a session (not the graph's own status). */
 export type RunState = "running" | "paused" | "interrupted" | "finished";
 
-export type PauseType = "clarification" | "brief_review";
+export type PauseType = "clarification" | "brief_review" | "plan_review";
 
 export interface ProgressLine {
   at: string; // ISO time
@@ -43,10 +43,24 @@ export interface BriefReviewPayload {
   error?: string;
 }
 
+/** The implementation plan, waiting for the user's approval or change request (spec §7). */
+export interface PlanReviewPayload {
+  type: "plan_review";
+  plan_markdown: string;
+  plan: ImplementationPlan;
+  round: number; // plan version
+  max_revisions: number;
+  changes_allowed: boolean; // false once max_revisions rewrites were made: approve only
+  model: string; // model that wrote the plan
+  task_count: number;
+  error?: string;
+}
+
 /** `type` tells which payload it is (TypeScript narrows on it: if (p.type === "clarification") ...). */
 export type PendingPause =
   | { type: "clarification"; payload: ClarificationPayload }
-  | { type: "brief_review"; payload: BriefReviewPayload };
+  | { type: "brief_review"; payload: BriefReviewPayload }
+  | { type: "plan_review"; payload: PlanReviewPayload };
 
 export interface ErrorInfo {
   code: string;
@@ -75,6 +89,7 @@ export interface DecisionStatus {
   error: ErrorInfo | null;
   has_report: boolean;
   has_brief: boolean; // a validated problem brief exists (GET /brief)
+  has_plan: boolean; // the planner wrote a plan (GET /plan)
   current_node: string | null; // last node that finished
   next_nodes: string[]; // while running, [0] is the node in progress
   started_at: string | null;
@@ -223,6 +238,7 @@ export interface CreateDecisionRequest {
 export type ResumeRequest =
   | { type: "clarification"; answers: Record<string, string> } // exact question text -> answer
   | { type: "brief_review"; action: "approve" | "request_changes"; feedback?: string; target?: ReviewTarget }
+  | { type: "plan_review"; action: "approve" | "request_changes"; feedback?: string }
   | { type: "continue" };
 
 // --- evidence (GET /evidence) --------------------------------------------------------------------
@@ -488,6 +504,60 @@ export interface BriefResponse {
   validation: BriefValidation;
   approved_at: string | null; // set once the user approved exactly this brief
   review_round: number; // change requests so far
+}
+
+// --- implementation plan (GET /api/decisions/{id}/plan) ------------------------------------------
+
+export interface PlanTask {
+  id: string; // T1, T2, ...
+  phase: string;
+  title: string;
+  description: string;
+  depends_on: string[];
+  files: string[];
+  acceptance_criteria: string[];
+  verify_commands: string[];
+}
+
+export interface ImplementationPlan {
+  summary: string;
+  tech_stack: string[];
+  project_structure: string[];
+  dependencies: string[];
+  architecture: string;
+  data_model: string;
+  api_endpoints: string[];
+  frontend_components: string[];
+  backend_services: string[];
+  integrations: string[];
+  ai_components: string;
+  phases: { id: string; name: string; goal: string }[];
+  tasks: PlanTask[];
+  feature_coverage: { feature: string; task_ids: string[] }[];
+  testing_strategy: string[];
+  commands: { install: string[]; test: string[]; build: string[]; dev: string };
+  risks_and_decisions: string[];
+}
+
+export interface ImplementationTask {
+  id: string;
+  title: string;
+  phase: string;
+  depends_on: string[];
+  status: string; // pending | ... (the implementer updates it, M8)
+  attempts: number;
+  result: unknown;
+}
+
+export interface PlanResponse {
+  thread_id: string;
+  workflow_status: string | null;
+  plan: ImplementationPlan;
+  markdown: string;
+  revision: number;
+  model: string;
+  approved_at: string | null; // set once the user approved exactly this plan
+  tasks: ImplementationTask[];
 }
 
 // --- approved versions (GET /artifacts) -----------------------------------------------------------

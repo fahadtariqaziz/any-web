@@ -34,7 +34,7 @@ def reply(graph, thread_id: str, **body) -> tuple[dict, object]:
 def test_route_after_brief_review():
     md = "# brief"
     approved = {"brief_review_route": "approved", "brief_markdown": md, "brief_approved_at": "now", "brief_approved_hash": brief_hash(md)}
-    assert G.route_after_brief_review(approved) == "completion"
+    assert G.route_after_brief_review(approved) == "planner"
     assert G.route_after_brief_review(approved | {"brief_markdown": "# edited"}) == "await_brief_review"   # hash guard
     assert G.route_after_brief_review(approved | {"brief_approved_at": None}) == "await_brief_review"
     for route, node in (("wording", "brief_writer"), ("requirements", "clarification"), ("research", "research"), ("proposal", "proposer")):
@@ -46,7 +46,7 @@ def test_approval_matches_exactly_the_reviewed_brief(graph, fake_llm, fake_searc
     payload = to_review(graph, "approve")
     assert payload["validation_summary"]["checks_total"] > 0 and payload["wording_only"] is False
     state, snapshot = reply(graph, "approve", action="approve")
-    assert snapshot.next == () and state["status"] == "completed"
+    assert snapshot.next == ("await_plan_review",) and state["status"] == "awaiting_plan_review"   # → the planner ran
     assert state["brief_approved_hash"] == brief_hash(payload["brief_markdown"]) and brief_is_approved(state)
     assert state["brief_feedback"][-1]["action"] == "approve" and state["brief_review_round_count"] == 0
     assert not brief_is_approved(state | {"brief_markdown": state["brief_markdown"] + " "})
@@ -141,7 +141,7 @@ def test_round_cap_accepts_only_wording(graph, fake_llm, fake_search, monkeypatc
     assert fake_llm.count("FeedbackRouting") == routed_before          # auto became wording without an LLM call
     assert state["brief_feedback"][-1]["target"] == "wording" and snapshot.next == ("await_brief_review",)
     state, snapshot = reply(graph, "cap", action="approve")
-    assert snapshot.next == () and state["status"] == "completed" and state["brief_review_round_count"] == 2
+    assert snapshot.next == ("await_plan_review",) and state["brief_review_round_count"] == 2
 
 
 def test_approved_brief_is_saved_as_an_artifact(graph, fake_llm, fake_search, monkeypatch):

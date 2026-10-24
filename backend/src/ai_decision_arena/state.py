@@ -92,6 +92,18 @@ class ArenaState(TypedDict, total=False):
     brief_review_route: str              # approved | wording | requirements | research | proposal              (brief_review_router)
     brief_approved_at: str | None        # ISO time of the approval                                             (brief_review_router)
     brief_approved_hash: str | None      # sha256 of the approved brief_markdown: a later edit invalidates it    (brief_review_router)
+
+    # --- implementation plan ------------------------------- (planner / await_plan_review / plan_review_router)
+    implementation_plan: dict            # ImplementationPlan                                                    (planner)
+    plan_markdown: str                   # rendered plan                                                         (planner)
+    plan_revision_count: int             # rewrites asked by the user                                            (planner)
+    implementation_tasks: list[dict]     # {id, title, phase, depends_on, status, attempts, result}: the coder's work list
+                                         #   (planner creates it; the implementer updates it, M8)
+    models_used: dict[str, str]          # node -> model actually used (after the availability check)            (planner)
+    plan_feedback: list[dict]            # {round, action, feedback, at} per review reply                        (await_plan_review)
+    plan_review_route: str               # approved | changes                                                    (plan_review_router)
+    plan_approved_at: str | None         #                                                                       (plan_review_router)
+    plan_approved_hash: str | None       # sha256 of the approved plan_markdown                                  (plan_review_router)
     completed_at: str
     metrics: dict                        # durations, rounds, counts (completion)
 

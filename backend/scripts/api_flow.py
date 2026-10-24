@@ -6,7 +6,7 @@ Start the server first (another terminal, backend/ folder):
 Then:
     uv run python scripts/api_flow.py                                   # "A simple calculator web app", you answer
     uv run python scripts/api_flow.py "A booking site for a small yoga studio"
-    uv run python scripts/api_flow.py --auto                            # skip questions, approve the brief
+    uv run python scripts/api_flow.py --auto                            # skip questions, approve the brief and the plan
     uv run python scripts/api_flow.py --thread <thread_id>              # pick up an existing session
 """
 
@@ -18,7 +18,7 @@ import httpx
 
 parser = argparse.ArgumentParser()
 parser.add_argument("question", nargs="*")
-parser.add_argument("--auto", action="store_true", help="no typing: skip all questions and approve the brief")
+parser.add_argument("--auto", action="store_true", help="no typing: skip all questions, approve the brief and the plan")
 parser.add_argument("--thread", help="existing thread_id instead of starting a new session")
 parser.add_argument("--base", default="http://localhost:8001")
 args = parser.parse_args()
@@ -52,6 +52,8 @@ def answer(pending: dict) -> dict:
         print(f"⚠️  {payload['error']}")
     if pending["type"] == "brief_review":
         return review(payload)
+    if pending["type"] == "plan_review":
+        return review_plan(payload)
     print(f"\n🤔 Clarification round {payload['round']} (Enter = skip)")
     answers = {} if args.auto else {q: input(f"{q}\n> ") for q in payload["questions"]}
     return {"type": "clarification", "answers": answers}
@@ -71,6 +73,19 @@ def review(payload: dict) -> dict:
         return {"type": "brief_review", "action": "approve"}
     target = input("Where should it go? [auto] / requirements / research / proposal / wording\n> ").strip() or "auto"
     return {"type": "brief_review", "action": "request_changes", "feedback": feedback, "target": target}
+
+
+def review_plan(payload: dict) -> dict:
+    print("\n" + "=" * 80 + "\n" + payload["plan_markdown"] + "=" * 80)
+    print(f"🛠  Plan review, version {payload['round']}: {payload['task_count']} tasks, written by {payload['model']}"
+          + ("" if payload["changes_allowed"] else " · changes no longer possible, approve to continue"))
+    if args.auto:
+        print("   --auto: approving")
+        return {"type": "plan_review", "action": "approve"}
+    feedback = input("Press Enter to APPROVE the plan, or type the change you want:\n> ").strip()
+    if not feedback:
+        return {"type": "plan_review", "action": "approve"}
+    return {"type": "plan_review", "action": "request_changes", "feedback": feedback}
 
 
 if args.thread:
@@ -109,6 +124,10 @@ brief = api.get(f"{P}/{thread_id}/brief")
 if brief.status_code == 200:
     b = brief.json()
     print(f"\n📄 brief draft {b['brief']['revision'] + 1}, approved at {b['approved_at']}, {b['review_round']} change request(s)")
+plan = api.get(f"{P}/{thread_id}/plan")
+if plan.status_code == 200:
+    pl = plan.json()
+    print(f"🛠  plan version {pl['revision'] + 1} by {pl['model']}: {len(pl['tasks'])} tasks, approved at {pl['approved_at']}")
 artifacts = api.get(f"{P}/{thread_id}/artifacts")
 if artifacts.status_code == 200:
     print(f"🗂  artifacts: {[(a['kind'], a['version'], a['content_hash'][:10]) for a in artifacts.json()['artifacts']]}")

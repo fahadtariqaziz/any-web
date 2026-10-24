@@ -35,6 +35,8 @@ WorkflowStatus = Literal[
     "writing_brief",
     "validating_brief",
     "awaiting_brief_review",
+    "planning",
+    "awaiting_plan_review",
     "completed",
     "completed_with_uncertainty",
     "failed",
@@ -1009,6 +1011,178 @@ class FeedbackRouting(BaseModel):
                     "itself should change (different approach, architecture, feature set); wording = the content is right "
                     "but the text should be clearer, shorter, reordered, or a detail added or removed."
     )
+
+
+# ---------------------------------------------------------------------------
+# Implementation plan (spec §7): written by the planner (Opus) from the APPROVED brief
+# ---------------------------------------------------------------------------
+
+TASK_ID_PATTERN = r"^T\d{1,2}$"                         # T1 ... T99
+MAX_PLAN_TASKS = 40
+
+# What the sandbox (M7) will run: commands are argv lists, never shell strings. Python checks every command of the
+# plan against this BEFORE approval; the sandbox enforces it again at run time.
+ALLOWED_EXECUTABLES = ("npm", "npx", "pnpm", "node", "python", "python3", "uv", "pip", "pytest", "git", "ls", "cat",
+                       "mkdir", "cp", "mv", "rm")
+FORBIDDEN_COMMANDS = (("git", "push"), ("git", "remote"), ("npm", "publish"), ("pnpm", "publish"), ("npm", "login"),
+                      ("pip", "upload"), ("uv", "publish"))
+SHELL_METACHARACTERS = ("&&", "||", ";", "|", ">", "<", "`", "$(", "${", "&")
+
+
+def command_problems(command: str) -> list[str]:
+    """Why a plan command would be refused (empty list = allowed). Pure Python, shared with the sandbox."""
+    import shlex
+
+    problems: list[str] = []
+    if any(m in command for m in SHELL_METACHARACTERS):
+        problems.append(f"{command!r}: shell operators are not allowed (one plain command per entry)")
+    try:
+        argv = shlex.split(command)
+    except ValueError as exc:
+        return problems + [f"{command!r}: cannot be parsed ({exc})"]
+    if not argv:
+        return problems + ["empty command"]
+    if argv[0] not in ALLOWED_EXECUTABLES:
+        problems.append(f"{command!r}: '{argv[0]}' is not an allowed executable ({', '.join(ALLOWED_EXECUTABLES)})")
+    if any(tuple(argv[:2]) == f for f in FORBIDDEN_COMMANDS):
+        problems.append(f"{command!r}: publishing or pushing is not allowed")
+    for arg in argv[1:]:
+        if arg.startswith(("/", "~")) or ".." in arg.split("/"):
+            problems.append(f"{command!r}: paths must stay inside the project (no absolute paths, '~' or '..')")
+            break
+    if argv[0] == "rm" and any(a in ("-rf", "-fr", "-r", "-R") for a in argv[1:]) and any(a in (".", "*", "./") for a in argv[1:]):
+        problems.append(f"{command!r}: deleting the whole project is not allowed")
+    return problems
+
+
+def path_problems(path: str) -> list[str]:
+    if not path.strip() or path.startswith(("/", "~")) or ".." in path.split("/") or "\\" in path:
+        return [f"file {path!r}: must be a relative path inside the project (no '/', '~', '..' or backslashes)"]
+    return []
+
+
+class PlanPhase(BaseModel):
+    id: str = Field(description='Short id, e.g. "P1".')
+    name: str = Field(description='E.g. "Project setup", "Calculation engine", "UI", "Offline and release".')
+    goal: str = Field(description="What is true when the phase is done, one sentence.")
+
+
+class PlanTask(BaseModel):
+    """One step for the coding agent: small enough to implement and verify in one go."""
+
+    id: str = Field(description='"T1", "T2", ... in execution order.')
+    phase: str = Field(description="Id of its phase.")
+    title: str = Field(description="Imperative, e.g. 'Implement the tokenizer and shunting-yard evaluator'.")
+    description: str = Field(description="What to build and how, 2-5 sentences: modules, functions, data, edge cases. "
+                                         "Enough that the coder makes no architectural decision.")
+    depends_on: list[str] = Field(description="Ids of tasks that must be done first. Empty list if none.")
+    files: list[str] = Field(description="Relative paths it creates or changes, e.g. 'src/engine.js'.")
+    acceptance_criteria: list[str] = Field(description="Checkable outcomes, 1-4 items.")
+    verify_commands: list[str] = Field(description="Commands that prove it works, run from the project root, e.g. "
+                                                   "'npm test -- engine', 'node --test tests/engine.test.js'. 1-3 items, "
+                                                   "each ONE plain command (no &&, pipes or redirects).")
+
+
+class FeatureCoverage(BaseModel):
+    feature: str = Field(description="An MVP feature of the approved brief, copied as written.")
+    task_ids: list[str] = Field(description="The tasks that implement it.")
+
+
+class PlanCommands(BaseModel):
+    """How the build check (M9) installs, tests, builds and previews the generated app."""
+
+    install: list[str] = Field(description="E.g. ['npm install']. Empty list if nothing to install.")
+    test: list[str] = Field(description="E.g. ['npm test']. At least one.")
+    build: list[str] = Field(description="E.g. ['npm run build']. Empty list if there is no build step.")
+    dev: str = Field(description="Command that starts the dev server; it must listen on the port in the PORT "
+                                 "environment variable, e.g. 'npm run dev'.")
+
+
+class ImplementationPlan(BaseModel):
+    """LLM output of the Planner: a Claude-Code-style plan from the approved brief. Python checks ids, the dependency
+    graph, files and commands (validators below: call_structured retries with the exact problem)."""
+
+    summary: str = Field(description="What will be built and how, 2-4 sentences, consistent with the approved brief.")
+    tech_stack: list[str] = Field(description="Each choice with its reason, e.g. 'Vite (fast dev server, no framework needed)'.")
+    project_structure: list[str] = Field(description="Main files and folders, each 'path: purpose'.")
+    dependencies: list[str] = Field(description="Packages with purpose, e.g. 'vitest: unit tests'. Empty list if none.")
+    architecture: str = Field(description="Components, responsibilities and data flow, 3-6 sentences.")
+    data_model: str = Field(description="Database / storage design (tables, keys, local storage shape), or 'none'.")
+    api_endpoints: list[str] = Field(description="'METHOD /path: purpose'. Empty list if there is no backend API.")
+    frontend_components: list[str] = Field(description="'Name: responsibility'. Empty list if there is no UI.")
+    backend_services: list[str] = Field(description="'Name: responsibility'. Empty list if there is no backend.")
+    integrations: list[str] = Field(description="External services and how they are used. Empty list if none.")
+    ai_components: str = Field(description="Models, agents or tools the app itself uses, ONLY if the brief needs them; "
+                                           "otherwise 'none'.")
+    phases: list[PlanPhase] = Field(description="2-6 phases in order.")
+    tasks: list[PlanTask] = Field(description=f"All tasks in execution order, at most {MAX_PLAN_TASKS}; small and "
+                                              "independently verifiable. The first task scaffolds the project and its "
+                                              "test runner.")
+    feature_coverage: list[FeatureCoverage] = Field(description="One entry per MVP feature of the approved brief.")
+    testing_strategy: list[str] = Field(description="Unit / integration / end-to-end tests and what each covers, 2-5 items.")
+    commands: PlanCommands
+    risks_and_decisions: list[str] = Field(description="Technical risks and decisions settled here (with the choice made) "
+                                                       "or still to confirm, 1-6 items.")
+
+    @model_validator(mode="after")
+    def plan_is_executable(self) -> "ImplementationPlan":
+        import re
+
+        problems: list[str] = []
+        ids = [t.id for t in self.tasks]
+        phase_ids = {p.id for p in self.phases}
+        if not self.tasks:
+            problems.append("the plan has no tasks")
+        if len(self.tasks) > MAX_PLAN_TASKS:
+            problems.append(f"{len(self.tasks)} tasks; at most {MAX_PLAN_TASKS}: merge small ones")
+        if len(ids) != len(set(ids)):
+            problems.append(f"task ids must be unique: {ids}")
+        bad_ids = [i for i in ids if not re.match(TASK_ID_PATTERN, i)]
+        if bad_ids:
+            problems.append(f"task ids must look like T1, T2...: {bad_ids}")
+        position = {tid: n for n, tid in enumerate(ids)}
+        for t in self.tasks:
+            if t.phase not in phase_ids:
+                problems.append(f"{t.id}: unknown phase {t.phase!r} (phases: {sorted(phase_ids)})")
+            for dep in t.depends_on:
+                if dep not in position:
+                    problems.append(f"{t.id}: depends on unknown task {dep!r}")
+                elif position[dep] >= position[t.id]:
+                    problems.append(f"{t.id}: depends on {dep}, which comes later or is itself; list tasks in "
+                                    "execution order (dependencies first)")
+            if not t.acceptance_criteria:
+                problems.append(f"{t.id}: needs at least one acceptance criterion")
+            if not t.verify_commands:
+                problems.append(f"{t.id}: needs at least one verify command")
+            for f in t.files:
+                problems += [f"{t.id}: {p}" for p in path_problems(f)]
+            for c in t.verify_commands:
+                problems += [f"{t.id}: {p}" for p in command_problems(c)]
+        cmds = self.commands
+        if not cmds.test:
+            problems.append("commands.test needs at least one command")
+        for c in [*cmds.install, *cmds.test, *cmds.build, cmds.dev]:
+            problems += [f"commands: {p}" for p in command_problems(c)]
+        for cov in self.feature_coverage:
+            unknown = [i for i in cov.task_ids if i not in position]
+            if not cov.task_ids or unknown:
+                problems.append(f"feature {cov.feature!r}: task_ids must name existing tasks (unknown: {unknown})")
+        if problems:
+            raise ValueError("The plan cannot be executed as written:\n- " + "\n- ".join(problems[:15]))
+        return self
+
+
+class PlanReviewReply(BaseModel):
+    """What the user sends back when the graph is paused for the plan review."""
+
+    action: Literal["approve", "request_changes"]
+    feedback: str = Field(default="", max_length=4000)
+
+    @model_validator(mode="after")
+    def changes_need_feedback(self) -> "PlanReviewReply":
+        if self.action == "request_changes" and len(self.feedback.strip()) < 3:
+            raise ValueError("Describe the change you want (feedback is required to request changes).")
+        return self
 
 
 class ErrorRecord(BaseModel):

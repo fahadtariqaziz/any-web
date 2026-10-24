@@ -29,10 +29,17 @@ def test_full_pipeline_pauses_for_clarification_then_completes(graph, fake_llm, 
     assert review["type"] == "brief_review" and review["round"] == 1 and review["brief_markdown"].startswith("# ")
     assert result["status"] == "awaiting_brief_review" and not result.get("brief_approved_at")
 
-    # 3) approve → completion
+    # 3) approve the brief → the planner writes the plan → paused for the plan review
+    result = graph.invoke(Command(resume={"action": "approve"}), CONFIG)
+    snapshot = graph.get_state(CONFIG)
+    assert snapshot.next == ("await_plan_review",)
+    assert result["brief_approved_at"] and result["brief_review_route"] == "approved"
+    assert snapshot.interrupts[0].value["type"] == "plan_review" and result["status"] == "awaiting_plan_review"
+
+    # 4) approve the plan → completion
     result = graph.invoke(Command(resume={"action": "approve"}), CONFIG)
     assert graph.get_state(CONFIG).next == ()
-    assert result["brief_approved_at"] and result["brief_review_route"] == "approved"
+    assert result["plan_approved_at"] and result["implementation_tasks"][0]["status"] == "pending"
     assert result["status"] == "completed"
     assert result["clarification_round_count"] == 1
     assert result["clarification_answers"] == answers

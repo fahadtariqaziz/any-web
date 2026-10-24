@@ -10,7 +10,8 @@ Flow:
     POST /api/decisions/{id}/resume       → answer the pending pause (or "continue" an interrupted run)
     GET  /api/decisions/{id}/report       → the final report, once finished
     GET  /api/decisions/{id}/brief        → the validated problem statement + solution brief
-    GET  /api/decisions/{id}/artifacts    → approved versions of the brief (and later the plan)
+    GET  /api/decisions/{id}/plan         → the implementation plan (from the plan review on)
+    GET  /api/decisions/{id}/artifacts    → approved versions of the brief and the plan
     GET  /api/decisions/{id}/evidence     → kept evidence with verification status
     GET  /api/decisions/{id}/live         → everything produced so far (case, evidence counts, plans, scores, verdicts)
     GET  /api/decisions                   → recent sessions (from the app tables); ?mode=quick for the chat list
@@ -62,6 +63,8 @@ from ai_decision_arena.api.schemas import (
     ArtifactView,
     BriefResponse,
     BriefReviewResume,
+    PlanResponse,
+    PlanReviewResume,
     ResearchView,
     ResumeRequest,
     SessionList,
@@ -70,8 +73,10 @@ from ai_decision_arena.api.schemas import (
 )
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.brief import brief_is_approved
+from ai_decision_arena.plan import plan_is_approved
 from ai_decision_arena.db.repository import list_artifacts, list_sessions, save_session_status
 from ai_decision_arena.graph import build_graph
+from ai_decision_arena.llm import resolve_model
 from ai_decision_arena.memory import valid_user_id
 from ai_decision_arena.triggers import CheckInScheduler
 
@@ -79,6 +84,19 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 
 # --- startup / shutdown ------------------------------------------------------------------------
+
+def check_models() -> None:
+    """Startup check (never assume a model exists): log whether the planner / implementer models are available to
+    this API key. The planner re-checks per call and falls back to the default model with a progress line."""
+    log = logging.getLogger(__name__)
+    settings = get_settings()
+    for role, wanted in (("planner", settings.planner_model), ("implementer", settings.implementer_model)):
+        model, note = resolve_model(wanted)
+        if note:
+            log.warning("%s model: %s", role, note)
+        else:
+            log.info("%s model %s is available", role, model)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -98,6 +116,7 @@ async def lifespan(app: FastAPI):
     graph = build_graph(checkpointer=saver)
     app.state.graph = graph
     app.state.runner = GraphRunner(graph)
+    check_models()
     scheduler = CheckInScheduler(graph) if get_settings().check_ins_enabled else None   # scheduled trigger
     if scheduler:
         scheduler.start()
@@ -264,6 +283,7 @@ def get_decision(thread_id: str, request: Request):
         error=error,
         has_report=bool(values.get("final_report")),
         has_brief=_validated_brief(values) is not None,
+        has_plan=bool(values.get("implementation_plan")),
         current_node=values.get("current_node"),
         next_nodes=list(snapshot.next or ()),
         started_at=values.get("started_at"),
@@ -308,6 +328,12 @@ def resume_decision(thread_id: str, body: ResumeRequest, request: Request):
             raise ApiError(422, "invalid_input", "The brief was revised the maximum number of times: only wording changes "
                                                  "(or approval) are accepted now.")
 
+    if isinstance(body, PlanReviewResume):
+        if body.action == "request_changes" and len(body.feedback.strip()) < 3:
+            raise ApiError(422, "invalid_input", "Describe the change you want: feedback is required to request changes.")
+        if body.action == "request_changes" and not payload.get("changes_allowed", True):
+            raise ApiError(422, "invalid_input", "The plan was revised the maximum number of times: it can only be approved now.")
+
     reply = body.model_dump(exclude={"type"})      # exactly what interrupt() returns inside the node
     _start(runner, thread_id, Command(resume=reply))
     return Accepted(thread_id=thread_id)
@@ -348,6 +374,20 @@ def get_brief(thread_id: str, request: Request):
                          markdown=values.get("brief_markdown", ""), validation=validation,
                          approved_at=values.get("brief_approved_at") if brief_is_approved(values) else None,
                          review_round=values.get("brief_review_round_count", 0))
+
+
+@app.get("/api/decisions/{thread_id}/plan", response_model=PlanResponse, tags=["decisions"])
+def get_plan(thread_id: str, request: Request):
+    """The implementation plan once the planner wrote one (409 "no_plan" before)."""
+    values = _snapshot(request, thread_id).values or {}
+    plan = values.get("implementation_plan")
+    if not plan:
+        raise ApiError(409, "no_plan", f"No implementation plan yet (status {values.get('status')}).")
+    return PlanResponse(thread_id=thread_id, workflow_status=values.get("status"), plan=plan,
+                        markdown=values.get("plan_markdown", ""), revision=values.get("plan_revision_count", 0),
+                        model=(values.get("models_used") or {}).get("planner", ""),
+                        approved_at=values.get("plan_approved_at") if plan_is_approved(values) else None,
+                        tasks=values.get("implementation_tasks", []))
 
 
 @app.get("/api/decisions/{thread_id}/artifacts", response_model=ArtifactList, tags=["decisions"])

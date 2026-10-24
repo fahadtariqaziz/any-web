@@ -68,15 +68,18 @@ most 3 items, and when the instructions give a range (e.g. "5-6 questions") use 
 rule in the instructions overrides this note."""
 
 
-def get_llm(max_tokens: int | None = None, model: str | None = None) -> ChatAnthropic:
-    """The client for the active session mode (see config.session_mode); `model` overrides the mode's model."""
+def get_llm(max_tokens: int | None = None, model: str | None = None, effort: str | None = None,
+            timeout: float | None = None) -> ChatAnthropic:
+    """The client for the active session mode (see config.session_mode); `model` overrides the mode's model,
+    `effort` sets output_config.effort (langchain merges it with the structured-output format), `timeout` the
+    per-request timeout in seconds."""
     settings = get_settings()
     return _client(model or settings.anthropic_model, max_tokens or settings.llm_max_tokens,
-                   settings.llm_timeout_seconds, settings.llm_max_retries)
+                   timeout or settings.llm_timeout_seconds, settings.llm_max_retries, effort)
 
 
 @lru_cache
-def _client(model: str, max_tokens: int, timeout: float, max_retries: int) -> ChatAnthropic:
+def _client(model: str, max_tokens: int, timeout: float, max_retries: int, effort: str | None = None) -> ChatAnthropic:
     """One ChatAnthropic client per combination, reused across calls."""
     return ChatAnthropic(
         model=model,
@@ -84,7 +87,32 @@ def _client(model: str, max_tokens: int, timeout: float, max_retries: int) -> Ch
         max_tokens=max_tokens,
         timeout=timeout,
         max_retries=max_retries,                   # SDK backoff for transient API errors
+        output_config={"effort": effort} if effort else None,
     )
+
+
+# --- model availability (never assume a model exists) --------------------------------------------------
+
+@lru_cache
+def available_models() -> frozenset[str] | None:
+    """Model ids this API key can use (GET /v1/models), or None if the list could not be read. Cached per process."""
+    try:
+        client = anthropic.Anthropic(api_key=get_settings().anthropic_api_key.get_secret_value(), timeout=15)
+        return frozenset(m.id for m in client.models.list())
+    except Exception:                 # network / auth problems: the caller decides
+        return None
+
+
+def resolve_model(wanted: str) -> tuple[str, str]:
+    """(model to use, note). `wanted` if the API lists it; otherwise the session's default model with a warning.
+    If the list cannot be read, `wanted` is kept (the call itself then fails over to the fallback chain)."""
+    ids = available_models()
+    default = get_settings().anthropic_model
+    if ids is None:
+        return wanted, f"model list unavailable; using {wanted} unchecked (fallback: {default})"
+    if wanted in ids:
+        return wanted, ""
+    return default, f"{wanted} is not available to this API key; using {default} instead"
 
 
 def call_structured(
@@ -94,27 +122,36 @@ def call_structured(
     *,
     max_tokens: int | None = None,
     run_name: str | None = None,
+    model: str | None = None,
+    effort: str | None = None,
+    timeout: float | None = None,
 ) -> T:
     """Ask Claude to fill `schema` and return a validated instance of it.
 
-    Tries the main model, then once the fallback model (see the module docstring).
+    Tries the main model, then once the fallback model (see the module docstring). `model` replaces the main model
+    (e.g. the planner's Opus; its fallback is then the session's default model); `effort` / `timeout` apply to the
+    main model only.
     Raises LLMUnavailableError if both fail.
     """
     settings = get_settings()
     name = run_name or schema.__name__
-    models = [settings.anthropic_model]
-    if settings.fallback_model and settings.fallback_model != settings.anthropic_model:
-        models.append(settings.fallback_model)
+    if model:
+        models = [model] + ([settings.anthropic_model] if settings.anthropic_model != model else [settings.fallback_model])
+    else:
+        models = [settings.anthropic_model]
+        if settings.fallback_model and settings.fallback_model != settings.anthropic_model:
+            models.append(settings.fallback_model)
 
     failures = []
-    for i, model in enumerate(models):
+    for i, model_id in enumerate(models):
         try:
-            return _call_structured(schema, system_prompt, user_content, model=model,
-                                    max_tokens=max_tokens, run_name=name if i == 0 else f"{name}_fallback")
+            return _call_structured(schema, system_prompt, user_content, model=model_id, max_tokens=max_tokens,
+                                    run_name=name if i == 0 else f"{name}_fallback",
+                                    effort=effort if i == 0 else None, timeout=timeout)
         except FALLBACK_ERRORS as exc:
-            failures.append(f"{model}: {describe_llm_error(exc)}")
+            failures.append(f"{model_id}: {describe_llm_error(exc)}")
             if i + 1 < len(models):
-                report(_current_node(), f"{name}: {model} failed ({describe_llm_error(exc)[:120]}); trying {models[i + 1]}")
+                report(_current_node(), f"{name}: {model_id} failed ({describe_llm_error(exc)[:120]}); trying {models[i + 1]}")
     raise LLMUnavailableError("The Claude API failed. " + " | ".join(failures))
 
 
@@ -134,12 +171,14 @@ def _call_structured(
     model: str,
     max_tokens: int | None,
     run_name: str,
+    effort: str | None = None,
+    timeout: float | None = None,
 ) -> T:
     """One model: SDK retries + self-correction. Raises an anthropic.APIError or LLMOutputError."""
     settings = get_settings()
     if settings.session_mode == "quick":
         system_prompt += "\n" + QUICK_MODE_NOTE
-    structured_llm = get_llm(max_tokens, model=model).with_structured_output(
+    structured_llm = get_llm(max_tokens, model=model, effort=effort, timeout=timeout).with_structured_output(
         schema,
         method="json_schema",   # Anthropic native structured outputs
         include_raw=True,       # return errors instead of raising, so we can retry

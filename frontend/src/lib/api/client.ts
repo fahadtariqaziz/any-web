@@ -7,6 +7,7 @@ import type {
   Accepted,
   ArtifactList,
   BriefResponse,
+  PlanResponse,
   ChatTranscript,
   CreateDecisionRequest,
   DecisionStatus,
@@ -97,6 +98,11 @@ export function getReport(threadId: string): Promise<ReportResponse> {
 /** The validated problem statement + solution brief. 409 "no_brief" until the validator approved a draft. */
 export function getBrief(threadId: string): Promise<BriefResponse> {
   return request(`${BASE}/${encodeURIComponent(threadId)}/brief`);
+}
+
+/** The implementation plan. 409 "no_plan" until the planner wrote one. */
+export function getPlan(threadId: string): Promise<PlanResponse> {
+  return request(`${BASE}/${encodeURIComponent(threadId)}/plan`);
 }
 
 /** Approved versions of the brief (and later the plan). 503 if the database cannot be read. */

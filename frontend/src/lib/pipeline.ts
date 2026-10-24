@@ -1,10 +1,10 @@
-// The pipeline as the USER sees it: 7 stages built from the graph's 12 nodes, plus what each node is
+// The pipeline as the USER sees it: 8 stages built from the graph's 17 nodes, plus what each node is
 // doing in plain words and how long it usually takes (timings observed in the handoff's test runs).
 // Everything here is derived from DecisionStatus; nothing is guessed when the backend knows better.
 
 import type { DecisionStatus, Domain, ProgressLine } from "@/lib/api/types";
 
-export type StageId = "intake" | "clarify" | "research" | "debate" | "verify" | "report" | "brief";
+export type StageId = "intake" | "clarify" | "research" | "debate" | "verify" | "report" | "brief" | "plan";
 
 export interface Stage {
   id: StageId;
@@ -20,6 +20,7 @@ export const STAGES: Stage[] = [
   { id: "verify", label: "Verification", blurb: "Winner's claims checked at source" },
   { id: "report", label: "Report", blurb: "Winner, alternatives, open questions" },
   { id: "brief", label: "Brief", blurb: "Problem statement and solution, validated" },
+  { id: "plan", label: "Plan", blurb: "Implementation plan for your approval" },
 ];
 
 export interface NodeInfo {
@@ -125,12 +126,34 @@ export const NODE_INFO: Record<string, NodeInfo> = {
     expectedSeconds: 3,
     stage: "brief",
   },
+  planner: {
+    label: "Planner",
+    headline: "Writing the implementation plan",
+    doing: "A larger model (Claude Opus) turns the approved brief into a step-by-step plan for the coding agent: technology, project structure, architecture, phases and small tasks, each with the files it touches, how it is checked and the commands that prove it works. Every MVP feature of the brief must be covered by a task.",
+    expectedSeconds: 180,
+    stage: "plan",
+  },
+  await_plan_review: {
+    label: "Your plan review",
+    headline: "Waiting for your review of the plan",
+    doing: "Approve the plan to continue, or say what to change. Nothing is built before you approve.",
+    expectedSeconds: 0,
+    stage: "plan",
+    waitsForUser: true,
+  },
+  plan_review_router: {
+    label: "Plan review",
+    headline: "Applying your plan review",
+    doing: "Recording your approval, or sending your change request back to the planner.",
+    expectedSeconds: 3,
+    stage: "plan",
+  },
   completion: {
     label: "Saving",
     headline: "Saving your session",
     doing: "Storing the session, the evidence and the report in the database.",
     expectedSeconds: 2,
-    stage: "brief",
+    stage: "plan",
   },
 };
 
@@ -174,7 +197,8 @@ export function deriveActivity(status: DecisionStatus): Activity {
     // The checkpoint says which node LangGraph is executing; before the first checkpoint it is intake.
     activeNode = status.next_nodes[0] ?? lastNodeLine(lines)?.node ?? "intake";
   } else if (status.run_state === "paused") {
-    activeNode = status.next_nodes[0] ?? (status.pending?.type === "brief_review" ? "await_brief_review" : "await_clarification");
+    const pauseNode = { clarification: "await_clarification", brief_review: "await_brief_review", plan_review: "await_plan_review" };
+    activeNode = status.next_nodes[0] ?? (status.pending ? pauseNode[status.pending.type] : "await_clarification");
   } else if (status.run_state === "interrupted") {
     activeNode = status.next_nodes[0] ?? null;
   } else {
@@ -205,7 +229,7 @@ export function stageStates(status: DecisionStatus, activity: Activity): Record<
     for (const s of STAGES) result[s.id] = "done";
     return result;
   }
-  const current = activity.activeStage ?? (finished ? "brief" : "intake");
+  const current = activity.activeStage ?? (finished ? "plan" : "intake");
   const currentIndex = STAGE_INDEX[current];
   for (const s of STAGES) {
     const i = STAGE_INDEX[s.id];

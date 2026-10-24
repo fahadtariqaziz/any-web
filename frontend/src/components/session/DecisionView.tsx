@@ -16,10 +16,12 @@ import { useMemo, useState } from "react";
 import { DebateView } from "@/components/debate/DebateView";
 import { EvidencePanel } from "@/components/evidence/EvidencePanel";
 import { BriefView } from "@/components/report/BriefView";
+import { PlanView } from "@/components/report/PlanView";
 import { ReportView } from "@/components/report/ReportView";
 import { ActivityFeed } from "@/components/session/ActivityFeed";
 import { BriefReviewPanel } from "@/components/session/BriefReviewPanel";
 import { CaseCard } from "@/components/session/CaseCard";
+import { PlanReviewPanel } from "@/components/session/PlanReviewPanel";
 import { ClarificationForm } from "@/components/session/ClarificationForm";
 import { InterruptedPanel } from "@/components/session/InterruptedPanel";
 import { NowPanel } from "@/components/session/NowPanel";
@@ -32,7 +34,7 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
 import { Tabs } from "@/components/ui/Tabs";
 import { useDecision } from "@/hooks/useDecision";
-import { useBrief, useEvidence, useLive, useReport } from "@/hooks/useLive";
+import { useBrief, useEvidence, useLive, usePlan, useReport } from "@/hooks/useLive";
 import { useNow } from "@/hooks/useNow";
 import { deriveActivity, stageStates } from "@/lib/pipeline";
 
@@ -57,6 +59,7 @@ export function DecisionView() {
   const finishedWithReport = status?.run_state === "finished" && status.has_report;
   const { data: reportData, error: reportError } = useReport(threadId, !!finishedWithReport);
   const { data: briefData, error: briefError } = useBrief(threadId, !!finishedWithReport && !!status?.has_brief);
+  const { data: planData } = usePlan(threadId, !!finishedWithReport && !!status?.has_plan);
   const { data: evidence, loading: evidenceLoading, error: evidenceError } = useEvidence(threadId, version, !!status && tab === "evidence");
 
   function onSubmitted() {
@@ -105,7 +108,9 @@ export function DecisionView() {
     main = <NowPanel status={status} activity={act} now={now} fallbackStart={firstSeenRunning.current} resuming={resuming} />;
   } else if (status.run_state === "paused" && pending) {
     main =
-      pending.type === "brief_review" ? (
+      pending.type === "plan_review" ? (
+        <PlanReviewPanel threadId={threadId} payload={pending.payload} onSubmitted={onSubmitted} />
+      ) : pending.type === "brief_review" ? (
         <BriefReviewPanel threadId={threadId} payload={pending.payload} onSubmitted={onSubmitted} />
       ) : (
         <ClarificationForm threadId={threadId} payload={pending.payload} onSubmitted={onSubmitted} />
@@ -124,6 +129,7 @@ export function DecisionView() {
     );
     main = reportData ? (
       <div className="space-y-6">
+        {planData && <PlanView data={planData} />}
         {brief}
         <ReportView report={reportData.report} workflowStatus={reportData.workflow_status} live={live} />
       </div>

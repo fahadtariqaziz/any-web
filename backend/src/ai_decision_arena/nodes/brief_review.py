@@ -139,7 +139,7 @@ def brief_review_router_node(state: ArenaState) -> dict:
         _save_approved_brief(state, approved_at, digest)
         report("brief_review_router", "decision: approved; the brief is the basis for planning")
         return update | {"brief_review_route": "approved", "brief_approved_at": approved_at,
-                         "brief_approved_hash": digest, "status": "reporting"}
+                         "brief_approved_hash": digest, "status": "planning"}
 
     target = last["target"]
     if target == "auto":

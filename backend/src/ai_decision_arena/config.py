@@ -87,6 +87,13 @@ class Settings(BaseSettings):
     llm_max_tokens: int = Field(default=4000, ge=256, le=32000)
     llm_timeout_seconds: float = Field(default=90, gt=0)
     llm_max_retries: int = Field(default=2, ge=0, le=5, description="Retries for API errors and invalid structured output.")
+    planner_model: str = Field(default="claude-opus-5-5", description="Model of the planner (checked against the API's "
+                               "model list at startup; falls back to anthropic_model with a warning).")
+    planner_effort: Literal["low", "medium", "high", "xhigh", "max"] = Field(
+        default="high", description="Reasoning effort of the planner (Opus 5.5 defaults to medium; planning deserves more).")
+    planner_max_tokens: int = Field(default=16000, ge=4000, le=32000)
+    planner_timeout_seconds: float = Field(default=600, gt=0, description="A full plan at high effort takes minutes.")
+    implementer_model: str = Field(default="claude-sonnet-5-5", description="Model of the coding agent (M8).")
     quick_model: str = Field(default="claude-haiku-5-5", description="Model for every agent of a quick (patient chat) session.")
     fallback_model: str = Field(default="claude-haiku-5-5", description="Backup model: a graph agent's call is repeated "
                                 "once on it when the main model fails. Empty = no fallback.")
@@ -101,6 +108,8 @@ class Settings(BaseSettings):
     max_research_retries: int = Field(default=2, ge=0, le=5)
     max_debate_rounds: int = Field(default=2, ge=1, le=5)
     max_brief_revisions: int = Field(default=2, ge=0, le=5, description="Rewrites of the brief the validator may ask for.")
+    max_plan_revisions: int = Field(default=3, ge=0, le=10, description="Plan rewrites the user may request; after that "
+                                    "the plan can only be approved.")
     max_review_rounds: int = Field(default=6, ge=1, le=20, description="Change requests on the brief that may re-run "
                                    "earlier steps; after that only wording changes (or approval) are accepted.")
     brief_word_budget: int = Field(default=900, ge=300, le=3000, description="Words of brief sections 1-9 before the "

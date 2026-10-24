@@ -264,9 +264,9 @@ export function ChatView({ threadId }: { threadId: string }) {
               {chat?.onboarding_summary && <SummaryMessage summary={chat.onboarding_summary} />}
 
               {/* The brief review pause has no chat UI yet (M10): review it on the session page. */}
-              {status.run_state === "paused" && status.pending?.type === "brief_review" && (
+              {status.run_state === "paused" && (status.pending?.type === "brief_review" || status.pending?.type === "plan_review") && (
                 <p className="text-sm text-neutral-300">
-                  Your problem statement and solution brief is ready for your review.{" "}
+                  {status.pending.type === "plan_review" ? "Your implementation plan" : "Your problem statement and solution brief"} is ready for your review.{" "}
                   <Link href={`/decisions/${threadId}`} className="text-teal-300 hover:underline">
                     Review and approve it
                   </Link>

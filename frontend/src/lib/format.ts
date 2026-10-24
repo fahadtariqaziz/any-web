@@ -110,6 +110,8 @@ export const WORKFLOW_STATUS_LABEL: Record<string, string> = {
   writing_brief: "Writing the brief",
   validating_brief: "Validating the brief",
   awaiting_brief_review: "Waiting for your review",
+  planning: "Planning the build",
+  awaiting_plan_review: "Waiting for your plan review",
   completed: "Completed",
   completed_with_uncertainty: "Completed with uncertainty",
   failed: "Failed",
@@ -122,6 +124,7 @@ export function workflowStatusTone(status: string | null | undefined): Tone {
     case "failed": return "red";
     case "awaiting_clarification": return "amber";
     case "awaiting_brief_review": return "amber";
+    case "awaiting_plan_review": return "amber";
     default: return "brand";
   }
 }

@@ -92,6 +92,14 @@ def test_start_pause_resume_report(client):
     approve = client.post(f"/api/decisions/{thread_id}/resume", json={"type": "brief_review", "action": "approve"})
     assert approve.status_code == 202
     status = wait_until_not_running(client, thread_id)
+    assert status["pending"]["type"] == "plan_review" and status["has_plan"] is True
+    plan = client.get(f"/api/decisions/{thread_id}/plan").json()
+    assert plan["approved_at"] is None and plan["markdown"].startswith("# Implementation plan") and plan["tasks"]
+    no_feedback = client.post(f"/api/decisions/{thread_id}/resume", json={"type": "plan_review", "action": "request_changes"})
+    assert no_feedback.status_code == 422
+    assert client.post(f"/api/decisions/{thread_id}/resume", json={"type": "plan_review", "action": "approve"}).status_code == 202
+    status = wait_until_not_running(client, thread_id)
+    assert client.get(f"/api/decisions/{thread_id}/plan").json()["approved_at"]
     assert status["run_state"] == "finished"
     assert status["workflow_status"] == "completed"
     assert status["has_report"] is True
@@ -154,4 +162,6 @@ def test_brief_change_request_round_trip_and_wording_only_cap(client, monkeypatc
                          json={"type": "brief_review", "action": "request_changes", "feedback": "More research.", "target": "research"})
     assert capped.status_code == 422 and "only wording" in capped.json()["error"]["message"]
     client.post(f"/api/decisions/{thread_id}/resume", json={"type": "brief_review", "action": "approve"})
+    assert wait_until_not_running(client, thread_id)["pending"]["type"] == "plan_review"
+    client.post(f"/api/decisions/{thread_id}/resume", json={"type": "plan_review", "action": "approve"})
     assert wait_until_not_running(client, thread_id)["workflow_status"] == "completed"

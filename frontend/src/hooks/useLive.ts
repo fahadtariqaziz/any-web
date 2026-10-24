@@ -3,7 +3,7 @@
 // The agents' work so far (plans, scores, verdicts...). Re-fetched whenever a node finishes or the
 // run state changes, so the user watches results appear, not only log lines.
 
-import { getBrief, getEvidence, getLive, getReport, listDecisions } from "@/lib/api/client";
+import { getBrief, getEvidence, getLive, getPlan, getReport, listDecisions } from "@/lib/api/client";
 import { useFetch } from "@/hooks/useFetch";
 
 export function useLive(threadId: string, version: string, enabled = true) {
@@ -16,6 +16,10 @@ export function useReport(threadId: string, enabled: boolean) {
 
 export function useBrief(threadId: string, enabled: boolean) {
   return useFetch(() => getBrief(threadId), threadId, enabled);
+}
+
+export function usePlan(threadId: string, enabled: boolean) {
+  return useFetch(() => getPlan(threadId), threadId, enabled);
 }
 
 export function useEvidence(threadId: string, version: string, enabled: boolean) {

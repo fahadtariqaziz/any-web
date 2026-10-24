@@ -1,6 +1,6 @@
 "use client";
 
-// The 7-stage pipeline with the current stage highlighted. The user always knows where the agents are,
+// The 8-stage pipeline with the current stage highlighted. The user always knows where the agents are,
 // even when the live log is empty (e.g. after a backend restart), because the states come from the checkpoint.
 
 import { Check, Minus, X } from "lucide-react";
@@ -44,7 +44,7 @@ export function PipelineStepper({
   running: boolean;
 }) {
   return (
-    <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7" aria-label="Pipeline">
+    <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8" aria-label="Pipeline">
       {STAGES.map((stage, i) => {
         const state = states[stage.id];
         const sub = detail(stage.id, state, activeNode, counters);

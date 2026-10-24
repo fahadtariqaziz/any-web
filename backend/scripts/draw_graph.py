@@ -35,7 +35,9 @@ LABELS = {
     ("brief_validator", "brief_writer"): "revise (max 2)",
     ("brief_validator", "clarification"): "critical info missing",
     ("brief_validator", "await_brief_review"): "validated",
-    ("brief_review_router", "completion"): "approved (M6: planner)",
+    ("brief_review_router", "planner"): "brief approved",
+    ("plan_review_router", "completion"): "plan approved (M8: implementer)",
+    ("plan_review_router", "planner"): "changes (max 3)",
     ("brief_review_router", "brief_writer"): "wording",
     ("brief_review_router", "clarification"): "requirements",
     ("brief_review_router", "research"): "research",
@@ -50,7 +52,8 @@ PHASES = {
     "4 · Verify": ["evidence_checker"],
     "5 · Report": ["final_report"],
     "6 · Brief": ["brief_writer", "brief_validator"],
-    "7 · Your review": ["await_brief_review", "brief_review_router", "completion"],
+    "7 · Your review": ["await_brief_review", "brief_review_router"],
+    "8 · Plan (Opus)": ["planner", "await_plan_review", "plan_review_router", "completion"],
 }
 
 # Edges that go back to an earlier step (drawn dashed).
@@ -66,9 +69,11 @@ LOOPS = {
     ("brief_review_router", "research"),
     ("brief_review_router", "proposer"),
     ("brief_review_router", "await_brief_review"),
+    ("plan_review_router", "planner"),
+    ("plan_review_router", "await_plan_review"),
 }
 
-PAUSES = {"await_clarification", "await_brief_review"}   # interrupt(): the graph stops until the user replies
+PAUSES = {"await_clarification", "await_brief_review", "await_plan_review"}   # interrupt(): the graph stops until the user replies
 PYTHON = {"completion"}                            # no LLM call
 
 
@@ -78,8 +83,8 @@ def node_class(name: str) -> str:
 
 def build_mermaid() -> str:
     graph = build_graph(InMemorySaver()).get_graph()
-    # X → completion is the "failed" edge for every X except brief_review_router (approved: its normal next step).
-    edges = [e for e in graph.edges if e.target != "completion" or e.source == "brief_review_router"]
+    # X → completion is the "failed" edge for every X except plan_review_router (approved: its normal next step).
+    edges = [e for e in graph.edges if e.target != "completion" or e.source == "plan_review_router"]
     names = {e.source for e in edges} | {e.target for e in edges}
     placed = {n for nodes in PHASES.values() for n in nodes}
     missing = names - placed - {"__start__", "__end__"}
