@@ -1,0 +1,2999 @@
+{
+  "status": "completed",
+  "current_node": "completion",
+  "started_at": "2026-10-20T19:29:13+00:00",
+  "active_seconds": 205.004,
+  "question": "I have diabetes",
+  "user_context": "",
+  "condition_name": "type 2 diabetes",
+  "condition_category": "metabolic_endocrine",
+  "case_summary": "The user has type 2 diabetes, diagnosed about 2 years ago and treated with tablets. They report no warning-sign symptoms (such as high thirst, vomiting, fast breathing or confusion) and no other health conditions. They want a management plan and diet guidance.",
+  "health_profile": {
+    "diabetes_type": "type 2",
+    "diagnosed_since": "2 year",
+    "current_treatment": "tablets (specific medication not stated)",
+    "other_conditions": "no other health conditions, allergies or pregnancy reported",
+    "goal": "plan and diet"
+  },
+  "symptoms": {},
+  "constraints": {},
+  "missing_information": [
+    "Type of diabetes (type 1, type 2, gestational, or other) and whether a doctor confirmed it",
+    "How long they have had diabetes",
+    "Current treatment (medications, insulin, or diet/lifestyle only)",
+    "Recent blood sugar or HbA1c readings",
+    "Age group and sex",
+    "Other health conditions or complications",
+    "Current diet and activity level",
+    "What they want to achieve or learn (e.g., better control, diet, medication questions)"
+  ],
+  "red_flags": [],
+  "withdrawn_red_flags": [],
+  "red_flags_acknowledged": [],
+  "need_clarification": false,
+  "clarification_questions": [],
+  "clarification_reason": "The answers give the type (type 2), duration (about 2 years), treatment (tablets), no warning-sign symptoms, no other conditions, and the goal (a plan and diet). Nothing revealed a red flag or a change that would materially alter the research, so more questions are not needed before research starts.",
+  "clarification_answers": {
+    "What type of diabetes do you have, and did a doctor confirm it? (e.g. type 1, type 2, gestational, not sure)": "type 2",
+    "How long have you had diabetes? (e.g. diagnosed last month, 5 years ago)": "2 year",
+    "Which treatments are you using now? (e.g. insulin, metformin or other tablets, diet only, nothing yet)": "tabkets",
+    "Which of these do you have right now: very high thirst or frequent urination, nausea or vomiting, fast or deep breathing, unusual confusion or drowsiness, fruity-smelling breath, none?": "none",
+    "Do you have any other health conditions, allergies, or are you pregnant? (e.g. high blood pressure, kidney disease, none)": "no",
+    "What do you most want to achieve or learn? (e.g. better blood sugar control, diet and exercise plan, understanding medication options)": "plan and diet"
+  },
+  "assumptions": [
+    "The specific tablet(s) and doses are unknown; the guidance will not assume a particular medication and any medication questions should be discussed with their doctor.",
+    "Recent blood sugar or HbA1c readings are unknown, so the guidance will be general rather than tailored to current control.",
+    "Age, sex, current diet and activity level are unknown; the guidance assumes a typical adult with no mobility or dietary restrictions.",
+    "The diagnosis is assumed to have been confirmed by a doctor, although this was not explicitly stated.",
+    "The user reports no kidney disease, high blood pressure, allergies or pregnancy, and no known complications."
+  ],
+  "clarification_round_count": 1,
+  "research_queries": [
+    "[research] type 2 diabetes diet and exercise lifestyle intervention randomized trials meta-analysis oral medication",
+    "[research] type 2 diabetes oral medications metformin SGLT2 DPP-4 sulfonylurea efficacy systematic review",
+    "[research] type 2 diabetes prevalence and time to HbA1c improvement after lifestyle change or oral therapy",
+    "[doctor] type 2 diabetes eating plan guidelines carbohydrate plate method meal planning adults",
+    "[doctor] type 2 diabetes daily management routine blood glucose monitoring exercise HbA1c targets guideline",
+    "[doctor] type 2 diabetes how common is it typical course how long until symptoms improve",
+    "[patient] type 2 diabetes diet what worked for me meals lowered blood sugar experience",
+    "[patient] type 2 diabetes daily routine on metformin tablets what worked walking tips experience",
+    "[patient] type 2 diabetes how long did it take to see improvement A1c after changing diet"
+  ],
+  "evidence": [
+    {
+      "evidence_id": "ev_001",
+      "perspective": "research",
+      "source_title": "Improvement of Glycemic Control after Re-Emphasis of Lifestyle Modification in Type 2 Diabetic Patients Reluctant to Additional Medication",
+      "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3575963",
+      "source_type": "research_paper",
+      "evidence_strength": "observational_study",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "35.3% of the patients with mild or moderately uncontrolled type 2 diabetes showed the significant improvement of HbA1c levels after 3 months by simply regulating their daily diet and exercise without change of medication",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Diet and exercise changes were associated with better HbA1c in about a third of patients over 3 months"
+      ],
+      "limitations": [],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.7,
+      "reliability_notes": "Small uncontrolled study of 51 patients with HbA1c 7.0-9.0% followed for 3 months, relying on questionnaires.",
+      "verification_status": "verified"
+    },
+    {
+      "evidence_id": "ev_002",
+      "perspective": "research",
+      "source_title": "Evaluating the Impact of Lifestyle Interventions on Type 2 Diabetes Management: Systematic Review & Meta Analysis | European Journal of Cardiovascular Medicine",
+      "source_url": "https://healthcare-bulletin.co.uk/article/evaluating-the-impact-of-lifestyle-interventions-on-type-2-diabetes-management-systematic-review-meta-analysis-2873",
+      "source_type": "research_paper",
+      "evidence_strength": "systematic_review_or_meta_analysis",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "up to 50% of participants reduced or eliminated the need for insulin therapy, while oral hypoglycemic agents were reduced by 15\u201340%",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Review covered Mediterranean, low-carbohydrate and plant-based diets, structured exercise and behavioral interventions",
+        "Lifestyle interventions were linked to reduced medication use"
+      ],
+      "limitations": [],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.7,
+      "reliability_notes": "Review of 22 RCTs and 10 observational studies; snippet is truncated and gives no per-diet results.",
+      "verification_status": "partially_supported"
+    },
+    {
+      "evidence_id": "ev_003",
+      "perspective": "research",
+      "source_title": "Effect of lifestyle intervention in patients with type 2 diabetes: a meta-analysis. - Abstract",
+      "source_url": "https://pubmed.ncbi.nlm.nih.gov/25467842",
+      "source_type": "research_paper",
+      "evidence_strength": "systematic_review_or_meta_analysis",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "lifestyle intervention showed significant benefit in risk factors that are known to be associated with development of cardiovascular disease in patients with type 2 diabetes",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Combined diet, exercise and education improved cardiovascular risk markers in type 2 diabetes"
+      ],
+      "limitations": [
+        "Abstract gives no effect sizes"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.7,
+      "reliability_notes": "Meta-analysis abstract, published 2014 or earlier; no numbers in snippet.",
+      "verification_status": "partially_supported"
+    },
+    {
+      "evidence_id": "ev_004",
+      "perspective": "research",
+      "source_title": "Impact of lifestyle modification on type 2 diabetes outcomes - FUTURE HEALTH",
+      "source_url": "https://futurehealthjournal.com/impact-of-lifestyle-modification-on-type-2-diabetes-outcomes",
+      "source_type": "research_paper",
+      "evidence_strength": "unknown",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "HbA1c levels in the lifestyle group were 7.2% compared to 8.0% in the control group (p < 0.001)",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Lifestyle modification group had lower HbA1c and fasting glucose than controls",
+        "Lifestyle group also had better cholesterol and LDL"
+      ],
+      "limitations": [],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.6,
+      "reliability_notes": "Study design, size and duration are not clear from the snippet.",
+      "verification_status": "partially_supported"
+    },
+    {
+      "evidence_id": "ev_005",
+      "perspective": "research",
+      "source_title": "Safety and efficacy of dipeptidyl peptidase-4 inhibitors vs sulfonylurea in metformin-based combination therapy for type 2 diabetes mellitus: Systematic review and meta-analysis.",
+      "source_url": "http://www.ncbi.nlm.nih.gov/pubmed/27040861",
+      "source_type": "research_paper",
+      "evidence_strength": "systematic_review_or_meta_analysis",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "there is no significant difference between DPP4-inhibitors and sulfonylurea when either is added to metformin mono-therapy",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Similar HbA1c effect for DPP-4 inhibitors and sulfonylureas added to metformin",
+        "Fewer hypoglycemic events with DPP-4 inhibitors (RR 0.12)",
+        "Weight decreased by 2.2 kg with DPP-4 inhibitors compared with sulfonylureas"
+      ],
+      "limitations": [
+        "Covers only add-on to metformin",
+        "Some outcome data were insufficient"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.5,
+      "reliability_notes": "Meta-analysis of 10 RCTs in adults with type 2 diabetes and inadequate control, but older and tied to specific drug classes.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_006",
+      "perspective": "research",
+      "source_title": "Comparison of Different Antidiabetic Medication Classes: Efficacy and Safety | European Journal of Cardiovascular Medicine",
+      "source_url": "https://healthcare-bulletin.co.uk/article/comparison-of-different-antidiabetic-medication-classes-efficacy-and-safety-4347",
+      "source_type": "research_paper",
+      "evidence_strength": "observational_study",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "Sulfonylureas demonstrated strong glycaemic control (-1.3%) but had the highest hypoglycaemia incidence (25%).",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Metformin had a -1.2% HbA1c effect with gastrointestinal side effects",
+        "DPP-4 inhibitors were well tolerated but modest (-0.9%)",
+        "SGLT2 inhibitors and GLP-1 agonists were reported to offer the best balance of efficacy and safety"
+      ],
+      "limitations": [],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.5,
+      "reliability_notes": "Only 100 patients compared, so findings are limited.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_007",
+      "perspective": "research",
+      "source_title": "Real-World Hemoglobin A1c Changes, Prescribing Provider Types, and Medication Dose Among Patients with Type 2 Diabetes Mellitus Initiating Treatment with Oral Semaglutide | Advances in Therapy | Springer Nature Link",
+      "source_url": "https://link.springer.com/article/10.1007/s12325-023-02677-w",
+      "source_type": "research_paper",
+      "evidence_strength": "observational_study",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "Real-world data on patients starting oral semaglutide showed a mean HbA1c reduction of 0.8%, and a greater reduction (2.0% vs 0.4%) in poorly controlled patients than in those with HbA1c below 9%.",
+      "is_direct_quote": false,
+      "claims_supported": [
+        "Oral semaglutide was associated with a mean HbA1c reduction of 0.8% in routine care",
+        "Patients with poorly controlled type 2 diabetes had larger reductions"
+      ],
+      "limitations": [],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.3,
+      "reliability_notes": "Real-world observational study of one tablet drug; the user's tablets are unknown, so applicability is uncertain.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_008",
+      "perspective": "doctor",
+      "source_title": "Diabetes type 2 - meal planning: MedlinePlus Medical Encyclopedia",
+      "source_url": "https://medlineplus.gov/ency/article/007429.htm",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "It encourages larger portions of non-starchy vegetables (half the plate) and moderate portions of lean protein (one quarter of the plate) and carbohydrate foods (one quarter of the plate).",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "The Diabetes Plate method uses a 9-inch plate as a visual guide to food types and amounts",
+        "Fruit contains carbohydrates and should be tracked in meal plans"
+      ],
+      "limitations": [],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.85,
+      "reliability_notes": "US National Library of Medicine reference article; general guidance, not individualized.",
+      "verification_status": "partially_supported"
+    },
+    {
+      "evidence_id": "ev_009",
+      "perspective": "doctor",
+      "source_title": "Blood glucose management | Type 2 diabetes in adults: management  | Guidance | NICE",
+      "source_url": "https://www.nice.org.uk/guidance/ng28/chapter/Blood-glucose-management",
+      "source_type": "clinical_guideline",
+      "evidence_strength": "clinical_guideline",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "Measure HbA1c levels in adults with type 2 diabetes every: 3 to 6 months (tailored to individual needs) until HbA1c is stable on unchanging therapy; 6 months once the HbA1c level and blood glucose lowering therapy are stable.",
+      "is_direct_quote": false,
+      "claims_supported": [
+        "HbA1c is checked every 3-6 months until stable, then every 6 months",
+        "HbA1c targets can be relaxed in some adults",
+        "A low HbA1c without hypoglycaemia should be maintained, though other causes should be considered"
+      ],
+      "limitations": [
+        "Snippet truncated; specific targets not shown"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.85,
+      "reliability_notes": "UK NICE national guideline; UK setting may differ from other health systems. [Checker: claimed quote not found verbatim in snippet; treated as paraphrase.]",
+      "verification_status": "partially_supported"
+    },
+    {
+      "evidence_id": "ev_010",
+      "perspective": "doctor",
+      "source_title": "Diabetes Meal Planning | Diabetes | CDC",
+      "source_url": "https://www.cdc.gov/diabetes/healthy-eating/diabetes-meal-planning.html",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "Keeping track of and limiting how many carbs you eat at each meal can help manage your blood sugar levels. Work with your doctor or a registered dietitian to find out how many carbs you should aim for.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Carb counting can help manage blood sugar",
+        "The plate method balances vegetables, protein and carb foods",
+        "Water or a low-calorie drink is suggested with meals"
+      ],
+      "limitations": [],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.85,
+      "reliability_notes": "US public health agency patient guidance; general rather than individualized.",
+      "verification_status": "partially_supported"
+    },
+    {
+      "evidence_id": "ev_011",
+      "perspective": "doctor",
+      "source_title": "Plan Your Diabetes Plate 1 2 3",
+      "source_url": "https://professional.diabetes.org/sites/dpro/files/2025-05/PE25-Plan-Your-Plate-FINAL-5-22-25.pdf",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "The Diabetes Plate uses a nine-inch plate to help you create a meal with a healthy balance of vegetables, protein, and carbs\u2014without any counting, weighing, or measuring.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "The plate has three sections: non-starchy vegetables, lean protein and quality carbohydrates",
+        "Water or a zero- or low-calorie drink is suggested",
+        "Half the plate is non-starchy vegetables"
+      ],
+      "limitations": [
+        "Snippet is truncated after the first portion step"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.8,
+      "reliability_notes": "American Diabetes Association professional education handout, 2025.",
+      "verification_status": "partially_supported"
+    },
+    {
+      "evidence_id": "ev_012",
+      "perspective": "doctor",
+      "source_title": "Meal Planning for Type 2 Diabetes",
+      "source_url": "https://health.clevelandclinic.org/meal-plan-for-type-2-diabetes",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "One-half of non-starchy vegetables, like spinach, green beans, tomatoes, broccoli or other vegetables",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "The ADA Plate Method can be used for portion control in type 2 diabetes meal planning",
+        "Half the plate is non-starchy vegetables"
+      ],
+      "limitations": [
+        "Snippet is cut off before the protein and carbohydrate portions"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.75,
+      "reliability_notes": "Academic medical center health article quoting a dietitian, dated May 2025.",
+      "verification_status": "verified"
+    },
+    {
+      "evidence_id": "ev_013",
+      "perspective": "doctor",
+      "source_title": "Type 2 Diabetes: What It Is, Causes, Symptoms & Treatment",
+      "source_url": "https://my.clevelandclinic.org/health/diseases/21501-type-2-diabetes",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "This condition is very common. About 1 in 10 people in the U.S. has diabetes. And about 90% to 95% of them have T2D. Researchers estimate that it affects about 6.3% of the world's population.",
+      "is_direct_quote": false,
+      "claims_supported": [
+        "Type 2 diabetes is very common",
+        "Diagnosis thresholds include A1C of 6.5% or higher and fasting glucose of 126 mg/dL or higher"
+      ],
+      "limitations": [],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.55,
+      "reliability_notes": "Academic medical center patient-education page; no study details in snippet. [Checker: claimed quote not found verbatim in snippet; treated as paraphrase.]",
+      "verification_status": "verified"
+    },
+    {
+      "evidence_id": "ev_014",
+      "perspective": "doctor",
+      "source_title": "Time in Range Targets & Guidelines for Diabetes | novoMEDLINK\u2122",
+      "source_url": "https://www.novomedlink.com/diabetes/hcp-education/clinical/time-in-range/tir/time-in-range-guidance-targets.html",
+      "source_type": "health_article",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "Most people with type 1 and type 2 diabetes should spend at least 70% (approximately 17 hours) of the day within this glucose range [70 to 180 mg/dL]. This corresponds to an HbA1c target of approximately 7%.",
+      "is_direct_quote": false,
+      "claims_supported": [
+        "Many non-pregnant adults are advised to spend at least 70% of the day at 70-180 mg/dL",
+        "Time in range of 70% corresponds to an HbA1c of about 7%"
+      ],
+      "limitations": [
+        "Some people may need ongoing support from their healthcare team to reach the target"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.5,
+      "reliability_notes": "Pharmaceutical company (Novo Nordisk) education site summarizing ADA guidance, so possible vendor bias; time in range usually needs CGM. [Checker: claimed quote not found verbatim in snippet; treated as paraphrase.]",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_015",
+      "perspective": "doctor",
+      "source_title": "Diabetes",
+      "source_url": "https://my.clevelandclinic.org/health/diseases/7104-diabetes",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "Type 2 diabetes is the most common form, representing 90% to 95% of all diabetes cases.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "About 37.3 million people in the US (about 11%) have diabetes",
+        "About 537 million adults worldwide have diabetes"
+      ],
+      "limitations": [],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.4,
+      "reliability_notes": "Academic medical center overview page; statistics are not dated in the snippet and partly overlap with another source.",
+      "verification_status": "verified"
+    },
+    {
+      "evidence_id": "ev_016",
+      "perspective": "doctor",
+      "source_title": "Type 2 Diabetes - NIDDK",
+      "source_url": "https://www.niddk.nih.gov/health-information/diabetes/overview/what-is-diabetes/type-2-diabetes",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "Symptoms of type 2 diabetes often develop slowly\u2014over the course of several years\u2014and can be so mild that you might not even notice them. Many people have no symptoms.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Symptoms include increased thirst and urination, tiredness, blurred vision, numbness or tingling in the feet or hands, and sores that do not heal",
+        "Risk is higher with age 45 or older, family history, or overweight/obesity"
+      ],
+      "limitations": [],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.35,
+      "reliability_notes": "US NIH institute reference page; mostly about symptoms and risk, not management.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_017",
+      "perspective": "doctor",
+      "source_title": "Guide to Blood Sugar Control: ADA Standards & Care Tips",
+      "source_url": "https://primarycarenb.com/understanding-blood-glucose-monitoring-and-control",
+      "source_type": "health_article",
+      "evidence_strength": "unknown",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "Diet: Focus on balanced meals including carbohydrates, proteins, and fats. Exercise: Regular physical activity helps insulin function better. Medication: Insulin therapy or oral medications may be necessary.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Blood sugar control combines diet, exercise and medication",
+        "Targets are personalized by health status and age",
+        "A1C tests are suggested every 3 months"
+      ],
+      "limitations": [
+        "Generic secondary summary of ADA standards with no cited detail"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.3,
+      "reliability_notes": "Secondary clinic-style blog summarizing guidelines; unclear authorship and date.",
+      "verification_status": "partially_supported"
+    },
+    {
+      "evidence_id": "ev_018",
+      "perspective": "doctor",
+      "source_title": "Diabetes, Type 2 - does diet matter?",
+      "source_url": "https://www.drugs.com/answers/diabetes-type-2-diet-matter-3575703.html",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "Your diabetes diet is simply a healthy-eating plan that will help you control your blood sugar. You'll need to focus your diet on more fruits, vegetables, lean proteins and whole grains.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Diet should emphasize fruits, vegetables, lean proteins and whole grains",
+        "Cut down on saturated fats, refined carbohydrates and sweets",
+        "A registered dietitian can help build a meal plan"
+      ],
+      "limitations": [
+        "General guidance covering all diabetes types",
+        "Carbohydrate counting emphasis applies mostly to type 1 or insulin use"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.8,
+      "reliability_notes": "General reference-style guidance with no study data in the snippet.",
+      "verification_status": "partially_supported"
+    },
+    {
+      "evidence_id": "ev_019",
+      "perspective": "patient",
+      "source_title": "Just got diagnosed with diabetes type 2 give me your best ...",
+      "source_url": "https://www.reddit.com/r/diabetes_t2/comments/1n2eq7l/just_got_diagnosed_with_diabetes_type_2_give_me",
+      "source_type": "patient_community",
+      "evidence_strength": "anecdotal",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "My biggest piece of advice is to get into a routine of walking for just 10 minutes each evening after dinner. Metformin is effective for most",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "A poster recommends a 10-minute walk after dinner",
+        "A poster says metformin is effective for most people"
+      ],
+      "limitations": [
+        "Single forum post; snippet cuts off mid-sentence"
+      ],
+      "patient_context": {
+        "experience_described": "Advice to a newly diagnosed person: short post-dinner walks and a note that metformin works for most",
+        "is_recurring": false,
+        "context": "Advice to someone newly diagnosed with type 2 diabetes",
+        "what_helped": [
+          "10-minute walk after dinner"
+        ],
+        "relevant_to_user": true
+      },
+      "sentiment": "positive",
+      "relevance_score": 0.6,
+      "reliability_notes": "Single anecdotal Reddit comment with no data.",
+      "verification_status": "partially_supported"
+    },
+    {
+      "evidence_id": "ev_020",
+      "perspective": "patient",
+      "source_title": "Metformin for Type 2 Diabetes Reviews - Drugs.com",
+      "source_url": "https://www.drugs.com/comments/metformin/for-diabetes-mellitus-type-ii.html",
+      "source_type": "patient_community",
+      "evidence_strength": "anecdotal",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "Was already dieting intensively when I started using the metformin, and it has definitely made losing weight easier... I've gone from 253 to 211 in a year",
+      "is_direct_quote": false,
+      "claims_supported": [
+        "One reviewer reports easier weight loss when combining metformin with intensive dieting",
+        "Another reviewer reports diarrhea and headaches linked to sugar intake while on metformin"
+      ],
+      "limitations": [
+        "Individual reviews; the weight figures are partly inconsistent (a year vs. six weeks on metformin)",
+        "Dietary details are self-reported"
+      ],
+      "patient_context": {
+        "experience_described": "Weight loss with metformin plus dieting, and diarrhea or headaches after sugary food",
+        "is_recurring": false,
+        "context": "Type 2 diabetes, on metformin; one reviewer listed meals of oatmeal, fruit, egg whites, vegetables and nuts",
+        "what_helped": [
+          "whole-grain, vegetable and protein-based meals",
+          "drinking water between meals",
+          "more fruit and nuts"
+        ],
+        "relevant_to_user": true
+      },
+      "sentiment": "mixed",
+      "relevance_score": 0.6,
+      "reliability_notes": "Drugs.com user reviews: anecdotal, self-reported, not verified.",
+      "verification_status": "partially_supported"
+    },
+    {
+      "evidence_id": "ev_021",
+      "perspective": "patient",
+      "source_title": "How long should it take for diet and exercise changes to ...",
+      "source_url": "https://www.reddit.com/r/diabetes_t2/comments/zw56tl/how_long_should_it_take_for_diet_and_exercise",
+      "source_type": "patient_community",
+      "evidence_strength": "anecdotal",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "It took me about two months after diet, exercise, and medication, to begin to see my fasting numbers go down. At 4 months I was at 5.3 A1C",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "One person saw fasting numbers fall after about 2 months of diet, exercise and medication",
+        "The same person reported an A1C of 5.3 at 4 months"
+      ],
+      "limitations": [
+        "Single personal report; the starting values are not in the snippet"
+      ],
+      "patient_context": {
+        "experience_described": "Fasting glucose began to fall after about 2 months and A1C reached 5.3 at 4 months",
+        "is_recurring": false,
+        "context": "Used diet, exercise and medication together; further details not stated",
+        "what_helped": [
+          "diet",
+          "exercise",
+          "medication"
+        ],
+        "relevant_to_user": true
+      },
+      "sentiment": "positive",
+      "relevance_score": 0.55,
+      "reliability_notes": "One anecdote; individual timelines vary.",
+      "verification_status": "partially_supported"
+    },
+    {
+      "evidence_id": "ev_022",
+      "perspective": "patient",
+      "source_title": "2 intermittent fasting diet can help people with type 2 diabetes. A study on around 500 adults found that after 16 weeks, the diet achieved better blood sugar control and weight loss than the diabetes drugs metformin and empagliflozin. It also improved blood pressure, fat and cholesterol levels. : r",
+      "source_url": "https://www.reddit.com/r/science/comments/1dls2bz/52_intermittent_fasting_diet_can_help_people_with",
+      "source_type": "patient_community",
+      "evidence_strength": "unknown",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "A study on around 500 adults found that after 16 weeks, the diet achieved better blood sugar control and weight loss than the diabetes drugs metformin and empagliflozin.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "A 5:2 intermittent fasting diet with low-calorie meal replacements improved blood sugar control and weight loss in a ~500-adult study at 16 weeks",
+        "The post also reports improved blood pressure, fat and cholesterol levels"
+      ],
+      "limitations": [
+        "Reddit headline relaying a study, not the study itself",
+        "Only 16 weeks; design not described in the snippet"
+      ],
+      "patient_context": {
+        "experience_described": "Reddit post sharing a news report of a 5:2 intermittent fasting study in type 2 diabetes",
+        "is_recurring": false,
+        "context": "Study result shared on r/science; not a personal experience",
+        "what_helped": [
+          "5:2 intermittent fasting with low-calorie meal replacements"
+        ],
+        "relevant_to_user": true
+      },
+      "sentiment": "positive",
+      "relevance_score": 0.5,
+      "reliability_notes": "Secondhand summary of a ~500-adult, 16-week study; discuss any diet change with your doctor, especially while on tablets.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_023",
+      "perspective": "patient",
+      "source_title": "How long did it take for you to see results when changing ...",
+      "source_url": "https://www.reddit.com/r/diabetes/comments/1nudjnu/how_long_did_it_take_for_you_to_see_results_when",
+      "source_type": "patient_community",
+      "evidence_strength": "anecdotal",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "I dropped my A1C from 11 to 6.8 in 3 months, and down to 5.5% by month 12. But I did not rely on just diet and exercise.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "One person reported A1C falling from 11 to 6.8 in 3 months and 5.5% by month 12",
+        "The same person said it was not diet and exercise alone"
+      ],
+      "limitations": [
+        "Single report; the other measures used are cut off",
+        "Very high starting A1C may not match the user's situation"
+      ],
+      "patient_context": {
+        "experience_described": "A1C fell from 11 to 6.8 in 3 months and to 5.5% by month 12 with an all-in approach",
+        "is_recurring": false,
+        "context": "Starting A1C 11; diabetes type not stated in the snippet",
+        "what_helped": [
+          "food changes",
+          "exercise",
+          "additional measures not shown"
+        ],
+        "relevant_to_user": true
+      },
+      "sentiment": "positive",
+      "relevance_score": 0.45,
+      "reliability_notes": "Single anecdote with an unclear full regimen.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_024",
+      "perspective": "patient",
+      "source_title": "Anyone lose weight on Metformin alone (without GLP-1)?",
+      "source_url": "https://www.reddit.com/r/diabetes_t2/comments/1l4qd82/anyone_lose_weight_on_metformin_alone_without_glp1",
+      "source_type": "patient_community",
+      "evidence_strength": "anecdotal",
+      "published_at": null,
+      "retrieved_at": "2026-10-20T19:32:38.943990Z",
+      "relevant_excerpt": "He did 30 min. Walks almost daily. Either outside or on a walking pad. Also look up isometric exercises they seem to really make a difference",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "A poster describes someone walking 30 minutes almost daily",
+        "A poster suggests isometric exercises help"
+      ],
+      "limitations": [
+        "Fragment about a third person; the outcome is not shown"
+      ],
+      "patient_context": {
+        "experience_described": "Daily 30-minute walks and isometric exercises mentioned in a thread about weight loss on metformin",
+        "is_recurring": false,
+        "context": "Thread about losing weight on metformin alone; details cut off",
+        "what_helped": [
+          "30-minute walks almost daily",
+          "isometric exercises"
+        ],
+        "relevant_to_user": true
+      },
+      "sentiment": "positive",
+      "relevance_score": 0.35,
+      "reliability_notes": "Brief secondhand anecdote with no outcomes.",
+      "verification_status": "partially_supported"
+    }
+  ],
+  "perspective_summaries": {
+    "research": "The kept sources suggest that lifestyle changes (diet, exercise, education) are associated with better HbA1c and cardiovascular risk markers in people with type 2 diabetes. Examples include a 3-month study where about a third improved HbA1c, a 7.2% vs 8.0% HbA1c difference, and a meta-analysis of cardiovascular risk markers. One review names Mediterranean, low-carbohydrate and plant-based diets, but the snippet gives no per-diet results. Medication sources show that tablet classes differ in HbA1c effect, hypoglycemia risk, weight and side effects. DPP-4 inhibitors and sulfonylureas gave similar HbA1c effects in a meta-analysis, with fewer hypoglycemic events on DPP-4 inhibitors. Any change to tablets should be discussed with your doctor.\nPrevalence: Not covered by these sources.",
+    "doctor": "Doctor-lane sources recommend the Diabetes Plate method for meals: half the plate non-starchy vegetables, a quarter lean protein, a quarter carbohydrate, with water or a low-calorie drink. The CDC also mentions carb counting with a doctor or dietitian. NICE advises HbA1c checks every 3-6 months until stable, then every 6 months, with targets tailored to the individual. ADA-based material gives a general HbA1c target of about 7% (70% time in range) for many non-pregnant adults. Diet, activity, medication and monitoring are described as working together, but the snippets give no specific tablet details, doses, timeline or outlook. Discuss personal targets and any medication questions with your doctor.\nPrevalence: Type 2 diabetes is very common, making up about 90-95% of diabetes cases, and about 11% of the US population has diabetes (Cleveland Clinic).",
+    "patient": "Patient sources describe simple routines such as 10-minute walks after dinner and about 30 minutes of walking almost daily. Reported timelines vary: fasting numbers fell after about 2 months and A1C reached 5.3 at 4 months in one account, while another reported A1C falling from 11 to 6.8 in 3 months. Diet advice from the reference page favors vegetables, whole grains, lean protein and less saturated fat, refined carbohydrate and sweets, with a dietitian's help. One shared news item reports a 16-week 5:2 fasting study with meal replacements that improved control. Metformin users report easier weight loss alongside dieting, plus digestive side effects with sugar. These are mostly anecdotes. Discuss any diet, exercise or medication changes with your doctor.\nPrevalence: Not covered by these sources"
+  },
+  "research_summary": "## Research perspective (papers, studies, systematic reviews)\nThe kept sources suggest that lifestyle changes (diet, exercise, education) are associated with better HbA1c and cardiovascular risk markers in people with type 2 diabetes. Examples include a 3-month study where about a third improved HbA1c, a 7.2% vs 8.0% HbA1c difference, and a meta-analysis of cardiovascular risk markers. One review names Mediterranean, low-carbohydrate and plant-based diets, but the snippet gives no per-diet results. Medication sources show that tablet classes differ in HbA1c effect, hypoglycemia risk, weight and side effects. DPP-4 inhibitors and sulfonylureas gave similar HbA1c effects in a meta-analysis, with fewer hypoglycemic events on DPP-4 inhibitors. Any change to tablets should be discussed with your doctor.\nPrevalence: Not covered by these sources.\n\n## Doctor perspective (clinical guidelines, hospital and medical-reference sites)\nDoctor-lane sources recommend the Diabetes Plate method for meals: half the plate non-starchy vegetables, a quarter lean protein, a quarter carbohydrate, with water or a low-calorie drink. The CDC also mentions carb counting with a doctor or dietitian. NICE advises HbA1c checks every 3-6 months until stable, then every 6 months, with targets tailored to the individual. ADA-based material gives a general HbA1c target of about 7% (70% time in range) for many non-pregnant adults. Diet, activity, medication and monitoring are described as working together, but the snippets give no specific tablet details, doses, timeline or outlook. Discuss personal targets and any medication questions with your doctor.\nPrevalence: Type 2 diabetes is very common, making up about 90-95% of diabetes cases, and about 11% of the US population has diabetes (Cleveland Clinic).\n\n## Patient perspective (real-world experiences from forums, Reddit, reviews)\nPatient sources describe simple routines such as 10-minute walks after dinner and about 30 minutes of walking almost daily. Reported timelines vary: fasting numbers fell after about 2 months and A1C reached 5.3 at 4 months in one account, while another reported A1C falling from 11 to 6.8 in 3 months. Diet advice from the reference page favors vegetables, whole grains, lean protein and less saturated fat, refined carbohydrate and sweets, with a dietitian's help. One shared news item reports a 16-week 5:2 fasting study with meal replacements that improved control. Metformin users report easier weight loss alongside dieting, plus digestive side effects with sugar. These are mostly anecdotes. Discuss any diet, exercise or medication changes with your doctor.\nPrevalence: Not covered by these sources",
+  "evidence_gaps": [
+    "[research] prevalence",
+    "[research] specific diet details and portions",
+    "[research] long-term timeline and outlook",
+    "[research] routine monitoring schedule",
+    "[doctor] medications",
+    "[doctor] timeline and outlook",
+    "[doctor] exercise specifics",
+    "[patient] prevalence",
+    "[patient] specific meal plan details",
+    "[patient] long-term outlook"
+  ],
+  "conflicting_claims": [
+    {
+      "topic": "Relative efficacy of DPP-4 inhibitors versus sulfonylureas",
+      "evidence_ids": [
+        "ev_005",
+        "ev_006"
+      ],
+      "description": "The DPP-4 inhibitor vs sulfonylurea meta-analysis found no significant HbA1c difference. The Comparison of Different Antidiabetic Medication Classes study reported modestly lower efficacy for DPP-4 inhibitors (-0.9%) than for sulfonylureas (-1.3%). The two studies differ in design and size."
+    },
+    {
+      "topic": "HbA1c testing frequency",
+      "evidence_ids": [
+        "ev_009",
+        "ev_017"
+      ],
+      "description": "NICE says to test every 3-6 months until stable and then every 6 months, while the Primary Care NB guide suggests A1C tests every 3 months."
+    }
+  ],
+  "rejected_sources": [
+    {
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12821424",
+      "title": "A Systematic Review and Meta-Analysis of RCTs Assessing ...",
+      "perspective": "research",
+      "reason": "about prevention; snippet too short"
+    },
+    {
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12570783",
+      "title": "Triple oral therapy with metformin, DPP\u20104 inhibitor, and SGLT2 inhibitor for adults with type 2 diabetes: Consensus recommendations of a Chinese expert panel (version 2025)",
+      "perspective": "research",
+      "reason": "only methods and references, no finding"
+    },
+    {
+      "url": "https://link.springer.com/article/10.1007/s13300-014-0061-3",
+      "title": "Comparative Effectiveness of Dipeptidylpeptidase-4 Inhibitors in Type 2 Diabetes: A Systematic Review and Mixed Treatment Comparison | Diabetes Therapy | Springer Nature Link",
+      "perspective": "research",
+      "reason": "DPP-4 class comparison; low relevance, overlaps kept review"
+    },
+    {
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9480679",
+      "title": "Reduction in HbA1c through lifestyle modification in newly diagnosed type 2 diabetes mellitus patient: A great feat",
+      "perspective": "research",
+      "reason": "single case report, extreme regimen, not generalizable"
+    },
+    {
+      "url": "https://www.mdpi.com/2072-6643/11/11/2611",
+      "title": "Prevention of Type 2 Diabetes by Lifestyle Changes: A Systematic Review and Meta-Analysis",
+      "perspective": "research",
+      "reason": "prevention in prediabetes, user already has diabetes"
+    },
+    {
+      "url": "https://www.nice.org.uk/guidance/ng28/chapter/blood-glucose-management",
+      "title": "Blood glucose management | Type 2 diabetes in adults: management  | Guidance | NICE",
+      "perspective": "doctor",
+      "reason": "duplicate of kept NICE guideline"
+    },
+    {
+      "url": "https://diabetes.org/living-with-diabetes/type-2/how-type-2-diabetes-progresses",
+      "title": "Why Type 2 Diabetes Progresses & Medication Changes Over Time",
+      "perspective": "doctor",
+      "reason": "not assessed by extractor"
+    },
+    {
+      "url": "https://www.reddit.com/r/TTC_PCOS/comments/1rp0un8/walking_instead_of_metformin",
+      "title": "Walking instead of metformin : r/TTC_PCOS",
+      "perspective": "patient",
+      "reason": "about PCOS, unverified claim, suggests replacing metformin"
+    },
+    {
+      "url": "https://www.reddit.com/r/prediabetes/comments/1fi0f5y/a1c_went_up_despite_lifestyle_changes_and_weight",
+      "title": "A1c went up despite lifestyle changes and weight loss",
+      "perspective": "patient",
+      "reason": "prediabetes thread, fragment with no usable finding"
+    },
+    {
+      "url": "https://www.drugs.com/comments/glipizide/for-diabetes-mellitus-type-ii.html?page=4",
+      "title": "Glipizide for Type 2 Diabetes Reviews (Page 4) - Drugs.com",
+      "perspective": "patient",
+      "reason": "glipizide-specific reviews; user's tablet unknown"
+    },
+    {
+      "url": "https://drugs.com/clinical_trials/lilly-s-triple-agonist-retatrutide-demonstrated-significant-reductions-a1c-weight-first-phase-3-22351.html",
+      "title": "Lilly's Triple Agonist, Retatrutide, Demonstrated Significant Reductions in A1C and Weight in First Phase 3 Trial for Treatment of Type 2 Diabetes - Drugs.com MedNews",
+      "perspective": "patient",
+      "reason": "investigational injectable drug, press release marketing"
+    },
+    {
+      "url": "http://drugs.com/comments/nateglinide/for-diabetes-mellitus-type-ii.html",
+      "title": "Nateglinide for Type 2 Diabetes Reviews - Drugs.com",
+      "perspective": "patient",
+      "reason": "nateglinide-specific reviews; not about plan or diet"
+    }
+  ],
+  "research_retry_count": 0,
+  "research_focus": [],
+  "care_plans": [
+    {
+      "name": "Lifestyle-first: structured diet and exercise alongside current tablets",
+      "summary": "This approach builds on the strongest research evidence here (systematic reviews and meta-analyses): structured diet, exercise and education added to usual care are linked to better HbA1c and cardiovascular risk markers. It keeps the user's current tablets unchanged and focuses on the 'plan and diet' goal.",
+      "daily_routine": [
+        "Regular structured physical activity as used in lifestyle interventions (ev_002); the evidence snippets give no specific amount or type, so agree this with your doctor or a diabetes educator.",
+        "Take a daily record of diet and activity, since the lifestyle study relied on questionnaires and re-emphasis of daily diet and exercise (ev_001).",
+        "Ask your doctor how often to check blood sugar or HbA1c; the evidence does not give a monitoring schedule.",
+        "Consider diabetes education or behavioral support, which formed part of the combined interventions (ev_002, ev_003)."
+      ],
+      "diet": [
+        "Reviewed diet patterns include Mediterranean, low-carbohydrate and plant-based diets (ev_002); the snippet gives no per-diet results, so none can be ranked as best.",
+        "Regulating daily diet without changing medication was associated with better HbA1c in about 35% of mildly to moderately uncontrolled patients over 3 months (ev_001).",
+        "Portion sizes and meal timing are not covered by the evidence; ask a dietitian."
+      ],
+      "medications_treatments": [
+        "Continue current tablets as prescribed; the specific tablets are unknown. Discuss any changes with your doctor.",
+        "Reviews report that lifestyle interventions were linked to reduced oral medication use (15-40% reduction), but any change should only be made by your doctor (ev_002)."
+      ],
+      "expected_timeline": "HbA1c improvement was seen at about 3 months in one small study (ev_001). Longer-term timeline is not covered by the evidence.",
+      "prevalence_and_outlook": "Prevalence is not covered by the evidence. Across the reviews, lifestyle interventions improved glycaemic control and cardiovascular risk markers, which supports a favourable outlook when sustained (ev_002, ev_003, ev_004). Long-term outcomes are not shown.",
+      "benefits": [
+        "Backed by two systematic reviews/meta-analyses (ev_002, ev_003).",
+        "Lifestyle group had HbA1c 7.2% vs 8.0% in controls, plus better cholesterol and LDL, though study design is unclear (ev_004).",
+        "Possible reduction in medication need (ev_002).",
+        "Low direct cost compared with adding drugs."
+      ],
+      "drawbacks_risks": [
+        "Only about a third of patients improved significantly in the small uncontrolled study (ev_001), so lifestyle alone may not be enough.",
+        "Requires sustained effort and behavior change.",
+        "Evidence snippets lack effect sizes (ev_003) and clear study design (ev_004).",
+        "If medication needs fall while diet and exercise improve, blood sugar could drop too low in some people. Check with your doctor, especially if you take certain tablets (general knowledge, not from the evidence)."
+      ],
+      "assumptions": [
+        "Typical adult with no mobility or dietary restrictions.",
+        "Current HbA1c is unknown; may be mildly to moderately above target as in ev_001.",
+        "Diagnosis was confirmed by a doctor.",
+        "Hypoglycaemia risk depends on the specific tablet, which is unknown (general knowledge)."
+      ],
+      "difficulty": "medium",
+      "safety_notes": "Do not stop or reduce tablets on your own; discuss any change with your doctor. See a doctor before starting vigorous exercise. Seek urgent care for severe thirst, vomiting, fast or deep breathing, confusion or drowsiness.",
+      "supporting_evidence_ids": [
+        "ev_001",
+        "ev_002",
+        "ev_003",
+        "ev_004"
+      ],
+      "evidence_gaps": [
+        "Specific diet details and portions",
+        "Routine monitoring schedule",
+        "Long-term timeline and outlook",
+        "Prevalence",
+        "Exercise type, amount and intensity"
+      ],
+      "plan_id": "research_a",
+      "perspective": "research",
+      "round": 1
+    },
+    {
+      "name": "Lifestyle plus medication review with your doctor (consider treatment options if targets not met)",
+      "summary": "If diet and exercise changes do not bring HbA1c to target, the research compares oral drug classes and their trade-offs. This plan pairs lifestyle with a doctor-led review of the current tablets, using the evidence only to prepare questions for that conversation.",
+      "daily_routine": [
+        "Take tablets as prescribed and keep a log of any side effects such as stomach upset or low blood sugar symptoms, which differ by drug class (ev_005, ev_006).",
+        "Bring recent HbA1c results and your medication list to a doctor appointment.",
+        "Continue daily diet and exercise changes in parallel (ev_001, ev_002)."
+      ],
+      "diet": [
+        "Same diet patterns as the lifestyle plan (Mediterranean, low-carbohydrate or plant-based, ev_002); portions are not covered by the evidence.",
+        "Ask about eating patterns that reduce hypoglycaemia risk if sulfonylureas are used (ev_006); the evidence gives no specifics."
+      ],
+      "medications_treatments": [
+        "Commonly studied options (not a recommendation): metformin (about -1.2% HbA1c, with gastrointestinal side effects), sulfonylureas (about -1.3%, hypoglycaemia in 25% in one small study), DPP-4 inhibitors (about -0.9%, well tolerated) (ev_006).",
+        "In a meta-analysis of 10 RCTs, DPP-4 inhibitors and sulfonylureas added to metformin had similar HbA1c effect, with fewer hypoglycaemic events (RR 0.12) and about 2.2 kg lower weight with DPP-4 inhibitors (ev_005).",
+        "SGLT2 inhibitors and GLP-1 agonists were reported to offer the best balance of efficacy and safety in a 100-patient study (ev_006).",
+        "In real-world data, oral semaglutide was associated with a mean HbA1c reduction of 0.8%, larger in poorly controlled patients (2.0% vs 0.4%) (ev_007).",
+        "No doses are stated in the evidence; any choice or change is for your doctor."
+      ],
+      "expected_timeline": "Not covered by the evidence for drug changes. Lifestyle effects were seen at about 3 months in ev_001.",
+      "prevalence_and_outlook": "Prevalence is not covered by the evidence. The drug comparisons show several oral classes can lower HbA1c by roughly 0.8-1.3%, which suggests diabetes can often be controlled with adjustments, though comparisons are limited (ev_005, ev_006, ev_007).",
+      "benefits": [
+        "Can lower HbA1c further if lifestyle changes alone are not enough.",
+        "Drug classes differ in side-effect profile, which allows tailoring with your doctor (ev_005, ev_006).",
+        "Meta-analysis evidence for the DPP-4 vs sulfonylurea comparison (ev_005)."
+      ],
+      "drawbacks_risks": [
+        "Drug comparison evidence is weaker: a 100-patient observational study (ev_006), real-world single-drug data (ev_007), and an older meta-analysis limited to add-on to metformin (ev_005).",
+        "Sulfonylureas carried the highest hypoglycaemia rate (ev_006).",
+        "Metformin has gastrointestinal side effects (ev_006).",
+        "Evidence does not show which drug suits this user, since their tablets are unknown."
+      ],
+      "assumptions": [
+        "The user's current tablets and recent HbA1c are unknown.",
+        "The user can access regular doctor follow-up.",
+        "Any medication change is a clinician decision (general knowledge)."
+      ],
+      "difficulty": "low",
+      "safety_notes": "Never stop or change prescribed tablets without your doctor. Report symptoms of low blood sugar (shakiness, sweating, confusion) promptly. Seek urgent care for vomiting, fast or deep breathing, extreme thirst, confusion or drowsiness.",
+      "supporting_evidence_ids": [
+        "ev_005",
+        "ev_006",
+        "ev_007",
+        "ev_001",
+        "ev_002"
+      ],
+      "evidence_gaps": [
+        "Which tablets the user takes and whether they are on the best option",
+        "Long-term outcomes of each drug class",
+        "Cost and access",
+        "Monitoring schedule",
+        "Comparisons for SGLT2 inhibitors and GLP-1 agonists beyond a small study"
+      ],
+      "plan_id": "research_b",
+      "perspective": "research",
+      "round": 1
+    },
+    {
+      "name": "Plate-method meal structure with scheduled HbA1c monitoring (no counting)",
+      "summary": "A simple, visual eating approach using the Diabetes Plate (half non-starchy vegetables, a quarter lean protein, a quarter quality carbohydrate) alongside the tablets the user already takes. It fits someone 2 years into type 2 diabetes who wants a plan and diet help without weighing or counting. Regular HbA1c checks with the doctor show whether it is working.",
+      "daily_routine": [
+        "Build each meal on a 9-inch plate using the plate method (ev_011, ev_008).",
+        "Keep taking your tablets as prescribed; discuss any questions about them with your doctor.",
+        "Arrange HbA1c checks with your care team: guidance says every 3-6 months until stable on unchanging therapy, then about every 6 months (ev_009).",
+        "Ask your doctor what HbA1c target suits you; guidance notes targets can be relaxed for some adults and are personalised (ev_009, ev_017)."
+      ],
+      "diet": [
+        "Fill half the plate with non-starchy vegetables such as spinach, green beans, tomatoes or broccoli (ev_012, ev_011).",
+        "Fill about one quarter with lean protein and one quarter with quality carbohydrate foods (ev_008, ev_011).",
+        "Count fruit as a carbohydrate in your meal plan (ev_008).",
+        "Choose water or a zero/low-calorie drink with meals (ev_010, ev_011).",
+        "Emphasise vegetables, lean proteins and whole grains; cut down on saturated fats, refined carbohydrates and sweets (ev_018)."
+      ],
+      "medications_treatments": [
+        "User takes tablets (the specific medication is not stated). The evidence does not name specific drugs; discuss any medication questions with your doctor."
+      ],
+      "expected_timeline": "Not covered by evidence for diet changes. Guidance only says HbA1c is rechecked every 3-6 months until stable (ev_009).",
+      "prevalence_and_outlook": "Type 2 diabetes is very common: it accounts for about 90-95% of diabetes cases, and about 6.3% of the world's population is affected (ev_013, ev_015). The evidence gives no specific outlook statement.",
+      "benefits": [
+        "No counting, weighing or measuring needed (ev_011).",
+        "Low cost and easy to start at home.",
+        "Visual and flexible, suited to general portion control (ev_012)."
+      ],
+      "drawbacks_risks": [
+        "General, non-individualised guidance (ev_008, ev_010).",
+        "Does not specify how many carbohydrates you personally need.",
+        "Snippets for the plate method are truncated, so portion details for some foods are limited (ev_011, ev_012)."
+      ],
+      "assumptions": [
+        "Assumes a typical adult with no dietary restrictions, allergies or mobility limits (general assumption from the profile).",
+        "Assumes the diagnosis was confirmed by a doctor.",
+        "Assumes current HbA1c and diet are unknown."
+      ],
+      "difficulty": "low",
+      "safety_notes": "This is general information to discuss with your doctor, not a prescription. Do not stop or change your tablets without talking to your doctor. Seek urgent care for very high thirst or urination with nausea or vomiting, fast or deep breathing, confusion or drowsiness, or fruity-smelling breath.",
+      "supporting_evidence_ids": [
+        "ev_008",
+        "ev_009",
+        "ev_010",
+        "ev_011",
+        "ev_012",
+        "ev_017",
+        "ev_018",
+        "ev_013",
+        "ev_015"
+      ],
+      "evidence_gaps": [
+        "Specific medications and how they interact with diet",
+        "Expected time to see improvement from diet changes",
+        "Exercise specifics"
+      ],
+      "plan_id": "doctor_a",
+      "perspective": "doctor",
+      "round": 1
+    },
+    {
+      "name": "Dietitian-guided carbohydrate-targeted plan with physical activity and glucose-goal review",
+      "summary": "A more structured approach where a doctor or registered dietitian sets personal carbohydrate targets and a tailored meal plan, combined with regular physical activity and a review of glucose goals. It suits someone who wants a detailed plan and is willing to track more closely while continuing their tablets.",
+      "daily_routine": [
+        "Book a visit with your doctor or a registered dietitian to work out how many carbs to aim for at each meal (ev_010, ev_018).",
+        "Keep track of and limit carbohydrates at each meal (ev_010).",
+        "Include regular physical activity, which is reported to help insulin work better (ev_017). Specific amounts are not covered by the evidence; ask your doctor.",
+        "Continue tablets as prescribed; discuss medication questions with your doctor.",
+        "Discuss whether glucose monitoring or time-in-range tracking suits you; it usually needs a continuous glucose monitor (ev_014).",
+        "Have HbA1c checked every 3-6 months until stable, then about every 6 months (ev_009)."
+      ],
+      "diet": [
+        "Limit and track carbohydrates at each meal, with targets set by your doctor or dietitian (ev_010).",
+        "Focus on fruits, vegetables, lean proteins and whole grains; reduce saturated fats, refined carbohydrates and sweets (ev_018).",
+        "Count fruit as carbohydrate (ev_008).",
+        "Drink water or low-calorie drinks with meals (ev_010)."
+      ],
+      "medications_treatments": [
+        "Tablets already in use (not specified). Oral medications or insulin may be needed in some people according to a general summary (ev_017); any change is a decision for your doctor."
+      ],
+      "expected_timeline": "Not covered by evidence. HbA1c rechecks every 3-6 months until stable (ev_009).",
+      "prevalence_and_outlook": "Very common: type 2 is about 90-95% of all diabetes cases (ev_015, ev_013). Targets are personalised to health status and age (ev_017).",
+      "benefits": [
+        "Personalised carbohydrate targets rather than generic advice (ev_010).",
+        "Dietitian support helps build a meal plan (ev_018).",
+        "Combines diet, activity and monitoring (ev_017).",
+        "Time-in-range goal of at least 70% (about HbA1c 7%) gives a measurable aim for many non-pregnant adults (ev_014)."
+      ],
+      "drawbacks_risks": [
+        "Carb counting takes more effort; the emphasis on it applies mostly to type 1 or insulin use, so it may not be needed for everyone (ev_018).",
+        "Dietitian access and cost are unknown.",
+        "Time-in-range data usually needs a continuous glucose monitor (ev_014), and the source is a pharmaceutical company site with possible bias.",
+        "Some people need ongoing support from their healthcare team to reach targets (ev_014)."
+      ],
+      "assumptions": [
+        "Assumes access to a doctor or dietitian and a budget for it (not stated).",
+        "Assumes the user is able to be physically active (general assumption; fitness and age unknown).",
+        "Assumes the user does not have complications."
+      ],
+      "difficulty": "medium",
+      "safety_notes": "Ask your doctor before starting a new exercise programme or monitoring routine. Do not change your tablets yourself. A doctor needs to set individual HbA1c and carbohydrate targets. Seek urgent care if warning signs such as vomiting, fast or deep breathing, or confusion appear.",
+      "supporting_evidence_ids": [
+        "ev_008",
+        "ev_009",
+        "ev_010",
+        "ev_014",
+        "ev_015",
+        "ev_017",
+        "ev_018",
+        "ev_013"
+      ],
+      "evidence_gaps": [
+        "Exercise type, amount and intensity",
+        "Medication options and side effects",
+        "How quickly the plan improves HbA1c",
+        "Most evidence is general, with no individualised data"
+      ],
+      "plan_id": "doctor_b",
+      "perspective": "doctor",
+      "round": 1
+    },
+    {
+      "name": "Tablets plus short daily walks and everyday diet tweaks (routine-first)",
+      "summary": "This approach builds on the tablets the user already takes by adding a small, easy walking habit and modest food changes, which is the 'start small' advice patients most often shared. It fits someone 2 years in with no symptoms who wants a plan and diet guidance. It rests on a few anecdotes, not on proven results.",
+      "daily_routine": [
+        "One poster advised a 10-minute walk each evening after dinner (ev_019, single post).",
+        "Another thread described someone walking about 30 minutes almost daily, outside or on a walking pad (ev_024, secondhand, outcome not shown).",
+        "One poster suggested looking up isometric exercises (ev_024, anecdotal, no outcome shown).",
+        "Keep taking the tablets as prescribed and discuss any questions about them with your doctor."
+      ],
+      "diet": [
+        "Patients in the evidence gave no detailed meal plans (evidence gap).",
+        "One Drugs.com reviewer reported diarrhea and headaches linked to sugar intake while on metformin (ev_020, single review). Some users may therefore want to watch sugary foods, but this is anecdotal.",
+        "Ask your doctor or a dietitian to help turn this into a personal meal plan."
+      ],
+      "medications_treatments": [
+        "Metformin is described by one poster as effective for most people (ev_019, anecdotal). The user's own tablet is not stated, so it is unknown whether this applies.",
+        "Reviewers on Drugs.com reported metformin made weight loss easier when combined with dieting (ev_020, one reviewer, self-reported)."
+      ],
+      "expected_timeline": "One person reported fasting numbers began to fall after about 2 months of diet, exercise and medication (ev_021, single report). Individual timelines vary.",
+      "prevalence_and_outlook": "The patient evidence does not say how common type 2 diabetes is or what the long-term outlook is. The posters describe it as manageable, with some reporting good A1C results.",
+      "benefits": [
+        "Low cost and easy to start.",
+        "Needs no big lifestyle overhaul.",
+        "Can be combined with current tablets."
+      ],
+      "drawbacks_risks": [
+        "Based on a few single anecdotes with no outcome data for walking alone.",
+        "May be too gentle if blood sugar is currently high.",
+        "Metformin side effects such as diarrhea were reported by one reviewer (ev_020)."
+      ],
+      "assumptions": [
+        "Assumes a typical adult with no mobility limits (general assumption, not stated by the user).",
+        "Assumes the tablet is something like metformin; this is unknown.",
+        "Assumes the user's current blood sugar and HbA1c are unknown."
+      ],
+      "difficulty": "low",
+      "safety_notes": "Do not stop or change your tablets without talking to your doctor. Check with your doctor before starting new exercise, and ask what to do if blood sugar readings seem too low. Seek urgent care for very high thirst, frequent urination, vomiting, fast or deep breathing, confusion, or fruity-smelling breath.",
+      "supporting_evidence_ids": [
+        "ev_019",
+        "ev_020",
+        "ev_021",
+        "ev_024"
+      ],
+      "evidence_gaps": [
+        "No specific meal plan details from patients.",
+        "No outcomes for walking-only approaches.",
+        "Unknown which tablet the user takes."
+      ],
+      "plan_id": "patient_a",
+      "perspective": "patient",
+      "round": 1
+    },
+    {
+      "name": "All-in approach: diet, exercise and medication together with regular tracking",
+      "summary": "This plan reflects patients who reported larger improvements when they combined several measures at once (food changes, exercise and medication) instead of relying on one. It is more demanding and fits a user who wants a firm, structured plan. The reports are individual anecdotes, and the highest-starting example may not match this user.",
+      "daily_routine": [
+        "One person reported A1C falling from 11 to 6.8 in 3 months and 5.5% by month 12, and said it was not just diet and exercise (ev_023, single report, full regimen cut off).",
+        "Another person reported fasting numbers began to fall after about 2 months of diet, exercise and medication, and A1C 5.3 at 4 months (ev_021, single report, starting values not given).",
+        "Add daily walking, such as the post-dinner walk (ev_019) or about 30 minutes most days (ev_024).",
+        "Discuss with your doctor how often to check blood sugar and when to repeat an HbA1c."
+      ],
+      "diet": [
+        "Patients in the evidence mention dieting 'intensively' but give no specifics (ev_020, ev_021).",
+        "One Drugs.com reviewer reported already dieting intensively when starting metformin and going from 253 to 211 in a year (ev_020, self-reported, partly inconsistent).",
+        "Work out the actual foods with a doctor or dietitian, since the evidence has no meal details."
+      ],
+      "medications_treatments": [
+        "The reports involve medication alongside lifestyle, but the specific drugs are not named in ev_021 and ev_023.",
+        "Metformin was described as effective for most people (ev_019, anecdotal). Whether any change to the user's tablets is appropriate is a decision for their doctor."
+      ],
+      "expected_timeline": "Reported: fasting numbers falling after about 2 months (ev_021) and A1C improvement within 3 months, continuing to month 12 (ev_023). These are single anecdotes, not typical results.",
+      "prevalence_and_outlook": "The patient evidence does not give prevalence. Individual reports suggest large improvements are possible, but the outlook is not covered by the evidence.",
+      "benefits": [
+        "Reported larger changes in blood sugar markers by two individuals.",
+        "Gives a structured plan with clear checkpoints.",
+        "Weight loss was reported in combination with medication and dieting (ev_020)."
+      ],
+      "drawbacks_risks": [
+        "Harder to sustain day to day.",
+        "Starting values in the anecdotes differ from the user's unknown values, so results may not match.",
+        "Combining a stricter diet with tablets could affect blood sugar, so check with a doctor."
+      ],
+      "assumptions": [
+        "Assumes the user is willing to track numbers and follow a more structured plan (general assumption).",
+        "Assumes no other conditions, as the user reported."
+      ],
+      "difficulty": "medium",
+      "safety_notes": "Discuss any stricter diet or new exercise with your doctor first, especially while taking tablets, and ask what low blood sugar symptoms to watch for. Never stop or change prescribed medication on your own. Seek urgent care for warning signs such as vomiting, fast or deep breathing, confusion, or very high thirst.",
+      "supporting_evidence_ids": [
+        "ev_019",
+        "ev_020",
+        "ev_021",
+        "ev_023",
+        "ev_024"
+      ],
+      "evidence_gaps": [
+        "The full regimen behind ev_023 is cut off.",
+        "No patient detail on meal plans.",
+        "Long-term sustainability is not covered."
+      ],
+      "plan_id": "patient_b",
+      "perspective": "patient",
+      "round": 1
+    },
+    {
+      "name": "Structured intermittent fasting (5:2) to discuss with your doctor",
+      "summary": "This approach is based on a Reddit post relaying a news report of a study of about 500 adults with type 2 diabetes, in which a 5:2 intermittent fasting diet with low-calorie meal replacements did better than metformin and empagliflozin at 16 weeks. It is the most diet-focused option and matches the user's wish for diet guidance, but it is secondhand and must be supervised by a doctor because the user takes tablets.",
+      "daily_routine": [
+        "Discuss with your doctor first whether a fasting plan is suitable alongside your tablets (ev_022 notes this).",
+        "If agreed, follow the plan the doctor or dietitian sets up; the post describes 5:2 fasting with low-calorie meal replacements (ev_022).",
+        "Keep up light activity such as short walks (ev_019, ev_024)."
+      ],
+      "diet": [
+        "The study summary describes a 5:2 pattern with low-calorie meal replacements (ev_022); the snippet does not give design details.",
+        "The post reports improved blood pressure, fat and cholesterol levels as well (ev_022).",
+        "No patient meal details are provided (evidence gap)."
+      ],
+      "medications_treatments": [
+        "The post compares the diet with metformin and empagliflozin (ev_022). That does not mean the diet replaces the user's tablets. Do not change them without your doctor."
+      ],
+      "expected_timeline": "The study summary reported better blood sugar control and weight loss at 16 weeks (ev_022). Nothing is known beyond 16 weeks.",
+      "prevalence_and_outlook": "Not covered by this evidence. The post is hopeful but offers no long-term outlook.",
+      "benefits": [
+        "Reported better blood sugar control and weight loss in the study summary (ev_022).",
+        "Reported improvements in blood pressure and cholesterol (ev_022).",
+        "Gives a defined diet structure."
+      ],
+      "drawbacks_risks": [
+        "Secondhand news headline, not the study itself; the strength of evidence is unknown.",
+        "Only 16 weeks and the design is unclear.",
+        "Fasting while on diabetes tablets may raise the risk of low blood sugar (general knowledge, not from the evidence).",
+        "Hard to follow for many people."
+      ],
+      "assumptions": [
+        "Assumes the user's doctor judges fasting appropriate; this is general caution, not from the evidence.",
+        "Assumes the user has no eating-disorder history or other conditions, as they reported none."
+      ],
+      "difficulty": "high",
+      "safety_notes": "Do not start fasting or low-calorie meal replacements without talking to your doctor, because tablets can interact with reduced food intake. Never stop or change your tablets on your own. Seek urgent care for fast or deep breathing, vomiting, confusion, or fruity-smelling breath.",
+      "supporting_evidence_ids": [
+        "ev_022",
+        "ev_019",
+        "ev_024"
+      ],
+      "evidence_gaps": [
+        "The original study is not in the evidence.",
+        "Safety on tablets is not covered.",
+        "Long-term results are unknown."
+      ],
+      "plan_id": "patient_c",
+      "perspective": "patient",
+      "round": 1
+    }
+  ],
+  "proposer_notes": {},
+  "proposer_lane_status": {
+    "research": "ok",
+    "doctor": "ok",
+    "patient": "ok"
+  },
+  "criticisms": [
+    {
+      "plan_id": "research_a",
+      "points": [
+        {
+          "category": "not_fit_for_user",
+          "issue": "The user asked for a 'plan and diet', but the diet and exercise sections give almost nothing to act on. They list diet patterns with no ranking, say portions are 'not covered', and give no exercise amount. The evidence set does contain practical diet guidance, which the plan ignores.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_008",
+            "ev_010",
+            "ev_011",
+            "ev_012",
+            "ev_018"
+          ],
+          "suggested_improvement": "Add the Diabetes Plate method (half non-starchy vegetables, a quarter lean protein, a quarter carbohydrate), water with meals, and fewer refined carbohydrates and sweets. Advise a registered dietitian for personalised carbohydrate targets."
+        },
+        {
+          "category": "missing_consideration",
+          "issue": "The plan says no monitoring schedule is available, but guideline evidence exists. NICE suggests HbA1c every 3-6 months until stable, then every 6 months, and another source suggests every 3 months. The plan also gives no HbA1c target. The user's current control is unknown, so this matters.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_009",
+            "ev_017",
+            "ev_014"
+          ],
+          "suggested_improvement": "Mention the typical HbA1c testing intervals, note that the sources differ, and say the user should ask their doctor for a personal target and schedule."
+        },
+        {
+          "category": "unsupported_claim",
+          "issue": "The outlook statement ('favourable outlook when sustained') goes beyond the evidence. ev_003 has no effect sizes, ev_004 has an unclear design, and ev_001 is a small uncontrolled 3-month study. The plan admits long-term outcomes are not shown.",
+          "severity": "low",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_001",
+            "ev_003",
+            "ev_004"
+          ],
+          "suggested_improvement": "Soften the outlook to say short-term HbA1c and risk markers improved, with long-term benefit unproven in this evidence."
+        },
+        {
+          "category": "safety_risk",
+          "issue": "Listing 'possible reduction in medication need' as a benefit, with the 15-40% figure, could tempt the user to cut tablets as their diet improves. The hypoglycaemia warning is present but brief and depends on the unknown tablet.",
+          "severity": "low",
+          "basis": "clinical_reasoning",
+          "is_verified_problem": false,
+          "evidence_ids": [],
+          "suggested_improvement": "State clearly that any medication change must be decided by the doctor after HbA1c review. List low blood sugar symptoms and say to report them."
+        }
+      ],
+      "overall_assessment": "Safe and well hedged, and it rests on the strongest evidence. It is not very actionable for a user who wants a plan and diet, and it overlooks available monitoring and diet guidance."
+    },
+    {
+      "plan_id": "research_b",
+      "points": [
+        {
+          "category": "contradicts_evidence",
+          "issue": "The plan presents drug-class HbA1c figures as if comparable (metformin -1.2%, sulfonylureas -1.3%, DPP-4 inhibitors -0.9%). It also says DPP-4 inhibitors and sulfonylureas have a similar effect, without flagging that ev_005 and ev_006 conflict. The figures come from a 100-patient observational study and are not head-to-head.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_005",
+            "ev_006"
+          ],
+          "suggested_improvement": "State the conflict explicitly, and say the numbers are weak, non-head-to-head evidence meant only to prepare questions for the doctor."
+        },
+        {
+          "category": "unsupported_claim",
+          "issue": "The plan relays the claim that SGLT2 inhibitors and GLP-1 agonists give the 'best balance' from a 100-patient study, and adds oral semaglutide real-world data (ev_007, low relevance). This could steer the user toward a particular drug without considering the user's unknown tablets and HbA1c. ev_007's gain was mainly in poorly controlled patients, and the user's control is unknown.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_006",
+            "ev_007"
+          ],
+          "suggested_improvement": "Remove or de-emphasise the 'best balance' claim, and state that applicability is unknown. Frame the drug evidence as questions to ask the doctor, not as options to request."
+        },
+        {
+          "category": "safety_risk",
+          "issue": "The plan gives side effects only for metformin and sulfonylureas. It says nothing about the risks or drawbacks of SGLT2 inhibitors or GLP-1 agonists that it promotes, which makes the comparison one-sided.",
+          "severity": "medium",
+          "basis": "clinical_reasoning",
+          "is_verified_problem": false,
+          "evidence_ids": [],
+          "suggested_improvement": "Add that every drug class has trade-offs and side effects, and that the doctor should discuss these along with the user's health and tolerance."
+        },
+        {
+          "category": "not_fit_for_user",
+          "issue": "The diet advice is vague ('same patterns as the lifestyle plan'), so it does not meet the user's 'plan and diet' goal. The plan also does not mention a target or how to know when 'targets are not met'.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_008",
+            "ev_010",
+            "ev_009",
+            "ev_014"
+          ],
+          "suggested_improvement": "Add Diabetes Plate guidance and the HbA1c testing intervals. Tell the user to ask for a personal HbA1c target, noting that about 7% is a commonly cited figure but should be personalised."
+        }
+      ],
+      "overall_assessment": "Appropriately defers all medication decisions to the doctor and has no dosing. Its drug comparisons rest on weak, conflicting evidence and are one-sided, and it is thin on the diet help the user asked for."
+    },
+    {
+      "plan_id": "doctor_a",
+      "points": [
+        {
+          "category": "missing_consideration",
+          "issue": "The plan leaves out physical activity entirely, even though the user asked for a 'plan'. The evidence supports combining diet with exercise: lifestyle programmes improved cardiovascular risk markers in type 2 diabetes, and regular activity is said to help insulin work better. Listing exercise only as an evidence gap leaves the daily routine as a diet-only plan.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_003",
+            "ev_017",
+            "ev_001"
+          ],
+          "suggested_improvement": "Add a routine item to ask the doctor what activity level suits them. Say that no specific amounts come from the guideline evidence, and that short walks are only anecdotal (ev_019)."
+        },
+        {
+          "category": "safety_risk",
+          "issue": "The safety notes cover only high-glucose warning signs. They say nothing about low blood sugar. The user's tablets are unknown, and some classes, such as sulfonylureas, carry a notable hypoglycaemia risk (25% in one small observational study). Changing eating patterns while on such tablets could raise that risk.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": false,
+          "evidence_ids": [
+            "ev_006"
+          ],
+          "suggested_improvement": "Add a note to ask the doctor whether the tablets can cause low blood sugar. Describe its symptoms and say to seek help if they occur. Advise discussing meal changes or skipped meals with the doctor, and do not advise changing medication."
+        },
+        {
+          "category": "missing_consideration",
+          "issue": "There is no mention of how to tell whether the plan is working beyond HbA1c every 3-6 months, and no mention of routine diabetes checks such as blood pressure, cholesterol, kidney, eye and foot checks. Reviewing the user's current HbA1c and the real tablet name is also not framed as a first step. The plan therefore stays generic for someone 2 years into diabetes.",
+          "severity": "medium",
+          "basis": "clinical_reasoning",
+          "is_verified_problem": false,
+          "evidence_ids": [],
+          "suggested_improvement": "Add a first step to ask for the latest HbA1c and a review of the current tablets, and to ask which routine check-ups are due. Present these as questions for the doctor, not instructions."
+        },
+        {
+          "category": "missing_consideration",
+          "issue": "The timeline is stated as 'not covered by evidence', but research-perspective evidence gives some expectation. Diet and exercise changes improved HbA1c over about 3 months in some patients (an observational study, ev_001). A lifestyle group had lower HbA1c than controls (ev_004, design unclear). The plan also ignores the research finding that lifestyle changes were linked to reduced medication use, which is a reason to keep the doctor informed of progress.",
+          "severity": "low",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_001",
+            "ev_004",
+            "ev_002"
+          ],
+          "suggested_improvement": "Add a cautious note that some people see HbA1c changes within about 3 months but results vary. Say to discuss any medication questions with the doctor if readings change."
+        },
+        {
+          "category": "unsupported_claim",
+          "issue": "Several benefits ('low cost and easy to start at home', 'suited to general portion control') carry no direct evidence. Plate-method snippets are truncated, so the plan cannot confirm the protein and carbohydrate portions or any effect on blood sugar. No cited source shows the plate method improves HbA1c.",
+          "severity": "low",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_011",
+            "ev_012"
+          ],
+          "suggested_improvement": "State that the plate method is a recommended teaching tool, not shown here to lower HbA1c. Remove or soften the unsupported benefit claims."
+        },
+        {
+          "category": "hard_to_follow",
+          "issue": "The prevalence and outlook section (90-95% of cases, 6.3% worldwide) does not help the user and takes space from actionable guidance. The plan also picks the NICE HbA1c frequency without acknowledging that another source suggests every 3 months.",
+          "severity": "low",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_009",
+            "ev_017"
+          ],
+          "suggested_improvement": "Shorten the prevalence section. Note that the testing interval varies by source and that the doctor sets the actual schedule."
+        }
+      ],
+      "overall_assessment": "The plan is a safe, simple, well-sourced diet starting point that fits a user on tablets who wants no counting. It is incomplete as a 'plan': it omits physical activity and low-blood-sugar safety, and it gives no individualised first steps such as knowing the tablet name and current HbA1c. It is best strengthened by adding those items, not replaced."
+    },
+    {
+      "plan_id": "doctor_b",
+      "points": [
+        {
+          "category": "not_fit_for_user",
+          "issue": "Carbohydrate tracking is central to this plan, but the evidence says the carb-counting emphasis applies mostly to type 1 diabetes or insulin use. This user is on tablets only, has no complications, and did not ask for detailed tracking. The plan adds effort of uncertain benefit and rates itself 'medium' difficulty, which risks poor adherence.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_018",
+            "ev_010"
+          ],
+          "suggested_improvement": "Make a dietitian visit the main element and describe carb targets as optional, to be decided with the dietitian. Keep the plate method (ev_011) as the easy default."
+        },
+        {
+          "category": "safety_risk",
+          "issue": "The plan adds exercise and tighter diet control but does not mention hypoglycaemia. The user's tablets are unknown, and some classes (e.g. sulfonylureas) carry a notable low-blood-sugar risk. The safety notes list only high-glucose warning signs.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": false,
+          "evidence_ids": [
+            "ev_006"
+          ],
+          "suggested_improvement": "Add a note to ask the doctor whether the tablets can cause low blood sugar, particularly when starting exercise or cutting carbohydrates. List the symptoms and when to seek help, without suggesting any medication change."
+        },
+        {
+          "category": "not_fit_for_user",
+          "issue": "Time-in-range tracking comes from a pharmaceutical company site and usually needs a continuous glucose monitor. A CGM is not obviously relevant to a tablet-only user with no stated glucose-monitoring plan, and it adds cost. The '70% / HbA1c 7%' benefit can read like a universal target, although other evidence says targets are individualised and may be relaxed.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_014",
+            "ev_009",
+            "ev_017"
+          ],
+          "suggested_improvement": "Move the CGM and time-in-range content to an optional 'ask your doctor' item. Remove it from the benefits, and say the doctor sets the individual HbA1c target."
+        },
+        {
+          "category": "missing_consideration",
+          "issue": "Exercise is a core pillar, but the plan gives no concrete starting point, because the guideline evidence gives no amounts. Evidence that supports lifestyle intervention (ev_003) and the patient-side suggestion of short walks (ev_019) are not used, and the only cited source for the exercise claim is a low-quality secondary blog (ev_017).",
+          "severity": "low",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_017",
+            "ev_003",
+            "ev_019"
+          ],
+          "suggested_improvement": "Cite the meta-analysis for the benefit of lifestyle intervention. Suggest asking the doctor about a gentle, gradual routine, and mention walking as an anecdotal example only."
+        },
+        {
+          "category": "unsupported_claim",
+          "issue": "The medications line says 'oral medications or insulin may be needed in some people', citing a low-quality generic blog. This could worry the user without helping, and the plan does not note that research-perspective evidence links lifestyle interventions to reduced medication use. The timeline is also said to be 'not covered', although ev_001 reports HbA1c improvement over about 3 months in some patients.",
+          "severity": "low",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_017",
+            "ev_002",
+            "ev_001"
+          ],
+          "suggested_improvement": "Replace the insulin sentence with neutral wording, e.g. 'treatment is reviewed regularly by your doctor'. Add that some people see HbA1c changes in about 3 months and that medication questions go to the doctor."
+        },
+        {
+          "category": "better_alternative",
+          "issue": "The plan puts a lot onto a user who asked for 'plan and diet' but did not request intensive tracking. A staged approach would suit them better: start with the simple plate method (doctor_a), then add dietitian input and activity as needed.",
+          "severity": "low",
+          "basis": "clinical_reasoning",
+          "is_verified_problem": false,
+          "evidence_ids": [
+            "ev_011",
+            "ev_018"
+          ],
+          "suggested_improvement": "Restructure as a stepped plan: plate method now, dietitian referral for personalised targets, then optional carb tracking or monitoring only if the doctor advises."
+        }
+      ],
+      "overall_assessment": "The plan is clinically reasonable and well-intentioned, and it correctly includes dietitian input, activity and HbA1c review. It overemphasises carb counting and glucose-range tracking for a tablet-only user, which the evidence suggests is mostly relevant to insulin users. It also lacks hypoglycaemia safety guidance and any concrete activity guidance. Reframing the tracking as optional and adding those two items would improve fit and safety."
+    },
+    {
+      "plan_id": "patient_a",
+      "points": [
+        {
+          "category": "better_alternative",
+          "issue": "The diet section is nearly empty and leans on one review linking diarrhea and headaches to sugar intake on metformin. The user explicitly wants diet guidance, and the doctor-perspective evidence has concrete, consistent advice (plate method, vegetables, whole grains, less refined carbs) that goes unused.",
+          "severity": "high",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_020",
+            "ev_008",
+            "ev_010",
+            "ev_011",
+            "ev_018"
+          ],
+          "suggested_improvement": "Add the plate method (half non-starchy vegetables, a quarter lean protein, a quarter quality carbohydrate) as the diet core, and ask a dietitian to personalise it."
+        },
+        {
+          "category": "missing_consideration",
+          "issue": "There is no monitoring plan. The user's HbA1c and glucose are unknown, and the plan admits it may be too gentle without saying how to find out.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_009",
+            "ev_017"
+          ],
+          "suggested_improvement": "Suggest asking the doctor when the last HbA1c was and how often to repeat it (guidance says every 3-6 months until stable, then 6-monthly)."
+        },
+        {
+          "category": "unsupported_claim",
+          "issue": "The plan assumes the tablet is metformin-like and builds its medication and weight-loss content on that. Other tablet classes carry different side effects, such as a higher hypoglycaemia risk with sulfonylureas.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": false,
+          "evidence_ids": [
+            "ev_006"
+          ],
+          "suggested_improvement": "Tell the user to name their tablet to their doctor or pharmacist and ask which side effects to expect."
+        },
+        {
+          "category": "better_alternative",
+          "issue": "Walking advice rests on anecdotes, while stronger evidence shows that structured diet and exercise changes improve HbA1c.",
+          "severity": "low",
+          "basis": "evidence",
+          "is_verified_problem": false,
+          "evidence_ids": [
+            "ev_001",
+            "ev_003",
+            "ev_004"
+          ],
+          "suggested_improvement": "Cite the lifestyle-intervention evidence and frame walking as a starting step toward a fuller routine."
+        }
+      ],
+      "overall_assessment": "Safe and approachable, but thin on diet, which is the user's main request. It needs the guideline-based plate method and a monitoring step."
+    },
+    {
+      "plan_id": "patient_b",
+      "points": [
+        {
+          "category": "not_fit_for_user",
+          "issue": "The plan anchors on outlier anecdotes (A1C 11 to 6.8 to 5.5, and 5.3 at 4 months) with unknown starting values and a cut-off regimen. This may create unrealistic expectations for a user whose control is unknown.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_023",
+            "ev_021"
+          ],
+          "suggested_improvement": "Present these as unusual single reports and use the controlled lifestyle evidence for realistic expectations."
+        },
+        {
+          "category": "safety_risk",
+          "issue": "A stricter diet plus more exercise on diabetes tablets could cause low blood sugar, and the risk depends on the drug (higher with sulfonylureas). The plan mentions it only briefly.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": false,
+          "evidence_ids": [
+            "ev_006"
+          ],
+          "suggested_improvement": "Advise the user to ask their doctor whether their tablet carries a hypoglycaemia risk, and what symptoms and actions to know before intensifying."
+        },
+        {
+          "category": "better_alternative",
+          "issue": "The diet part gives no usable content ('work it out with a dietitian'), though guideline-based guidance exists. The tracking advice is vague and does not say how often HbA1c should be checked.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_008",
+            "ev_010",
+            "ev_018",
+            "ev_009"
+          ],
+          "suggested_improvement": "Include the plate method and the 3-6 monthly HbA1c schedule as concrete checkpoints, noting that sources differ slightly."
+        }
+      ],
+      "overall_assessment": "A reasonable combined approach, but it leans on outlier anecdotes and under-delivers on concrete diet and tracking guidance, so its benefit may be overstated."
+    },
+    {
+      "plan_id": "patient_c",
+      "points": [
+        {
+          "category": "unsupported_claim",
+          "issue": "The plan is built on a secondhand Reddit headline about a study (design unknown, 16 weeks) saying the diet beat metformin and empagliflozin. The original study is not in the evidence, so the strength of the claim is unclear and could mislead the user about their tablets.",
+          "severity": "high",
+          "basis": "evidence",
+          "is_verified_problem": true,
+          "evidence_ids": [
+            "ev_022"
+          ],
+          "suggested_improvement": "Present it as a lead to ask the doctor about, not a basis for a plan. Make clear it does not show fasting can replace tablets."
+        },
+        {
+          "category": "safety_risk",
+          "issue": "Fasting or very-low-calorie meal replacements on diabetes tablets can cause low blood sugar. This is a recognised risk with some tablet classes, and the plan calls it only 'general knowledge'. Empagliflozin-type drugs also need clinician guidance during fasting.",
+          "severity": "high",
+          "basis": "evidence",
+          "is_verified_problem": false,
+          "evidence_ids": [
+            "ev_006"
+          ],
+          "suggested_improvement": "Make clear that this should only be started after the doctor reviews the user's specific tablets, and that the doctor may need to adjust how they are taken."
+        },
+        {
+          "category": "better_alternative",
+          "issue": "A high-difficulty plan is not a good first step for someone two years in with unknown control, when milder guideline-backed diet changes exist. The plan also gives no concrete diet details.",
+          "severity": "medium",
+          "basis": "evidence",
+          "is_verified_problem": false,
+          "evidence_ids": [
+            "ev_008",
+            "ev_011",
+            "ev_001"
+          ],
+          "suggested_improvement": "Position the plate method and gradual lifestyle changes as the first step, with fasting as an optional later discussion."
+        }
+      ],
+      "overall_assessment": "The safety wording is appropriate, but the plan rests on thin secondhand evidence and carries the highest hypoglycaemia risk. It suits only a supervised discussion, not a default plan."
+    }
+  ],
+  "scores": [
+    {
+      "plan_id": "research_a",
+      "criterion_scores": [
+        {
+          "criterion": "fit_to_user",
+          "score": 7.0,
+          "explanation": "Directly targets the user's 'plan and diet' goal on top of current tablets, but the diet and exercise content is vague and ignores available plate-method and monitoring guidance."
+        },
+        {
+          "criterion": "safety",
+          "score": 8.0,
+          "explanation": "Says not to stop or reduce tablets, flags hypoglycaemia and urgent-care symptoms, and adds no doses; the medication-reduction figure could tempt self-adjustment, but it is clearly caveated."
+        },
+        {
+          "criterion": "evidence_quality",
+          "score": 7.0,
+          "explanation": "Rests on two systematic reviews/meta-analyses plus small observational data; effect sizes and study design are unclear, and the outlook is slightly overstated."
+        },
+        {
+          "criterion": "practicality",
+          "score": 6.0,
+          "explanation": "Lifestyle change is low cost and accessible, but without concrete amounts, portions or schedules the user has little to act on."
+        },
+        {
+          "criterion": "completeness",
+          "score": 6.0,
+          "explanation": "Covers routine, diet, medications, timeline and outlook, but admits gaps in monitoring, portions, exercise specifics and prevalence that the evidence set could fill."
+        }
+      ],
+      "weighted_total": 7.0,
+      "key_benefits": [
+        "Strongest evidence base (systematic reviews/meta-analyses) for lifestyle in type 2 diabetes",
+        "Matches the user's stated goal of a plan and diet while keeping tablets unchanged",
+        "Safe framing with no stopping or changing of medication and clear urgent-care signs"
+      ],
+      "key_drawbacks": [
+        "Diet and exercise advice is non-specific (no plate method, no exercise amount)",
+        "Ignores available guideline evidence on HbA1c monitoring intervals and targets",
+        "Outlook claim goes beyond the evidence, and the 15-40% reduction figure may be misread as a reason to cut tablets"
+      ],
+      "confidence": "medium",
+      "confidence_reason": "The plan is clearly safer and better fitted than research_b, but the research-lens evidence is thin on practical diet and monitoring detail.",
+      "supporting_evidence_ids": [
+        "ev_001",
+        "ev_002",
+        "ev_003",
+        "ev_004",
+        "ev_008",
+        "ev_009",
+        "ev_010"
+      ],
+      "remaining_risks": [
+        "Current HbA1c and the specific tablets are unknown, so hypoglycaemia risk cannot be assessed",
+        "Lifestyle alone may not be enough; only about a third improved significantly in the small study",
+        "Diagnosis assumed to be doctor-confirmed"
+      ]
+    },
+    {
+      "plan_id": "research_b",
+      "criterion_scores": [
+        {
+          "criterion": "fit_to_user",
+          "score": 4.0,
+          "explanation": "The user asked for a plan and diet, but this plan centers on drug-class comparisons, and the user's tablets and HbA1c are unknown, so it is largely inapplicable."
+        },
+        {
+          "criterion": "safety",
+          "score": 6.0,
+          "explanation": "Defers every medication decision to the doctor and gives no doses, but the one-sided comparison could steer the user toward requesting particular drugs, with side effects given only for metformin and sulfonylureas."
+        },
+        {
+          "criterion": "evidence_quality",
+          "score": 4.0,
+          "explanation": "Drug comparisons rely on a 100-patient observational study, one older add-on-to-metformin meta-analysis and a low-relevance real-world study, with an unflagged conflict between ev_005 and ev_006."
+        },
+        {
+          "criterion": "practicality",
+          "score": 6.0,
+          "explanation": "Preparing questions and logging side effects for a doctor visit is easy to do, but the diet section is vague."
+        },
+        {
+          "criterion": "completeness",
+          "score": 5.0,
+          "explanation": "Covers medication options in more depth but gives thin diet help, no HbA1c target, and no timeline for drug changes."
+        }
+      ],
+      "weighted_total": 4.9,
+      "key_benefits": [
+        "Helps the user prepare informed questions for a doctor-led medication review",
+        "Highlights hypoglycaemia and GI side-effect differences between drug classes",
+        "Explicitly keeps medication decisions with the doctor and gives no doses"
+      ],
+      "key_drawbacks": [
+        "Weak, conflicting and non-head-to-head drug evidence presented as comparable figures",
+        "Promotes SGLT2/GLP-1 'best balance' claim without presenting their risks",
+        "Diet guidance is vague and does not meet the user's main goal",
+        "Does not say how to know when targets are not met"
+      ],
+      "confidence": "medium",
+      "confidence_reason": "The weaknesses of the drug evidence and the poor fit to the user's goal are verified by the Critic, so the lower ranking is fairly clear.",
+      "supporting_evidence_ids": [
+        "ev_005",
+        "ev_006",
+        "ev_007",
+        "ev_001",
+        "ev_002"
+      ],
+      "remaining_risks": [
+        "The user's current tablets are unknown, so the drug comparison may not apply",
+        "The user may push for a drug change based on weak evidence",
+        "No HbA1c target or timeline for reassessment is given"
+      ]
+    },
+    {
+      "plan_id": "doctor_a",
+      "criterion_scores": [
+        {
+          "criterion": "fit_to_user",
+          "score": 7.5,
+          "explanation": "The simple plate-method diet suits a tablet-only user two years in who asked for a plan and diet and did not request tracking, though it leaves out activity."
+        },
+        {
+          "criterion": "safety",
+          "score": 6.0,
+          "explanation": "It keeps tablets unchanged, says to discuss medication with the doctor and lists high-glucose emergency signs, but it omits hypoglycaemia guidance even though the tablets are unknown."
+        },
+        {
+          "criterion": "evidence_quality",
+          "score": 7.0,
+          "explanation": "The plate method rests on consistent ADA, CDC and MedlinePlus references and the HbA1c schedule on NICE, but no source shows the plate method lowers HbA1c and some benefit claims are unsupported."
+        },
+        {
+          "criterion": "practicality",
+          "score": 9.0,
+          "explanation": "It needs no counting, weighing, extra cost or special equipment, so it is easy to start and keep up."
+        },
+        {
+          "criterion": "completeness",
+          "score": 5.0,
+          "explanation": "It covers diet, monitoring and prevalence, but omits exercise, timeline expectations, routine complication checks and any first step to review current HbA1c and tablets."
+        }
+      ],
+      "weighted_total": 7.0,
+      "key_benefits": [
+        "No counting, weighing or measuring, so low effort and low cost",
+        "Based on consistent reference-grade sources (ADA, CDC, MedlinePlus)",
+        "Keeps the tablets unchanged and defers medication questions to the doctor",
+        "Includes a clear HbA1c monitoring schedule from NICE guidance"
+      ],
+      "key_drawbacks": [
+        "No physical activity guidance even though the user asked for a plan",
+        "No low blood sugar (hypoglycaemia) safety note",
+        "Generic, with no first step to review current HbA1c or the actual tablet name",
+        "Timeline said to be not covered despite some available evidence"
+      ],
+      "confidence": "medium",
+      "confidence_reason": "The diet evidence is consistent and relevant, but the plan is generic and the user's tablet, HbA1c and activity level are unknown.",
+      "supporting_evidence_ids": [
+        "ev_008",
+        "ev_009",
+        "ev_010",
+        "ev_011",
+        "ev_012",
+        "ev_018",
+        "ev_017"
+      ],
+      "remaining_risks": [
+        "Hypoglycaemia risk is unaddressed if the tablets are a class such as a sulfonylurea",
+        "The plan may feel incomplete without exercise guidance",
+        "Whether the plate method alone improves HbA1c is not shown by the evidence",
+        "The tablet type, current HbA1c and diet are unknown"
+      ]
+    },
+    {
+      "plan_id": "doctor_b",
+      "criterion_scores": [
+        {
+          "criterion": "fit_to_user",
+          "score": 6.0,
+          "explanation": "Dietitian input and activity match the request for a plan, but the central carb tracking and CGM or time-in-range content suit insulin users more than a tablet-only user who did not ask for tracking."
+        },
+        {
+          "criterion": "safety",
+          "score": 5.5,
+          "explanation": "It advises checking with the doctor before exercise and not changing tablets, but it adds exercise and tighter carb control without any hypoglycaemia warning, and the 70%/HbA1c 7% figure may read as a universal target."
+        },
+        {
+          "criterion": "evidence_quality",
+          "score": 6.0,
+          "explanation": "Diet and HbA1c schedule evidence is good, but the activity claim rests on a weak secondary blog and the time-in-range content comes from a pharmaceutical site with possible bias."
+        },
+        {
+          "criterion": "practicality",
+          "score": 5.0,
+          "explanation": "Carb tracking, possible CGM use and dietitian visits add effort, cost and access uncertainty."
+        },
+        {
+          "criterion": "completeness",
+          "score": 7.0,
+          "explanation": "It covers diet, activity, monitoring, dietitian support and HbA1c review, though it gives no activity amounts, timeline or medication detail."
+        }
+      ],
+      "weighted_total": 5.83,
+      "key_benefits": [
+        "Includes physical activity, which the user's request for a plan calls for",
+        "Dietitian involvement offers personalised targets",
+        "Combines diet, activity and HbA1c monitoring in one structure",
+        "Notes that individual targets are set by the doctor"
+      ],
+      "key_drawbacks": [
+        "Carb counting is mainly relevant to type 1 or insulin use, so it adds effort of uncertain benefit for this user",
+        "No hypoglycaemia safety guidance despite adding exercise and carb restriction",
+        "CGM and time-in-range content from a pharmaceutical site is of questionable relevance and cost",
+        "Activity advice is vague, and the insulin mention could worry the user without helping"
+      ],
+      "confidence": "medium",
+      "confidence_reason": "The structure is reasonable, but key elements (carb tracking, CGM) fit this user poorly and several claims rely on weak or biased sources.",
+      "supporting_evidence_ids": [
+        "ev_010",
+        "ev_018",
+        "ev_009",
+        "ev_017",
+        "ev_014",
+        "ev_008"
+      ],
+      "remaining_risks": [
+        "Hypoglycaemia risk is unaddressed if the tablets carry it",
+        "Carb tracking may reduce adherence in a tablet-only user",
+        "Cost and access to a dietitian or CGM are unknown",
+        "The user's fitness for exercise is unknown, so the doctor should be asked first"
+      ]
+    },
+    {
+      "plan_id": "patient_a",
+      "criterion_scores": [
+        {
+          "criterion": "fit_to_user",
+          "score": 7.0,
+          "explanation": "A gentle walking and diet-tweak routine suits a symptom-free user two years in on tablets who wants a plan and diet, though the diet content is thin."
+        },
+        {
+          "criterion": "safety",
+          "score": 8.0,
+          "explanation": "Tells the user to keep taking tablets, check with a doctor before new exercise, and lists urgent-care signs; the metformin assumption is flagged as unknown."
+        },
+        {
+          "criterion": "evidence_quality",
+          "score": 3.0,
+          "explanation": "Rests on single anecdotes (ev_019, ev_020, ev_021, ev_024) with no outcome data, and the diet advice leans on one review about sugar and side effects."
+        },
+        {
+          "criterion": "practicality",
+          "score": 9.0,
+          "explanation": "Low cost, low effort and easy to start, with a 10-minute post-dinner walk and no major overhaul."
+        },
+        {
+          "criterion": "completeness",
+          "score": 5.0,
+          "explanation": "Covers routine, medication, timeline and safety, but diet is nearly empty, there is no monitoring plan, and outlook and prevalence are missing."
+        }
+      ],
+      "weighted_total": 6.55,
+      "key_benefits": [
+        "Easy, low-cost walking habit that is realistic to sustain",
+        "Builds on current tablets without suggesting any change",
+        "Clear safety and urgent-care wording"
+      ],
+      "key_drawbacks": [
+        "Diet section is almost empty despite being the user's main request",
+        "No monitoring or HbA1c follow-up guidance",
+        "Assumes the tablet is metformin-like",
+        "Evidence is anecdotal only"
+      ],
+      "confidence": "medium",
+      "confidence_reason": "The anecdotal evidence is consistent with a gentle start, but it is weak and the diet gap is verified.",
+      "supporting_evidence_ids": [
+        "ev_019",
+        "ev_020",
+        "ev_021",
+        "ev_024"
+      ],
+      "remaining_risks": [
+        "User's tablet type and current HbA1c are unknown",
+        "Plan may be too gentle if control is poor",
+        "Possible low blood sugar depends on the specific tablet; discuss with your doctor"
+      ]
+    },
+    {
+      "plan_id": "patient_b",
+      "criterion_scores": [
+        {
+          "criterion": "fit_to_user",
+          "score": 6.0,
+          "explanation": "A structured combined plan fits a user wanting a plan, but it anchors on outlier results with unknown starting values and offers no usable diet detail."
+        },
+        {
+          "criterion": "safety",
+          "score": 7.0,
+          "explanation": "Advises discussing stricter diet and exercise with the doctor, never changing medication, and asking about low blood sugar signs, though the hypoglycaemia risk is only briefly covered."
+        },
+        {
+          "criterion": "evidence_quality",
+          "score": 3.0,
+          "explanation": "Relies on two outlier anecdotes (ev_021, ev_023) with a cut-off regimen and unknown baselines, so expectations may be unrealistic."
+        },
+        {
+          "criterion": "practicality",
+          "score": 6.0,
+          "explanation": "More demanding to sustain, with tracking and a stricter diet, but still feasible without special access or cost."
+        },
+        {
+          "criterion": "completeness",
+          "score": 6.0,
+          "explanation": "Includes routine, timeline, monitoring prompts and medication context, but the diet is vague and prevalence and outlook are absent."
+        }
+      ],
+      "weighted_total": 5.65,
+      "key_benefits": [
+        "Structured approach with checkpoints and a prompt to discuss HbA1c timing",
+        "Combines diet, exercise and medication as patients described",
+        "Honest labelling of anecdotes as not typical"
+      ],
+      "key_drawbacks": [
+        "Anchors on outlier A1C anecdotes that may mislead",
+        "No concrete diet guidance",
+        "Harder to sustain",
+        "Hypoglycaemia risk with intensified lifestyle on tablets only briefly addressed"
+      ],
+      "confidence": "medium",
+      "confidence_reason": "The combined-approach concept is reasonable, but the supporting anecdotes are weak and unrepresentative.",
+      "supporting_evidence_ids": [
+        "ev_019",
+        "ev_020",
+        "ev_021",
+        "ev_023",
+        "ev_024"
+      ],
+      "remaining_risks": [
+        "Unrealistic expectations from outlier anecdotes",
+        "Unknown tablet type affects hypoglycaemia risk; discuss with your doctor",
+        "Long-term sustainability not covered"
+      ]
+    },
+    {
+      "plan_id": "patient_c",
+      "criterion_scores": [
+        {
+          "criterion": "fit_to_user",
+          "score": 4.0,
+          "explanation": "Diet-focused and matches the diet request, but a high-difficulty fasting plan is a poor first step for someone with unknown control who is on tablets."
+        },
+        {
+          "criterion": "safety",
+          "score": 5.0,
+          "explanation": "Repeatedly requires doctor sign-off and says not to change tablets, but fasting or meal replacements on diabetes tablets carries a real hypoglycaemia risk that the plan treats only as general knowledge."
+        },
+        {
+          "criterion": "evidence_quality",
+          "score": 2.0,
+          "explanation": "Based on a secondhand Reddit headline (ev_022) about a study whose design is unknown and which lasted only 16 weeks."
+        },
+        {
+          "criterion": "practicality",
+          "score": 3.0,
+          "explanation": "Rated high difficulty, needing supervision, meal replacements and fasting days that many people struggle to follow."
+        },
+        {
+          "criterion": "completeness",
+          "score": 4.0,
+          "explanation": "Has a defined diet structure and timeline but no meal details, no monitoring plan, and no outlook or prevalence."
+        }
+      ],
+      "weighted_total": 3.7,
+      "key_benefits": [
+        "Defined diet structure that matches the diet request",
+        "Reported improvements in blood sugar, weight, blood pressure and lipids",
+        "Strong doctor-first framing"
+      ],
+      "key_drawbacks": [
+        "Secondhand and unverified evidence",
+        "Highest hypoglycaemia risk on tablets",
+        "High difficulty and hard to sustain",
+        "Not a sensible default for unknown control"
+      ],
+      "confidence": "medium",
+      "confidence_reason": "The weakness of the evidence and the safety concern are verified by the Critic, so the low ranking is well supported.",
+      "supporting_evidence_ids": [
+        "ev_022",
+        "ev_019",
+        "ev_024"
+      ],
+      "remaining_risks": [
+        "Low blood sugar when fasting on tablets; needs doctor review of the specific drugs",
+        "Original study not available to confirm design or results",
+        "Could be misread as a replacement for tablets"
+      ]
+    }
+  ],
+  "verdict": {
+    "decision": "proceed",
+    "reason": "[research] research_a ranks higher because it addresses the user's explicit goal of a plan and diet, rests on stronger systematic-review evidence, and keeps the safety messaging intact. research_b depends on weak, partly conflicting drug-comparison evidence, is tied to unknown current tablets, and is thinner on diet. Both miss practical guidance (plate method, HbA1c intervals) that exists in the wider evidence set, but that gap is easier to fix in research_a.\n[doctor] Doctor_a ranks higher because it fits a tablet-only user who wants a simple plan and diet: it is low-effort, rests on consistent reference sources and avoids the carb-counting and CGM emphasis that the evidence ties mostly to insulin users. Doctor_b is more complete, with activity and dietitian input, but its tracking burden, vendor-sourced time-in-range content and weaker practicality lower its fit. Both lack hypoglycaemia guidance, and a stepped approach (plate method now, then activity and dietitian input as the doctor advises) would be best.\n[patient] Plan A ranks first because it is the safest, simplest and most realistic fit for a symptom-free user on tablets, even though its diet section is thin. Plan B comes second: its structure is useful, but it leans on outlier anecdotes and gives no concrete diet or tracking content. Plan C ranks last because it rests on a secondhand headline and carries the highest hypoglycaemia risk for a user on tablets whose control is unknown.\nEvery perspective that offered a plan has a defensible best plan.",
+    "winning_plan_ids": {
+      "research": "research_a",
+      "doctor": "doctor_a",
+      "patient": "patient_a"
+    },
+    "perspective_status": {
+      "research": "sufficient",
+      "doctor": "sufficient",
+      "patient": "sufficient"
+    },
+    "required_evidence": [],
+    "clarification_questions": []
+  },
+  "debate_round": 1,
+  "verification_results": [
+    {
+      "claim": "Regulating daily diet without changing medication was associated with better HbA1c in about 35% of mildly to moderately uncontrolled patients over 3 months",
+      "plan_id": "research_a",
+      "perspective": "research",
+      "evidence_ids": [
+        "ev_001"
+      ],
+      "status": "verified",
+      "notes": "The excerpt reports 35.3% of patients with mild or moderately uncontrolled T2D had significant HbA1c improvement after 3 months of diet and exercise without a medication change (the plan names only diet).",
+      "is_anecdotal": false,
+      "is_material": true
+    },
+    {
+      "claim": "Structured diet, exercise and education added to usual care are linked to better HbA1c and cardiovascular risk markers",
+      "plan_id": "research_a",
+      "perspective": "research",
+      "evidence_ids": [
+        "ev_002",
+        "ev_003"
+      ],
+      "status": "partially_supported",
+      "notes": "ev_003 supports benefit on cardiovascular risk factors, but neither excerpt states an HbA1c effect or the add-on-to-usual-care framing; HbA1c benefit appears only in ev_004.",
+      "is_anecdotal": false,
+      "is_material": true
+    },
+    {
+      "claim": "Lifestyle group had HbA1c 7.2% vs 8.0% in controls, plus better cholesterol and LDL",
+      "plan_id": "research_a",
+      "perspective": "research",
+      "evidence_ids": [
+        "ev_004"
+      ],
+      "status": "partially_supported",
+      "notes": "The excerpt confirms HbA1c 7.2% vs 8.0% (p<0.001); the cholesterol/LDL benefit appears only in the item's claim summary, not the excerpt, and the study design is unknown.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "Reviews report lifestyle interventions were linked to reduced oral medication use (15-40% reduction)",
+      "plan_id": "research_a",
+      "perspective": "research",
+      "evidence_ids": [
+        "ev_002"
+      ],
+      "status": "verified",
+      "notes": "The excerpt says oral hypoglycemic agents were reduced by 15\u201340% (and up to 50% reduced or stopped insulin); the plan correctly says any change is for the doctor.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "Only about a third of patients improved significantly in a small uncontrolled study, so lifestyle alone may not be enough",
+      "plan_id": "research_a",
+      "perspective": "research",
+      "evidence_ids": [
+        "ev_001"
+      ],
+      "status": "verified",
+      "notes": "35.3% improved, and the notes describe a small uncontrolled study of 51 patients; the inference that lifestyle alone may not suffice is a reasonable caution.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "Reviewed diet patterns include Mediterranean, low-carbohydrate and plant-based diets, with no per-diet results",
+      "plan_id": "research_a",
+      "perspective": "research",
+      "evidence_ids": [
+        "ev_002"
+      ],
+      "status": "partially_supported",
+      "notes": "The excerpt doesn't name the diets; the item's claim summary lists them and the notes confirm the snippet is truncated with no per-diet results.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "Diabetes education or behavioral support formed part of the combined interventions",
+      "plan_id": "research_a",
+      "perspective": "research",
+      "evidence_ids": [
+        "ev_002",
+        "ev_003"
+      ],
+      "status": "partially_supported",
+      "notes": "The item summaries mention behavioral interventions (ev_002) and combined diet, exercise and education (ev_003), but the excerpts themselves only say 'lifestyle intervention'.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "Lifestyle interventions improved glycaemic control and cardiovascular risk markers, supporting a favourable outlook when sustained",
+      "plan_id": "research_a",
+      "perspective": "research",
+      "evidence_ids": [
+        "ev_002",
+        "ev_003",
+        "ev_004"
+      ],
+      "status": "partially_supported",
+      "notes": "Short-term HbA1c and risk-marker benefits are supported (ev_003, ev_004), but none of the excerpts addresses sustained or long-term outlook; the plan itself admits long-term outcomes are not shown.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "Backed by two systematic reviews/meta-analyses",
+      "plan_id": "research_a",
+      "perspective": "research",
+      "evidence_ids": [
+        "ev_002",
+        "ev_003"
+      ],
+      "status": "verified",
+      "notes": "Both items are labelled systematic review or meta-analysis, though ev_003 gives no effect sizes and ev_002's excerpt is truncated.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "Low direct cost compared with adding drugs; hypoglycaemia risk may rise if medication needs fall (general knowledge)",
+      "plan_id": "research_a",
+      "perspective": "research",
+      "evidence_ids": [],
+      "status": "unavailable",
+      "notes": "The plan cites no evidence and labels the hypoglycaemia point as general knowledge; cost is not covered by any cited excerpt (ev_006, not cited, reports hypoglycaemia with sulfonylureas).",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "The Diabetes Plate uses a 9-inch plate: half non-starchy vegetables, a quarter lean protein, a quarter carbohydrate foods.",
+      "plan_id": "doctor_a",
+      "perspective": "doctor",
+      "evidence_ids": [
+        "ev_011",
+        "ev_008",
+        "ev_012"
+      ],
+      "status": "verified",
+      "notes": "ev_008 gives the half, quarter and quarter split, and ev_011 describes the nine-inch plate balancing vegetables, protein and carbs.",
+      "is_anecdotal": false,
+      "is_material": true
+    },
+    {
+      "claim": "The plate method needs no counting, weighing or measuring.",
+      "plan_id": "doctor_a",
+      "perspective": "doctor",
+      "evidence_ids": [
+        "ev_011"
+      ],
+      "status": "verified",
+      "notes": "ev_011 states the plate helps create a balanced meal 'without any counting, weighing, or measuring'.",
+      "is_anecdotal": false,
+      "is_material": true
+    },
+    {
+      "claim": "HbA1c should be checked every 3-6 months until stable on unchanging therapy, then about every 6 months.",
+      "plan_id": "doctor_a",
+      "perspective": "doctor",
+      "evidence_ids": [
+        "ev_009"
+      ],
+      "status": "verified",
+      "notes": "The NICE excerpt states exactly this schedule, tailored to individual needs.",
+      "is_anecdotal": false,
+      "is_material": true
+    },
+    {
+      "claim": "Non-starchy vegetables such as spinach, green beans, tomatoes or broccoli fill half the plate.",
+      "plan_id": "doctor_a",
+      "perspective": "doctor",
+      "evidence_ids": [
+        "ev_012",
+        "ev_011"
+      ],
+      "status": "verified",
+      "notes": "ev_012 lists these vegetables as the one-half portion of the plate.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "HbA1c targets can be relaxed for some adults and are personalised.",
+      "plan_id": "doctor_a",
+      "perspective": "doctor",
+      "evidence_ids": [
+        "ev_009",
+        "ev_017"
+      ],
+      "status": "partially_supported",
+      "notes": "The excerpts for ev_009 and ev_017 do not show this; it appears only in the items' extracted claim lists, and ev_009 is truncated before any targets. The risk is low because the plan only tells the user to ask the doctor.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "Count fruit as a carbohydrate in the meal plan.",
+      "plan_id": "doctor_a",
+      "perspective": "doctor",
+      "evidence_ids": [
+        "ev_008"
+      ],
+      "status": "partially_supported",
+      "notes": "The ev_008 excerpt covers only the plate proportions; the fruit-as-carbohydrate point appears only in the item's claim list, not in the excerpt.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "Choose water or a zero/low-calorie drink with meals.",
+      "plan_id": "doctor_a",
+      "perspective": "doctor",
+      "evidence_ids": [
+        "ev_010",
+        "ev_011"
+      ],
+      "status": "partially_supported",
+      "notes": "Neither excerpt shows this; it appears only in the items' extracted claim lists.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "Emphasise vegetables, lean proteins and whole grains; cut down on saturated fats, refined carbohydrates and sweets.",
+      "plan_id": "doctor_a",
+      "perspective": "doctor",
+      "evidence_ids": [
+        "ev_018"
+      ],
+      "status": "partially_supported",
+      "notes": "The ev_018 excerpt supports more fruits, vegetables, lean proteins and whole grains; the advice to cut saturated fats, refined carbohydrates and sweets is not in the excerpt.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "Type 2 diabetes accounts for about 90-95% of diabetes cases and about 6.3% of the world's population is affected.",
+      "plan_id": "doctor_a",
+      "perspective": "doctor",
+      "evidence_ids": [
+        "ev_013",
+        "ev_015"
+      ],
+      "status": "verified",
+      "notes": "ev_013 and ev_015 both give 90-95%, and ev_013 gives the 6.3% worldwide estimate.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "The plate method is low cost and easy to start at home.",
+      "plan_id": "doctor_a",
+      "perspective": "doctor",
+      "evidence_ids": [],
+      "status": "unavailable",
+      "notes": "The plan cites no evidence for this benefit, and the excerpts do not mention cost.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "One poster advised a 10-minute walk each evening after dinner",
+      "plan_id": "patient_a",
+      "perspective": "patient",
+      "evidence_ids": [
+        "ev_019"
+      ],
+      "status": "verified",
+      "notes": "The excerpt says 'walking for just 10 minutes each evening after dinner' as a poster's biggest piece of advice.",
+      "is_anecdotal": true,
+      "is_material": false
+    },
+    {
+      "claim": "Metformin is described by one poster as effective for most people",
+      "plan_id": "patient_a",
+      "perspective": "patient",
+      "evidence_ids": [
+        "ev_019"
+      ],
+      "status": "verified",
+      "notes": "The excerpt says 'Metformin is effective for most' before cutting off; the plan correctly labels it anecdotal.",
+      "is_anecdotal": true,
+      "is_material": false
+    },
+    {
+      "claim": "Another thread described someone walking about 30 minutes almost daily, outside or on a walking pad (secondhand, outcome not shown)",
+      "plan_id": "patient_a",
+      "perspective": "patient",
+      "evidence_ids": [
+        "ev_024"
+      ],
+      "status": "verified",
+      "notes": "The excerpt says 'He did 30 min. Walks almost daily. Either outside or on a walking pad', with no outcome shown, as the plan states.",
+      "is_anecdotal": true,
+      "is_material": false
+    },
+    {
+      "claim": "One poster suggested looking up isometric exercises",
+      "plan_id": "patient_a",
+      "perspective": "patient",
+      "evidence_ids": [
+        "ev_024"
+      ],
+      "status": "verified",
+      "notes": "The excerpt says 'Also look up isometric exercises they seem to really make a difference'; the plan notes no outcome is shown.",
+      "is_anecdotal": true,
+      "is_material": false
+    },
+    {
+      "claim": "One Drugs.com reviewer reported diarrhea and headaches linked to sugar intake while on metformin",
+      "plan_id": "patient_a",
+      "perspective": "patient",
+      "evidence_ids": [
+        "ev_020"
+      ],
+      "status": "partially_supported",
+      "notes": "The claims metadata for ev_020 mentions this, but the shown excerpt covers only weight loss with metformin and dieting, so the diarrhea/headache report is not in the visible text.",
+      "is_anecdotal": true,
+      "is_material": false
+    },
+    {
+      "claim": "Reviewers on Drugs.com reported metformin made weight loss easier when combined with dieting",
+      "plan_id": "patient_a",
+      "perspective": "patient",
+      "evidence_ids": [
+        "ev_020"
+      ],
+      "status": "verified",
+      "notes": "The excerpt says metformin 'has definitely made losing weight easier' while already dieting intensively (253 to 211 in a year); it is one reviewer, not several.",
+      "is_anecdotal": true,
+      "is_material": false
+    },
+    {
+      "claim": "One person reported fasting numbers began to fall after about 2 months of diet, exercise and medication",
+      "plan_id": "patient_a",
+      "perspective": "patient",
+      "evidence_ids": [
+        "ev_021"
+      ],
+      "status": "verified",
+      "notes": "The excerpt states 'It took me about two months after diet, exercise, and medication, to begin to see my fasting numbers go down.'",
+      "is_anecdotal": true,
+      "is_material": false
+    },
+    {
+      "claim": "Patients in the evidence gave no detailed meal plans; the patient evidence does not say how common type 2 diabetes is or the long-term outlook",
+      "plan_id": "patient_a",
+      "perspective": "patient",
+      "evidence_ids": [],
+      "status": "unavailable",
+      "notes": "None of the cited excerpts contain meal plans, prevalence or outlook data, so the plan's statement of these gaps matches the evidence.",
+      "is_anecdotal": false,
+      "is_material": false
+    },
+    {
+      "claim": "Posters describe diabetes as manageable, with some reporting good A1C results",
+      "plan_id": "patient_a",
+      "perspective": "patient",
+      "evidence_ids": [
+        "ev_021"
+      ],
+      "status": "partially_supported",
+      "notes": "ev_021 reports an A1C of 5.3 at 4 months, which is a good result, but no excerpt explicitly describes diabetes as 'manageable', and only one person is cited.",
+      "is_anecdotal": true,
+      "is_material": false
+    },
+    {
+      "claim": "Walking and diet tweaks are the 'start small' advice patients most often shared",
+      "plan_id": "patient_a",
+      "perspective": "patient",
+      "evidence_ids": [
+        "ev_019",
+        "ev_024"
+      ],
+      "status": "partially_supported",
+      "notes": "Walking appears in two excerpts, but each is a single post with 'recurring' marked False, so 'most often shared' overstates it.",
+      "is_anecdotal": true,
+      "is_material": false
+    }
+  ],
+  "checker_verdict": {
+    "decision": "proceed",
+    "reason": "All material claims are supported.",
+    "gaps_by_lane": {},
+    "summaries": {
+      "research": "The plan's core claims (35.3% HbA1c improvement at 3 months, 15-40% oral medication reduction, 7.2% vs 8.0% HbA1c, cardiovascular risk marker benefit) are supported by the cited excerpts. It is hedged about the evidence's limits, but the broader outlook claim and several details rest on item summaries rather than excerpts, and the cost and hypoglycaemia points are uncited.",
+      "doctor": "The core guidance (plate proportions, no counting, HbA1c monitoring schedule) is directly supported by the cited excerpts. Several secondary details (fruit counting, drink choice, targets, cutting saturated fats) rest only on the items' extracted claim lists rather than the excerpt text, and the cost benefit is uncited.",
+      "patient": "The plan reports what each cited patient excerpt says accurately and labels almost everything as anecdotal, with only small overstatements ('most often shared', the diarrhea/headache detail not visible in the excerpt). Its guidance is weakly evidenced overall, which it acknowledges, and the diet section especially has no solid support."
+    },
+    "claims_checked": 30
+  },
+  "human_action": "approve",
+  "user_feedback": "",
+  "human_review_round_count": 1,
+  "human_review_next": "final_report",
+  "final_report": {
+    "generated_at": "2026-10-20T19:35:33.452821Z",
+    "original_question": "I have diabetes",
+    "condition_name": "type 2 diabetes",
+    "confirmed_profile": {
+      "diabetes_type": "type 2",
+      "diagnosed_since": "2 year",
+      "current_treatment": "tablets (specific medication not stated)",
+      "other_conditions": "no other health conditions, allergies or pregnancy reported",
+      "goal": "plan and diet"
+    },
+    "symptoms": {},
+    "constraints": {},
+    "clarifications": {
+      "What type of diabetes do you have, and did a doctor confirm it? (e.g. type 1, type 2, gestational, not sure)": "type 2",
+      "How long have you had diabetes? (e.g. diagnosed last month, 5 years ago)": "2 year",
+      "Which treatments are you using now? (e.g. insulin, metformin or other tablets, diet only, nothing yet)": "tabkets",
+      "Which of these do you have right now: very high thirst or frequent urination, nausea or vomiting, fast or deep breathing, unusual confusion or drowsiness, fruity-smelling breath, none?": "none",
+      "Do you have any other health conditions, allergies, or are you pregnant? (e.g. high blood pressure, kidney disease, none)": "no",
+      "What do you most want to achieve or learn? (e.g. better blood sugar control, diet and exercise plan, understanding medication options)": "plan and diet"
+    },
+    "assumptions": [
+      "The specific tablet(s) and doses are unknown; the guidance will not assume a particular medication and any medication questions should be discussed with their doctor.",
+      "Recent blood sugar or HbA1c readings are unknown, so the guidance will be general rather than tailored to current control.",
+      "Age, sex, current diet and activity level are unknown; the guidance assumes a typical adult with no mobility or dietary restrictions.",
+      "The diagnosis is assumed to have been confirmed by a doctor, although this was not explicitly stated.",
+      "The user reports no kidney disease, high blood pressure, allergies or pregnancy, and no known complications."
+    ],
+    "research_methodology": "9 web searches in three lanes (research papers, clinical references, patient communities) over 1 research pass(es); 24 sources kept (7 research, 11 doctor, 6 patient), 12 rejected with a stated reason. 1 debate round(s): per lane, a Proposer built plans from that lane's evidence only, a Critic challenged them against all evidence, and a Judge scored them on a weighted rubric; the best plan per lane was kept. 30 factual claim(s) of the winning plans were checked against their cited evidence. Human review action: approve.",
+    "overview": "All three perspectives offer a plan for your type 2 diabetes that keeps your current tablets unchanged and focuses on your goal of a plan and diet. The research plan (score 7.0) combines structured diet, exercise and education, the doctor plan (score 7.0) uses a simple plate-method meal structure with regular HbA1c checks, and the patient plan (score 6.55) suggests short daily walks and everyday food tweaks based on other people's experiences. They agree that you should keep taking your tablets as prescribed and talk to your doctor before making any changes. The main caveat is that each plan has gaps: the research plan is thin on practical diet detail, the doctor plan leaves out physical activity and low blood sugar guidance, and the patient plan rests on a few anecdotes. Your tablet name and recent HbA1c are unknown, so all of this is general information to discuss with your doctor, not a prescription.",
+    "perspectives": [
+      {
+        "perspective": "research",
+        "plan": {
+          "name": "Lifestyle-first: structured diet and exercise alongside current tablets",
+          "summary": "This approach builds on the strongest research evidence here (systematic reviews and meta-analyses): structured diet, exercise and education added to usual care are linked to better HbA1c and cardiovascular risk markers. It keeps the user's current tablets unchanged and focuses on the 'plan and diet' goal.",
+          "daily_routine": [
+            "Regular structured physical activity as used in lifestyle interventions (ev_002); the evidence snippets give no specific amount or type, so agree this with your doctor or a diabetes educator.",
+            "Take a daily record of diet and activity, since the lifestyle study relied on questionnaires and re-emphasis of daily diet and exercise (ev_001).",
+            "Ask your doctor how often to check blood sugar or HbA1c; the evidence does not give a monitoring schedule.",
+            "Consider diabetes education or behavioral support, which formed part of the combined interventions (ev_002, ev_003)."
+          ],
+          "diet": [
+            "Reviewed diet patterns include Mediterranean, low-carbohydrate and plant-based diets (ev_002); the snippet gives no per-diet results, so none can be ranked as best.",
+            "Regulating daily diet without changing medication was associated with better HbA1c in about 35% of mildly to moderately uncontrolled patients over 3 months (ev_001).",
+            "Portion sizes and meal timing are not covered by the evidence; ask a dietitian."
+          ],
+          "medications_treatments": [
+            "Continue current tablets as prescribed; the specific tablets are unknown. Discuss any changes with your doctor.",
+            "Reviews report that lifestyle interventions were linked to reduced oral medication use (15-40% reduction), but any change should only be made by your doctor (ev_002)."
+          ],
+          "expected_timeline": "HbA1c improvement was seen at about 3 months in one small study (ev_001). Longer-term timeline is not covered by the evidence.",
+          "prevalence_and_outlook": "Prevalence is not covered by the evidence. Across the reviews, lifestyle interventions improved glycaemic control and cardiovascular risk markers, which supports a favourable outlook when sustained (ev_002, ev_003, ev_004). Long-term outcomes are not shown.",
+          "benefits": [
+            "Backed by two systematic reviews/meta-analyses (ev_002, ev_003).",
+            "Lifestyle group had HbA1c 7.2% vs 8.0% in controls, plus better cholesterol and LDL, though study design is unclear (ev_004).",
+            "Possible reduction in medication need (ev_002).",
+            "Low direct cost compared with adding drugs."
+          ],
+          "drawbacks_risks": [
+            "Only about a third of patients improved significantly in the small uncontrolled study (ev_001), so lifestyle alone may not be enough.",
+            "Requires sustained effort and behavior change.",
+            "Evidence snippets lack effect sizes (ev_003) and clear study design (ev_004).",
+            "If medication needs fall while diet and exercise improve, blood sugar could drop too low in some people. Check with your doctor, especially if you take certain tablets (general knowledge, not from the evidence)."
+          ],
+          "assumptions": [
+            "Typical adult with no mobility or dietary restrictions.",
+            "Current HbA1c is unknown; may be mildly to moderately above target as in ev_001.",
+            "Diagnosis was confirmed by a doctor.",
+            "Hypoglycaemia risk depends on the specific tablet, which is unknown (general knowledge)."
+          ],
+          "difficulty": "medium",
+          "safety_notes": "Do not stop or reduce tablets on your own; discuss any change with your doctor. See a doctor before starting vigorous exercise. Seek urgent care for severe thirst, vomiting, fast or deep breathing, confusion or drowsiness.",
+          "supporting_evidence_ids": [
+            "ev_001",
+            "ev_002",
+            "ev_003",
+            "ev_004"
+          ],
+          "evidence_gaps": [
+            "Specific diet details and portions",
+            "Routine monitoring schedule",
+            "Long-term timeline and outlook",
+            "Prevalence",
+            "Exercise type, amount and intensity"
+          ],
+          "plan_id": "research_a",
+          "perspective": "research",
+          "round": 1
+        },
+        "score": {
+          "plan_id": "research_a",
+          "criterion_scores": [
+            {
+              "criterion": "fit_to_user",
+              "score": 7.0,
+              "explanation": "Directly targets the user's 'plan and diet' goal on top of current tablets, but the diet and exercise content is vague and ignores available plate-method and monitoring guidance."
+            },
+            {
+              "criterion": "safety",
+              "score": 8.0,
+              "explanation": "Says not to stop or reduce tablets, flags hypoglycaemia and urgent-care symptoms, and adds no doses; the medication-reduction figure could tempt self-adjustment, but it is clearly caveated."
+            },
+            {
+              "criterion": "evidence_quality",
+              "score": 7.0,
+              "explanation": "Rests on two systematic reviews/meta-analyses plus small observational data; effect sizes and study design are unclear, and the outlook is slightly overstated."
+            },
+            {
+              "criterion": "practicality",
+              "score": 6.0,
+              "explanation": "Lifestyle change is low cost and accessible, but without concrete amounts, portions or schedules the user has little to act on."
+            },
+            {
+              "criterion": "completeness",
+              "score": 6.0,
+              "explanation": "Covers routine, diet, medications, timeline and outlook, but admits gaps in monitoring, portions, exercise specifics and prevalence that the evidence set could fill."
+            }
+          ],
+          "weighted_total": 7.0,
+          "key_benefits": [
+            "Strongest evidence base (systematic reviews/meta-analyses) for lifestyle in type 2 diabetes",
+            "Matches the user's stated goal of a plan and diet while keeping tablets unchanged",
+            "Safe framing with no stopping or changing of medication and clear urgent-care signs"
+          ],
+          "key_drawbacks": [
+            "Diet and exercise advice is non-specific (no plate method, no exercise amount)",
+            "Ignores available guideline evidence on HbA1c monitoring intervals and targets",
+            "Outlook claim goes beyond the evidence, and the 15-40% reduction figure may be misread as a reason to cut tablets"
+          ],
+          "confidence": "medium",
+          "confidence_reason": "The plan is clearly safer and better fitted than research_b, but the research-lens evidence is thin on practical diet and monitoring detail.",
+          "supporting_evidence_ids": [
+            "ev_001",
+            "ev_002",
+            "ev_003",
+            "ev_004",
+            "ev_008",
+            "ev_009",
+            "ev_010"
+          ],
+          "remaining_risks": [
+            "Current HbA1c and the specific tablets are unknown, so hypoglycaemia risk cannot be assessed",
+            "Lifestyle alone may not be enough; only about a third improved significantly in the small study",
+            "Diagnosis assumed to be doctor-confirmed"
+          ]
+        },
+        "key_evidence": [
+          {
+            "evidence_id": "ev_001",
+            "title": "Improvement of Glycemic Control after Re-Emphasis of Lifestyle Modification in Type 2 Diabetic Patients Reluctant to Additional Medication",
+            "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3575963",
+            "verification_status": "verified"
+          },
+          {
+            "evidence_id": "ev_002",
+            "title": "Evaluating the Impact of Lifestyle Interventions on Type 2 Diabetes Management: Systematic Review & Meta Analysis | European Journal of Cardiovascular Medicine",
+            "url": "https://healthcare-bulletin.co.uk/article/evaluating-the-impact-of-lifestyle-interventions-on-type-2-diabetes-management-systematic-review-meta-analysis-2873",
+            "verification_status": "partially_supported"
+          },
+          {
+            "evidence_id": "ev_003",
+            "title": "Effect of lifestyle intervention in patients with type 2 diabetes: a meta-analysis. - Abstract",
+            "url": "https://pubmed.ncbi.nlm.nih.gov/25467842",
+            "verification_status": "partially_supported"
+          },
+          {
+            "evidence_id": "ev_004",
+            "title": "Impact of lifestyle modification on type 2 diabetes outcomes - FUTURE HEALTH",
+            "url": "https://futurehealthjournal.com/impact-of-lifestyle-modification-on-type-2-diabetes-outcomes",
+            "verification_status": "partially_supported"
+          }
+        ],
+        "critic_key_objections": [
+          "[medium/not_fit_for_user] The user asked for a 'plan and diet', but the diet and exercise sections give almost nothing to act on. They list diet patterns with no ranking, say portions are 'not covered', and give no exercise amount. The evidence set does contain practical diet guidance, which the plan ignores.",
+          "[medium/missing_consideration] The plan says no monitoring schedule is available, but guideline evidence exists. NICE suggests HbA1c every 3-6 months until stable, then every 6 months, and another source suggests every 3 months. The plan also gives no HbA1c target. The user's current control is unknown, so this matters.",
+          "[low/unsupported_claim] The outlook statement ('favourable outlook when sustained') goes beyond the evidence. ev_003 has no effect sizes, ev_004 has an unclear design, and ev_001 is a small uncontrolled 3-month study. The plan admits long-term outcomes are not shown."
+        ],
+        "verification_counts": {
+          "verified": 4,
+          "partially_supported": 5,
+          "unavailable": 1
+        },
+        "verification_notes": [
+          "verified: Regulating daily diet without changing medication was associated with better HbA1c in about 35% of mildly to moderately uncontrolled patients over 3 months",
+          "partially_supported: Structured diet, exercise and education added to usual care are linked to better HbA1c and cardiovascular risk markers",
+          "partially_supported: Lifestyle group had HbA1c 7.2% vs 8.0% in controls, plus better cholesterol and LDL",
+          "verified: Reviews report lifestyle interventions were linked to reduced oral medication use (15-40% reduction)",
+          "verified: Only about a third of patients improved significantly in a small uncontrolled study, so lifestyle alone may not be enough",
+          "partially_supported: Reviewed diet patterns include Mediterranean, low-carbohydrate and plant-based diets, with no per-diet results"
+        ],
+        "unavailable_reason": "",
+        "is_user_choice": false
+      },
+      {
+        "perspective": "doctor",
+        "plan": {
+          "name": "Plate-method meal structure with scheduled HbA1c monitoring (no counting)",
+          "summary": "A simple, visual eating approach using the Diabetes Plate (half non-starchy vegetables, a quarter lean protein, a quarter quality carbohydrate) alongside the tablets the user already takes. It fits someone 2 years into type 2 diabetes who wants a plan and diet help without weighing or counting. Regular HbA1c checks with the doctor show whether it is working.",
+          "daily_routine": [
+            "Build each meal on a 9-inch plate using the plate method (ev_011, ev_008).",
+            "Keep taking your tablets as prescribed; discuss any questions about them with your doctor.",
+            "Arrange HbA1c checks with your care team: guidance says every 3-6 months until stable on unchanging therapy, then about every 6 months (ev_009).",
+            "Ask your doctor what HbA1c target suits you; guidance notes targets can be relaxed for some adults and are personalised (ev_009, ev_017)."
+          ],
+          "diet": [
+            "Fill half the plate with non-starchy vegetables such as spinach, green beans, tomatoes or broccoli (ev_012, ev_011).",
+            "Fill about one quarter with lean protein and one quarter with quality carbohydrate foods (ev_008, ev_011).",
+            "Count fruit as a carbohydrate in your meal plan (ev_008).",
+            "Choose water or a zero/low-calorie drink with meals (ev_010, ev_011).",
+            "Emphasise vegetables, lean proteins and whole grains; cut down on saturated fats, refined carbohydrates and sweets (ev_018)."
+          ],
+          "medications_treatments": [
+            "User takes tablets (the specific medication is not stated). The evidence does not name specific drugs; discuss any medication questions with your doctor."
+          ],
+          "expected_timeline": "Not covered by evidence for diet changes. Guidance only says HbA1c is rechecked every 3-6 months until stable (ev_009).",
+          "prevalence_and_outlook": "Type 2 diabetes is very common: it accounts for about 90-95% of diabetes cases, and about 6.3% of the world's population is affected (ev_013, ev_015). The evidence gives no specific outlook statement.",
+          "benefits": [
+            "No counting, weighing or measuring needed (ev_011).",
+            "Low cost and easy to start at home.",
+            "Visual and flexible, suited to general portion control (ev_012)."
+          ],
+          "drawbacks_risks": [
+            "General, non-individualised guidance (ev_008, ev_010).",
+            "Does not specify how many carbohydrates you personally need.",
+            "Snippets for the plate method are truncated, so portion details for some foods are limited (ev_011, ev_012)."
+          ],
+          "assumptions": [
+            "Assumes a typical adult with no dietary restrictions, allergies or mobility limits (general assumption from the profile).",
+            "Assumes the diagnosis was confirmed by a doctor.",
+            "Assumes current HbA1c and diet are unknown."
+          ],
+          "difficulty": "low",
+          "safety_notes": "This is general information to discuss with your doctor, not a prescription. Do not stop or change your tablets without talking to your doctor. Seek urgent care for very high thirst or urination with nausea or vomiting, fast or deep breathing, confusion or drowsiness, or fruity-smelling breath.",
+          "supporting_evidence_ids": [
+            "ev_008",
+            "ev_009",
+            "ev_010",
+            "ev_011",
+            "ev_012",
+            "ev_017",
+            "ev_018",
+            "ev_013",
+            "ev_015"
+          ],
+          "evidence_gaps": [
+            "Specific medications and how they interact with diet",
+            "Expected time to see improvement from diet changes",
+            "Exercise specifics"
+          ],
+          "plan_id": "doctor_a",
+          "perspective": "doctor",
+          "round": 1
+        },
+        "score": {
+          "plan_id": "doctor_a",
+          "criterion_scores": [
+            {
+              "criterion": "fit_to_user",
+              "score": 7.5,
+              "explanation": "The simple plate-method diet suits a tablet-only user two years in who asked for a plan and diet and did not request tracking, though it leaves out activity."
+            },
+            {
+              "criterion": "safety",
+              "score": 6.0,
+              "explanation": "It keeps tablets unchanged, says to discuss medication with the doctor and lists high-glucose emergency signs, but it omits hypoglycaemia guidance even though the tablets are unknown."
+            },
+            {
+              "criterion": "evidence_quality",
+              "score": 7.0,
+              "explanation": "The plate method rests on consistent ADA, CDC and MedlinePlus references and the HbA1c schedule on NICE, but no source shows the plate method lowers HbA1c and some benefit claims are unsupported."
+            },
+            {
+              "criterion": "practicality",
+              "score": 9.0,
+              "explanation": "It needs no counting, weighing, extra cost or special equipment, so it is easy to start and keep up."
+            },
+            {
+              "criterion": "completeness",
+              "score": 5.0,
+              "explanation": "It covers diet, monitoring and prevalence, but omits exercise, timeline expectations, routine complication checks and any first step to review current HbA1c and tablets."
+            }
+          ],
+          "weighted_total": 7.0,
+          "key_benefits": [
+            "No counting, weighing or measuring, so low effort and low cost",
+            "Based on consistent reference-grade sources (ADA, CDC, MedlinePlus)",
+            "Keeps the tablets unchanged and defers medication questions to the doctor",
+            "Includes a clear HbA1c monitoring schedule from NICE guidance"
+          ],
+          "key_drawbacks": [
+            "No physical activity guidance even though the user asked for a plan",
+            "No low blood sugar (hypoglycaemia) safety note",
+            "Generic, with no first step to review current HbA1c or the actual tablet name",
+            "Timeline said to be not covered despite some available evidence"
+          ],
+          "confidence": "medium",
+          "confidence_reason": "The diet evidence is consistent and relevant, but the plan is generic and the user's tablet, HbA1c and activity level are unknown.",
+          "supporting_evidence_ids": [
+            "ev_008",
+            "ev_009",
+            "ev_010",
+            "ev_011",
+            "ev_012",
+            "ev_018",
+            "ev_017"
+          ],
+          "remaining_risks": [
+            "Hypoglycaemia risk is unaddressed if the tablets are a class such as a sulfonylurea",
+            "The plan may feel incomplete without exercise guidance",
+            "Whether the plate method alone improves HbA1c is not shown by the evidence",
+            "The tablet type, current HbA1c and diet are unknown"
+          ]
+        },
+        "key_evidence": [
+          {
+            "evidence_id": "ev_008",
+            "title": "Diabetes type 2 - meal planning: MedlinePlus Medical Encyclopedia",
+            "url": "https://medlineplus.gov/ency/article/007429.htm",
+            "verification_status": "partially_supported"
+          },
+          {
+            "evidence_id": "ev_009",
+            "title": "Blood glucose management | Type 2 diabetes in adults: management  | Guidance | NICE",
+            "url": "https://www.nice.org.uk/guidance/ng28/chapter/Blood-glucose-management",
+            "verification_status": "partially_supported"
+          },
+          {
+            "evidence_id": "ev_010",
+            "title": "Diabetes Meal Planning | Diabetes | CDC",
+            "url": "https://www.cdc.gov/diabetes/healthy-eating/diabetes-meal-planning.html",
+            "verification_status": "partially_supported"
+          },
+          {
+            "evidence_id": "ev_011",
+            "title": "Plan Your Diabetes Plate 1 2 3",
+            "url": "https://professional.diabetes.org/sites/dpro/files/2025-05/PE25-Plan-Your-Plate-FINAL-5-22-25.pdf",
+            "verification_status": "partially_supported"
+          },
+          {
+            "evidence_id": "ev_012",
+            "title": "Meal Planning for Type 2 Diabetes",
+            "url": "https://health.clevelandclinic.org/meal-plan-for-type-2-diabetes",
+            "verification_status": "verified"
+          },
+          {
+            "evidence_id": "ev_017",
+            "title": "Guide to Blood Sugar Control: ADA Standards & Care Tips",
+            "url": "https://primarycarenb.com/understanding-blood-glucose-monitoring-and-control",
+            "verification_status": "partially_supported"
+          },
+          {
+            "evidence_id": "ev_018",
+            "title": "Diabetes, Type 2 - does diet matter?",
+            "url": "https://www.drugs.com/answers/diabetes-type-2-diet-matter-3575703.html",
+            "verification_status": "partially_supported"
+          },
+          {
+            "evidence_id": "ev_013",
+            "title": "Type 2 Diabetes: What It Is, Causes, Symptoms & Treatment",
+            "url": "https://my.clevelandclinic.org/health/diseases/21501-type-2-diabetes",
+            "verification_status": "verified"
+          },
+          {
+            "evidence_id": "ev_015",
+            "title": "Diabetes",
+            "url": "https://my.clevelandclinic.org/health/diseases/7104-diabetes",
+            "verification_status": "verified"
+          }
+        ],
+        "critic_key_objections": [
+          "[medium/missing_consideration] The plan leaves out physical activity entirely, even though the user asked for a 'plan'. The evidence supports combining diet with exercise: lifestyle programmes improved cardiovascular risk markers in type 2 diabetes, and regular activity is said to help insulin work better. Listing exercise only as an evidence gap leaves the daily routine as a diet-only plan.",
+          "[medium/safety_risk] The safety notes cover only high-glucose warning signs. They say nothing about low blood sugar. The user's tablets are unknown, and some classes, such as sulfonylureas, carry a notable hypoglycaemia risk (25% in one small observational study). Changing eating patterns while on such tablets could raise that risk.",
+          "[medium/missing_consideration] There is no mention of how to tell whether the plan is working beyond HbA1c every 3-6 months, and no mention of routine diabetes checks such as blood pressure, cholesterol, kidney, eye and foot checks. Reviewing the user's current HbA1c and the real tablet name is also not framed as a first step. The plan therefore stays generic for someone 2 years into diabetes."
+        ],
+        "verification_counts": {
+          "verified": 5,
+          "partially_supported": 4,
+          "unavailable": 1
+        },
+        "verification_notes": [
+          "verified: The Diabetes Plate uses a 9-inch plate: half non-starchy vegetables, a quarter lean protein, a quarter carbohydrate foods.",
+          "verified: The plate method needs no counting, weighing or measuring.",
+          "verified: HbA1c should be checked every 3-6 months until stable on unchanging therapy, then about every 6 months.",
+          "verified: Non-starchy vegetables such as spinach, green beans, tomatoes or broccoli fill half the plate.",
+          "partially_supported: HbA1c targets can be relaxed for some adults and are personalised.",
+          "partially_supported: Count fruit as a carbohydrate in the meal plan."
+        ],
+        "unavailable_reason": "",
+        "is_user_choice": false
+      },
+      {
+        "perspective": "patient",
+        "plan": {
+          "name": "Tablets plus short daily walks and everyday diet tweaks (routine-first)",
+          "summary": "This approach builds on the tablets the user already takes by adding a small, easy walking habit and modest food changes, which is the 'start small' advice patients most often shared. It fits someone 2 years in with no symptoms who wants a plan and diet guidance. It rests on a few anecdotes, not on proven results.",
+          "daily_routine": [
+            "One poster advised a 10-minute walk each evening after dinner (ev_019, single post).",
+            "Another thread described someone walking about 30 minutes almost daily, outside or on a walking pad (ev_024, secondhand, outcome not shown).",
+            "One poster suggested looking up isometric exercises (ev_024, anecdotal, no outcome shown).",
+            "Keep taking the tablets as prescribed and discuss any questions about them with your doctor."
+          ],
+          "diet": [
+            "Patients in the evidence gave no detailed meal plans (evidence gap).",
+            "One Drugs.com reviewer reported diarrhea and headaches linked to sugar intake while on metformin (ev_020, single review). Some users may therefore want to watch sugary foods, but this is anecdotal.",
+            "Ask your doctor or a dietitian to help turn this into a personal meal plan."
+          ],
+          "medications_treatments": [
+            "Metformin is described by one poster as effective for most people (ev_019, anecdotal). The user's own tablet is not stated, so it is unknown whether this applies.",
+            "Reviewers on Drugs.com reported metformin made weight loss easier when combined with dieting (ev_020, one reviewer, self-reported)."
+          ],
+          "expected_timeline": "One person reported fasting numbers began to fall after about 2 months of diet, exercise and medication (ev_021, single report). Individual timelines vary.",
+          "prevalence_and_outlook": "The patient evidence does not say how common type 2 diabetes is or what the long-term outlook is. The posters describe it as manageable, with some reporting good A1C results.",
+          "benefits": [
+            "Low cost and easy to start.",
+            "Needs no big lifestyle overhaul.",
+            "Can be combined with current tablets."
+          ],
+          "drawbacks_risks": [
+            "Based on a few single anecdotes with no outcome data for walking alone.",
+            "May be too gentle if blood sugar is currently high.",
+            "Metformin side effects such as diarrhea were reported by one reviewer (ev_020)."
+          ],
+          "assumptions": [
+            "Assumes a typical adult with no mobility limits (general assumption, not stated by the user).",
+            "Assumes the tablet is something like metformin; this is unknown.",
+            "Assumes the user's current blood sugar and HbA1c are unknown."
+          ],
+          "difficulty": "low",
+          "safety_notes": "Do not stop or change your tablets without talking to your doctor. Check with your doctor before starting new exercise, and ask what to do if blood sugar readings seem too low. Seek urgent care for very high thirst, frequent urination, vomiting, fast or deep breathing, confusion, or fruity-smelling breath.",
+          "supporting_evidence_ids": [
+            "ev_019",
+            "ev_020",
+            "ev_021",
+            "ev_024"
+          ],
+          "evidence_gaps": [
+            "No specific meal plan details from patients.",
+            "No outcomes for walking-only approaches.",
+            "Unknown which tablet the user takes."
+          ],
+          "plan_id": "patient_a",
+          "perspective": "patient",
+          "round": 1
+        },
+        "score": {
+          "plan_id": "patient_a",
+          "criterion_scores": [
+            {
+              "criterion": "fit_to_user",
+              "score": 7.0,
+              "explanation": "A gentle walking and diet-tweak routine suits a symptom-free user two years in on tablets who wants a plan and diet, though the diet content is thin."
+            },
+            {
+              "criterion": "safety",
+              "score": 8.0,
+              "explanation": "Tells the user to keep taking tablets, check with a doctor before new exercise, and lists urgent-care signs; the metformin assumption is flagged as unknown."
+            },
+            {
+              "criterion": "evidence_quality",
+              "score": 3.0,
+              "explanation": "Rests on single anecdotes (ev_019, ev_020, ev_021, ev_024) with no outcome data, and the diet advice leans on one review about sugar and side effects."
+            },
+            {
+              "criterion": "practicality",
+              "score": 9.0,
+              "explanation": "Low cost, low effort and easy to start, with a 10-minute post-dinner walk and no major overhaul."
+            },
+            {
+              "criterion": "completeness",
+              "score": 5.0,
+              "explanation": "Covers routine, medication, timeline and safety, but diet is nearly empty, there is no monitoring plan, and outlook and prevalence are missing."
+            }
+          ],
+          "weighted_total": 6.55,
+          "key_benefits": [
+            "Easy, low-cost walking habit that is realistic to sustain",
+            "Builds on current tablets without suggesting any change",
+            "Clear safety and urgent-care wording"
+          ],
+          "key_drawbacks": [
+            "Diet section is almost empty despite being the user's main request",
+            "No monitoring or HbA1c follow-up guidance",
+            "Assumes the tablet is metformin-like",
+            "Evidence is anecdotal only"
+          ],
+          "confidence": "medium",
+          "confidence_reason": "The anecdotal evidence is consistent with a gentle start, but it is weak and the diet gap is verified.",
+          "supporting_evidence_ids": [
+            "ev_019",
+            "ev_020",
+            "ev_021",
+            "ev_024"
+          ],
+          "remaining_risks": [
+            "User's tablet type and current HbA1c are unknown",
+            "Plan may be too gentle if control is poor",
+            "Possible low blood sugar depends on the specific tablet; discuss with your doctor"
+          ]
+        },
+        "key_evidence": [
+          {
+            "evidence_id": "ev_019",
+            "title": "Just got diagnosed with diabetes type 2 give me your best ...",
+            "url": "https://www.reddit.com/r/diabetes_t2/comments/1n2eq7l/just_got_diagnosed_with_diabetes_type_2_give_me",
+            "verification_status": "partially_supported"
+          },
+          {
+            "evidence_id": "ev_020",
+            "title": "Metformin for Type 2 Diabetes Reviews - Drugs.com",
+            "url": "https://www.drugs.com/comments/metformin/for-diabetes-mellitus-type-ii.html",
+            "verification_status": "partially_supported"
+          },
+          {
+            "evidence_id": "ev_021",
+            "title": "How long should it take for diet and exercise changes to ...",
+            "url": "https://www.reddit.com/r/diabetes_t2/comments/zw56tl/how_long_should_it_take_for_diet_and_exercise",
+            "verification_status": "partially_supported"
+          },
+          {
+            "evidence_id": "ev_024",
+            "title": "Anyone lose weight on Metformin alone (without GLP-1)?",
+            "url": "https://www.reddit.com/r/diabetes_t2/comments/1l4qd82/anyone_lose_weight_on_metformin_alone_without_glp1",
+            "verification_status": "partially_supported"
+          }
+        ],
+        "critic_key_objections": [
+          "[high/better_alternative] The diet section is nearly empty and leans on one review linking diarrhea and headaches to sugar intake on metformin. The user explicitly wants diet guidance, and the doctor-perspective evidence has concrete, consistent advice (plate method, vegetables, whole grains, less refined carbs) that goes unused.",
+          "[medium/missing_consideration] There is no monitoring plan. The user's HbA1c and glucose are unknown, and the plan admits it may be too gentle without saying how to find out.",
+          "[medium/unsupported_claim] The plan assumes the tablet is metformin-like and builds its medication and weight-loss content on that. Other tablet classes carry different side effects, such as a higher hypoglycaemia risk with sulfonylureas."
+        ],
+        "verification_counts": {
+          "verified": 6,
+          "partially_supported": 3,
+          "unavailable": 1
+        },
+        "verification_notes": [
+          "verified: One poster advised a 10-minute walk each evening after dinner",
+          "verified: Metformin is described by one poster as effective for most people",
+          "verified: Another thread described someone walking about 30 minutes almost daily, outside or on a walking pad (secondhand, outcome not shown)",
+          "verified: One poster suggested looking up isometric exercises",
+          "partially_supported: One Drugs.com reviewer reported diarrhea and headaches linked to sugar intake while on metformin",
+          "verified: Reviewers on Drugs.com reported metformin made weight loss easier when combined with dieting"
+        ],
+        "unavailable_reason": "",
+        "is_user_choice": false
+      }
+    ],
+    "where_perspectives_agree": [
+      "All three plans say to keep taking your tablets as prescribed and to discuss any questions or changes with your doctor.",
+      "All three plans say to seek urgent care for warning signs such as severe thirst, vomiting, fast or deep breathing, or confusion.",
+      "All three plans recommend asking a doctor, dietitian or diabetes educator to help turn the general advice into a personal plan.",
+      "The research and patient plans both include regular physical activity, and the research and doctor plans both point to checking HbA1c with your care team."
+    ],
+    "where_perspectives_differ": [
+      "The research plan relies on systematic reviews of structured lifestyle programmes, while the patient plan relies on a few personal posts and reviews, so their strength of evidence differs.",
+      "The doctor plan gives concrete diet steps (the plate method), whereas the research plan lists diet patterns without ranking them and the patient plan offers almost no diet detail.",
+      "The doctor plan leaves out physical activity, while the research and patient plans include it but give no clear amount agreed by evidence.",
+      "Only the doctor plan gives a clear HbA1c check schedule (every 3-6 months until stable, then about every 6 months), while the research and patient plans give no monitoring schedule.",
+      "The patient plan assumes your tablet may be metformin, but your actual tablet is not known, and other tablet types can have different side effects."
+    ],
+    "is_conditional": false,
+    "uncertainties": [
+      "Your specific tablet and your recent HbA1c or blood sugar readings are unknown, so none of the plans can be tailored to your current control.",
+      "None of the plans gives guidance on low blood sugar, which matters because some tablet types carry a higher risk of it.",
+      "The evidence gives no specific amount or type of exercise, and no portion size or meal timing advice.",
+      "Long-term outcomes of the lifestyle approaches are not shown, and the favourable outlook in the research plan goes beyond the evidence.",
+      "The patient plan rests on single anecdotes with no proven results."
+    ],
+    "unsupported_claims": [],
+    "unresolved_questions": [],
+    "next_steps": [
+      "Ask your doctor what your tablet is, what your latest HbA1c is, and what HbA1c target suits you.",
+      "Ask how often you should have HbA1c checks and whether you should check your blood sugar at home.",
+      "Ask whether your tablet could cause low blood sugar, what the signs are, and what to do if it happens when you change your eating or activity.",
+      "Ask a doctor, dietitian or diabetes educator to help you build a personal meal plan, for example using the plate method.",
+      "Ask what type and amount of physical activity is safe for you before you start, including walking.",
+      "Ask about routine diabetes checks such as blood pressure, cholesterol, kidney, eye and foot checks, and keep a simple diary of food and activity to bring to appointments."
+    ],
+    "human_action": "approve",
+    "human_selected_plan_id": null,
+    "red_flags": [],
+    "withdrawn_red_flags": [],
+    "disclaimer": "This report summarises published research, clinical references and patient experiences retrieved from the web. It is health information to discuss with a qualified clinician, not a diagnosis, a prescription or a substitute for medical care. Never start, stop or change a medication based on this report. If you have emergency warning signs, seek urgent care now."
+  },
+  "unresolved_questions": [],
+  "completed_at": "2026-10-20T19:35:33+00:00",
+  "metrics": {
+    "active_seconds": 205.004,
+    "debate_rounds": 1,
+    "research_retries": 0,
+    "clarification_rounds": 1,
+    "human_reviews": 1,
+    "evidence_count": 24,
+    "claims_checked": 30,
+    "errors": 0,
+    "started_at": "2026-10-20T19:29:13+00:00"
+  },
+  "error_retry_counts": {},
+  "error_history": []
+}

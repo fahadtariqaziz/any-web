@@ -1,0 +1,46 @@
+flowchart TD
+    __start__(["START"])
+    __end__(["END"])
+    subgraph phase0["1 · Understand the case"]
+        intake["intake"]:::agent
+        clarification["clarification"]:::agent
+        await_clarification{{"⏸ await_clarification"}}:::pause
+    end
+    subgraph phase1["2 · Research (3 lanes)"]
+        research["research"]:::agent
+    end
+    subgraph phase2["3 · Debate"]
+        proposer["proposer"]:::agent
+        critic["critic"]:::agent
+        judge["judge"]:::agent
+    end
+    subgraph phase3["4 · Verify"]
+        evidence_checker["evidence_checker"]:::agent
+    end
+    subgraph phase4["5 · Report"]
+        final_report["final_report"]:::agent
+        completion["completion"]:::python
+    end
+    __start__ --> intake
+    await_clarification -.->|"user answered"| clarification
+    clarification -->|"needs answers (max 2 rounds)"| await_clarification
+    clarification -->|"enough info"| research
+    critic --> judge
+    evidence_checker -->|"claims checked"| final_report
+    evidence_checker -.->|"material evidence gap"| research
+    final_report --> completion
+    intake --> clarification
+    judge -.->|"ask the user"| clarification
+    judge -->|"proceed"| evidence_checker
+    judge -->|"proceed, quick mode"| final_report
+    judge -.->|"more research (bounded)"| research
+    proposer -->|"full mode"| critic
+    proposer -->|"quick mode: no critic"| judge
+    research --> proposer
+    completion --> __end__
+    note["<b>Not drawn:</b> any node fails → completion<br/>(status failed, the API error is shown)<br/>Each LLM call first retries, then tries the fallback model"]:::note
+    legend["<b>Legend</b><br/>blue = AI agent (LLM call)<br/>orange hexagon = waits for the user<br/>grey = plain Python<br/>dashed arrow = loop back to an earlier step"]:::note
+    classDef agent fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef pause fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+    classDef python fill:#f1f5f9,stroke:#64748b,color:#334155
+    classDef note fill:#fefce8,stroke:#a16207,color:#713f12,stroke-dasharray:4 3

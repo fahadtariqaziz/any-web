@@ -1,0 +1,27 @@
+# Backend in a sandboxed container; Postgres stays on the host (Homebrew), the frontend stays `npm run dev`.
+#   docker compose up --build                         # http://localhost:8000/docs
+#   docker compose run --rm backend alembic upgrade head
+# Stop the local `uvicorn` first: both want port 8000.
+services:
+  backend:
+    build: ./backend
+    env_file: ./backend/.env                  # keys are read at run time, never baked into the image
+    environment:
+      # Inside the container "localhost" is the container itself; host.docker.internal is the Mac.
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql://postgres:password@host.docker.internal:5432/ai_decision_arena}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8000:8000"                 # reachable from this Mac only, not from the network
+    # --- the sandbox ---
+    user: "10001:10001"                       # not root
+    read_only: true                           # the agent cannot change its own code or write files...
+    tmpfs:
+      - /tmp                                  # ...except a throw-away /tmp in memory
+    cap_drop: [ALL]                           # no Linux capabilities (no raw network, no chown, no mount...)
+    security_opt:
+      - "no-new-privileges:true"              # nothing inside can gain root (no setuid)
+    mem_limit: 1g                             # a runaway process can't eat the Mac's memory
+    cpus: 2
+    pids_limit: 256                           # nor fork-bomb it
+    restart: unless-stopped

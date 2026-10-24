@@ -1,0 +1,59 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Design tokens. Tailwind v4 reads these as utilities (bg-brand, text-brand-ink...). */
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --color-brand: #0f766e;          /* teal-700: calm, clinical, trustworthy */
+  --color-brand-strong: #115e59;   /* teal-800 */
+  --color-brand-soft: #ccfbf1;     /* teal-100 */
+  --color-brand-faint: #f0fdfa;    /* teal-50 */
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-fade-up: fade-up 0.35s ease-out both;
+  --animate-pulse-ring: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgb(15 118 110 / 0.45); }
+    70% { box-shadow: 0 0 0 10px rgb(15 118 110 / 0); }
+    100% { box-shadow: 0 0 0 0 rgb(15 118 110 / 0); }
+  }
+}
+
+:root {
+  color-scheme: light; /* one polished theme; no half-dark artifacts from OS dark mode */
+}
+
+body {
+  @apply bg-slate-50 text-slate-900;
+}
+
+/* Indeterminate progress bar at the top of the page while agents work. */
+.shimmer-bar {
+  background: linear-gradient(90deg, transparent 0%, var(--color-brand) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+/* Users who prefer less motion still get the information, without the animation. */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-bar, .animate-pulse-ring, .animate-fade-up, .animate-pulse {
+    animation: none !important;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+  main { max-width: none !important; padding: 0 !important; }
+}

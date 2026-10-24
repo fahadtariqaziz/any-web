@@ -1,0 +1,815 @@
+{
+  "status": "debating",
+  "current_node": "research",
+  "question": "I have diabetes",
+  "user_context": "",
+  "condition_name": "type 2 diabetes",
+  "condition_category": "metabolic_endocrine",
+  "case_summary": "The user has type 2 diabetes diagnosed about six months ago, takes metformin, and wants to lower blood sugar and lose weight without insulin.",
+  "health_profile": {
+    "diagnosis": "type 2 diabetes, confirmed by a doctor",
+    "diagnosed_since": "about 6 months ago",
+    "age": "42",
+    "sex": "male",
+    "medications": "metformin 500 mg twice a day",
+    "other_conditions": "overweight, mildly high blood pressure",
+    "goal": "lower blood sugar and lose weight, avoid insulin if possible"
+  },
+  "symptoms": {
+    "fatigue": "most afternoons",
+    "increased thirst": "especially at night",
+    "frequent urination": "two or three times every night"
+  },
+  "constraints": {
+    "diet": "vegetarian",
+    "budget": "prefers low-cost options",
+    "preferences": "would rather avoid injections"
+  },
+  "missing_information": [
+    "latest HbA1c or blood sugar readings",
+    "current activity level"
+  ],
+  "red_flags": [],
+  "clarification_answers": {
+    "Has a doctor confirmed the diabetes, and do you know if it is type 1 or type 2?": "yes, type 2",
+    "How long ago were you diagnosed?": "about 6 months ago",
+    "Which symptoms do you have now, and when do they occur?": "tired most afternoons, thirsty at night, urinating 2-3 times a night",
+    "Which medications or treatments are you taking or have tried?": "metformin 500 mg twice a day",
+    "Do you have other conditions or allergies?": "overweight, mildly high blood pressure, no allergies",
+    "What does your daily routine and diet look like, and what do you want to achieve?": "desk job, little exercise, vegetarian; want lower blood sugar and weight loss without insulin"
+  },
+  "assumptions": [
+    "Not specified by user: latest HbA1c or blood sugar readings",
+    "Not specified by user: current activity level"
+  ],
+  "clarification_round_count": 1,
+  "research_queries": [
+    "[research] type 2 diabetes metformin lifestyle intervention weight loss HbA1c randomized trial",
+    "[research] vegetarian diet type 2 diabetes glycemic control weight loss meta-analysis",
+    "[research] type 2 diabetes prevalence adults and time to HbA1c improvement with diet exercise and metformin",
+    "[doctor] type 2 diabetes management guidelines metformin add-on options when to consider next therapy",
+    "[doctor] type 2 diabetes daily routine exercise blood glucose monitoring weight loss overweight hypertension",
+    "[doctor] type 2 diabetes how common is it typical course how long until symptoms improve",
+    "[patient] type 2 diabetes metformin 500 mg newly diagnosed what worked experience reddit",
+    "[patient] vegetarian type 2 diabetes meal plan lower blood sugar lose weight what worked cheap",
+    "[patient] type 2 diabetes how long did it take to see improvement in A1c and weight diet exercise metformin"
+  ],
+  "evidence": [
+    {
+      "evidence_id": "ev_001",
+      "perspective": "research",
+      "source_title": "Vegetarian and Vegan Dietary Patterns to Treat Adult Type 2 Diabetes: A Systematic Review and Meta-Analysis of Randomized Controlled Trials",
+      "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11540868",
+      "source_type": "research_paper",
+      "evidence_strength": "systematic_review_or_meta_analysis",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "vegetarian, compared with nonvegetarian, dietary patterns have benefits for glycemic control, reduced BMI, and the potential to lower diabetes medication dosage, but do not appear to improve blood LDL cholesterol concentrations.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Vegetarian diets improved glycemic control and BMI in adults with T2DM",
+        "Vegetarian diets may allow lower diabetes medication dosage",
+        "No clear LDL cholesterol benefit"
+      ],
+      "limitations": [
+        "Trials averaged only 26 weeks",
+        "Certainty of evidence was limited"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.95,
+      "reliability_notes": "Meta-analysis of 7 RCTs (770 adults with T2DM), but short trials and limited certainty.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_002",
+      "perspective": "research",
+      "source_title": "Perspective: Plant-Based Eating Pattern for Type 2 Diabetes Prevention and Treatment: Efficacy, Mechanisms, and Practical Considerations",
+      "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8634508",
+      "source_type": "research_paper",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "A meta-analysis of 6 randomized controlled trials (N = 255) demonstrated that vegetarian diets were associated with a 0.4% greater reduction in glycated hemoglobin (HbA1c) when compared with other prescribed eating patterns for diabetes",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Plant-based diets improve glycemic control, body weight and cardiovascular risk factors in T2DM",
+        "Vegetarian diets lowered HbA1c by 0.4% more than other prescribed diets in a cited meta-analysis"
+      ],
+      "limitations": [
+        "Cited meta-analysis was small (N = 255)"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.8,
+      "reliability_notes": "Narrative perspective article summarizing other meta-analyses, not a new systematic review.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_003",
+      "perspective": "research",
+      "source_title": "Vegetarian diets and glycemic control in diabetes: a systematic review and meta-analysis - Yokoyama - Cardiovascular Diagnosis and Therapy",
+      "source_url": "https://cdt.amegroups.org/article/view/4977/html",
+      "source_type": "research_paper",
+      "evidence_strength": "systematic_review_or_meta_analysis",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "The snippet states that vegetarian diets are associated with improved glycemic control in type 2 diabetes, based on a meta-analysis of clinical trials lasting at least 4 weeks, registered on PROSPERO.",
+      "is_direct_quote": false,
+      "claims_supported": [
+        "Vegetarian diets are associated with improved glycemic control in T2DM",
+        "The authors suggest vegetarian diets could be a treatment alternative for T2DM"
+      ],
+      "limitations": [
+        "Effect size and trial details are cut off in the snippet"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.8,
+      "reliability_notes": "Registered systematic review and meta-analysis; older and with few details visible in the snippet.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_004",
+      "perspective": "research",
+      "source_title": "Exercise/Physical Activity in Individuals with Type 2 Diabetes: A Consensus Statement from the American College of Sports Medicine",
+      "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8802999",
+      "source_type": "clinical_guideline",
+      "evidence_strength": "clinical_guideline",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "In adults with T2D, the interruption of prolonged sitting with activity breaks, such as light-intensity walking or simple resistance activities for 3 min every 30 min over 8 h, decreases postprandial glucose, insulin, C-peptide, and triglyceride levels (115).",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Breaking up prolonged sitting lowers postprandial glucose in T2D",
+        "Metformin may attenuate some exercise benefits on insulin sensitivity (pilot studies)"
+      ],
+      "limitations": [
+        "Metformin-exercise interaction comes from pilot studies only"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.8,
+      "reliability_notes": "American College of Sports Medicine consensus statement; relevant to a desk job. Discuss any medication questions with your doctor.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_005",
+      "perspective": "research",
+      "source_title": "Exercise and Type 2 Diabetes: What the Evidence Shows",
+      "source_url": "https://www.vitruvian-ep.co.uk/post/exercise-type-2-diabetes",
+      "source_type": "health_article",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "Exercise reduces HbA1c by 0.5\u20130.78% in people with type 2 diabetes, an effect comparable to that of some oral medications.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Exercise lowers HbA1c by 0.5\u20130.78% in T2DM",
+        "Target is 150 min/week moderate aerobic activity plus 2\u20133 resistance sessions",
+        "Diet plus exercise can lead to remission for some people, but not guaranteed"
+      ],
+      "limitations": [
+        "Remission is not guaranteed for everyone",
+        "HIIT is not appropriate for everyone"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.75,
+      "reliability_notes": "Secondary summary from a clinic website; primary studies are not identified in the snippet.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_006",
+      "perspective": "research",
+      "source_title": "Effect of resistance training on HbA1c in adults with type 2 diabetes ...",
+      "source_url": "https://drc.bmj.com/content/bmjdrc/10/2/e002595.full.pdf",
+      "source_type": "research_paper",
+      "evidence_strength": "unknown",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "The snippet reports global diabetes prevalence of 9.3% (463 million) in adults aged 20\u201379, and notes the American Diabetes Association recommends at least 150 min/week of aerobic exercise and resistance training for adults with T2DM.",
+      "is_direct_quote": false,
+      "claims_supported": [
+        "ADA recommends at least 150 min/week of preferably aerobic plus resistance exercise in T2DM",
+        "Longer aerobic bouts can be challenging for overweight people"
+      ],
+      "limitations": [
+        "Snippet is mostly introduction and does not show the study's HbA1c results"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.65,
+      "reliability_notes": "Snippet shows introduction text only; results are not visible.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_007",
+      "perspective": "doctor",
+      "source_title": "Initial management of hyperglycemia in adults with type 2 diabetes mellitus",
+      "source_url": "https://www.uptodate.com/contents/initial-management-of-hyperglycemia-in-adults-with-type-2-diabetes-mellitus",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "In the absence of specific contraindications or strong indication(s) for another medication class, we suggest metformin as initial therapy for most patients (Grade 2B).",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Metformin is suggested as initial therapy for most patients",
+        "Additional agents are added sequentially if needed",
+        "Drug choice considers symptoms, comorbidities, A1C, and patient preferences"
+      ],
+      "limitations": [
+        "Snippet is truncated",
+        "Does not address this user's A1C"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.85,
+      "reliability_notes": "Clinical reference with graded recommendation; not a trial.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_008",
+      "perspective": "doctor",
+      "source_title": "How to Use the American Diabetes Association's Type 2 ...",
+      "source_url": "https://professional.diabetes.org/sites/default/files/media/5_algortihm_warriner_-_birmingham.pdf",
+      "source_type": "clinical_guideline",
+      "evidence_strength": "clinical_guideline",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "Foundational therapy is metformin and comprehensive lifestyle management (including weight management and physical activity)",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Metformin plus lifestyle management is foundational therapy",
+        "Stepwise addition of glucose-lowering drugs is generally preferred over initial combination therapy",
+        "Heart, kidney or heart-failure disease affects the choice of add-on drug"
+      ],
+      "limitations": [
+        "Slide-deck summary of the ADA algorithm",
+        "User has no stated heart, kidney or heart-failure disease"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.85,
+      "reliability_notes": "Summarizes ADA guidance, though from presentation slides.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_009",
+      "perspective": "doctor",
+      "source_title": "Diabetes management: How lifestyle, daily routine affect blood sugar - Mayo Clinic",
+      "source_url": "https://www.mayoclinic.org/diseases-conditions/diabetes/in-depth/diabetes-management/art-20047963",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "In general, most adults should get at least 150 minutes a week of moderate aerobic activity.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Exercise helps muscles use blood sugar and helps the body use insulin better",
+        "Even light activity such as housework, gardening and walking can improve blood sugar",
+        "Strength training 2 to 3 times a week is suggested"
+      ],
+      "limitations": [
+        "Advises talking to a healthcare professional before starting a plan",
+        "Diet advice is cut off in the snippet"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.75,
+      "reliability_notes": "Reputable clinic patient guidance; no study data.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_010",
+      "perspective": "doctor",
+      "source_title": "The importance of exercise for glycemic control in type 2 diabetes",
+      "source_url": "https://www.sciencedirect.com/science/article/pii/S2667036423000018",
+      "source_type": "research_paper",
+      "evidence_strength": "unknown",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "Convincing evidence demonstrates that exercise can improve glycemic control.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "6 months of aerobic training in overweight people with T2D lowered fasting glucose versus no exercise",
+        "ACSM and ADA recommend lifestyle programs that increase physical activity",
+        "Lifestyle targets often include 5-10% weight loss and 150 min/week of moderate activity"
+      ],
+      "limitations": [
+        "Snippet is truncated",
+        "Trial conditions were structured and may not match a desk worker starting from little exercise"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.7,
+      "reliability_notes": "Review-style article citing trials; exact design and sample sizes not shown in snippet.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_011",
+      "perspective": "doctor",
+      "source_title": "Type 2 diabetes in adults: choosing, reviewing and ...",
+      "source_url": "https://www.nice.org.uk/guidance/ng28/resources/visual-summary-full-version-choosing-medicines-for-firstline-and-further-treatment-pdf-10956472093",
+      "source_type": "clinical_guideline",
+      "evidence_strength": "clinical_guideline",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "NICE advises continuing standard-release metformin if it is effective and switching to modified-release if it is not tolerated; for early-onset (before age 40) type 2 diabetes it advises modified-release metformin plus an SGLT-2 inhibitor.",
+      "is_direct_quote": false,
+      "claims_supported": [
+        "Effective standard-release metformin is continued",
+        "Further agents are added if individual glycaemic targets are not reached",
+        "Newer drug classes (SGLT-2 inhibitors, GLP-1 agonists) are options in some cases"
+      ],
+      "limitations": [
+        "Early-onset pathway applies before age 40; user is 42",
+        "UK guideline; snippet is fragmentary"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.6,
+      "reliability_notes": "National guideline visual summary; some parts do not match this user's age.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_012",
+      "perspective": "doctor",
+      "source_title": "Type 2 Diabetes - NIDDK",
+      "source_url": "https://www.niddk.nih.gov/health-information/diabetes/overview/what-is-diabetes/type-2-diabetes",
+      "source_type": "clinical_guideline",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "increased thirst and urination; increased hunger; feeling tired; blurred vision",
+      "is_direct_quote": false,
+      "claims_supported": [
+        "Thirst, frequent urination and tiredness are listed symptoms of type 2 diabetes",
+        "Symptoms often develop slowly and can be mild"
+      ],
+      "limitations": [
+        "Does not say what these symptoms mean for someone already on treatment"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.5,
+      "reliability_notes": "US government health-information page; general overview. [Checker: claimed quote not found verbatim in snippet; treated as paraphrase.]",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_013",
+      "perspective": "doctor",
+      "source_title": "The 10 Best Exercises for Diabetes - GoodRx",
+      "source_url": "https://www.goodrx.com/conditions/diabetes/best-exercise-for-diabetes-blood-sugar-management-weight-loss",
+      "source_type": "health_article",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "An exercise routine that includes aerobics and strength training may improve blood sugar levels and overall health in people with Type 2 diabetes.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Regular activity helps blood sugar and lowers cardiovascular risk",
+        "30 minutes of brisk walking meets the ADA daily aerobic recommendation"
+      ],
+      "limitations": [
+        "Consumer health article",
+        "Advises checking with the healthcare team before starting a program"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.45,
+      "reliability_notes": "Consumer article from a drug-discount company citing guidelines; secondary source.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_014",
+      "perspective": "doctor",
+      "source_title": "Type 2 Diabetes: What It Is, Causes, Symptoms & Treatment",
+      "source_url": "https://my.clevelandclinic.org/health/diseases/21501-type-2-diabetes",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "About 1 in 10 people in the U.S. has diabetes. And about 90% to 95% of them have T2D.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Type 2 diabetes is very common",
+        "About 6.3% of the world's population is affected",
+        "A1C of 6.5% or higher indicates diabetes"
+      ],
+      "limitations": [
+        "General overview, not specific to this user's treatment"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.4,
+      "reliability_notes": "Reputable hospital patient-education page; prevalence figures are estimates.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_015",
+      "perspective": "doctor",
+      "source_title": "Get Active | Diabetes | CDC",
+      "source_url": "https://www.cdc.gov/diabetes/living-with/physical-activity.html",
+      "source_type": "clinical_guideline",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "Walk every day during lunch or walk with your family after dinner.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Scheduling activity into the daily routine builds a habit",
+        "Avoid going more than 2 days in a row without being active"
+      ],
+      "limitations": [
+        "Practical tips only; no outcome data"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.4,
+      "reliability_notes": "Public-health agency advice; behavioral tips, not evidence of effect.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_016",
+      "perspective": "doctor",
+      "source_title": "Why Type 2 Diabetes Progresses & Medication Changes Over Time",
+      "source_url": "https://diabetes.org/living-with-diabetes/type-2/how-type-2-diabetes-progresses",
+      "source_type": "clinical_guideline",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "The page says people with type 2 diabetes still have functioning beta cells and often have minimal symptoms, so many go undiagnosed for a long time.",
+      "is_direct_quote": false,
+      "claims_supported": [
+        "Type 2 symptoms can be minimal and unnoticed",
+        "Many people have type 2 diabetes for a long time before diagnosis"
+      ],
+      "limitations": [
+        "Snippet does not describe how medications change over time"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.25,
+      "reliability_notes": "Patient-education page from a diabetes association; very short snippet.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_017",
+      "perspective": "doctor",
+      "source_title": "How long does metformin take to work?",
+      "source_url": "https://www.drugs.com/medical-answers/how-long-metformin-take-work-3574615",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "When metformin is used as a single drug treatment (without other diabetes treatments like insulin), it will typically lower your A1C by about 1% to 2% on average.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Metformin alone typically lowers A1C by about 1% to 2%",
+        "In a double-blind study, A1C decreases were seen by week 12",
+        "Metformin alone may not be adequate for all patients, especially over time"
+      ],
+      "limitations": [
+        "Metformin alone may not be enough for all patients over time"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.8,
+      "reliability_notes": "Pharmacist-reviewed drug reference, updated Oct 2025, citing a double-blind study.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_018",
+      "perspective": "doctor",
+      "source_title": "Does metformin lower A1C, if so how much?",
+      "source_url": "https://www.drugs.com/medical-answers/metformin-lower-a1c-how-3574052",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "After 29 weeks, the mean A1C concentration was 7.1% in the metformin group as compared with 8.6% in the placebo group.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "In obese type 2 patients not controlled by diet alone, metformin lowered mean A1C versus placebo at 29 weeks",
+        "Doctors may order an A1C test every 3 to 6 months on metformin",
+        "Taking metformin without food may cause upset stomach"
+      ],
+      "limitations": [
+        "Study dose of up to 2,550 mg/day is higher than the user's"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.7,
+      "reliability_notes": "Drug reference summarising a placebo-controlled study; the snippet gives no sample size.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_019",
+      "perspective": "doctor",
+      "source_title": "Type 2 Diabetes Diet: What to Eat and Avoid",
+      "source_url": "https://patient.info/diabetes/type-2-diabetes/type-2-diabetes-diet",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "Add extra beans and pulses to meals to add bulk or replace meats - for example, kidney beans, lentils, chickpeas.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Beans, pulses and lentils can replace meat and boost fibre",
+        "Tofu can substitute for meat in stir-fries and stews",
+        "Nuts and seeds are suggested as snacks"
+      ],
+      "limitations": [
+        "Also includes fish and meat advice that does not apply to a vegetarian"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.65,
+      "reliability_notes": "General patient-information diet page with no study data in the snippet.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_020",
+      "perspective": "patient",
+      "source_title": "Newly Diagnosed Type 2 Diabetic : r/type2diabetes",
+      "source_url": "https://www.reddit.com/r/type2diabetes/comments/dnkps7/newly_diagnosed_type_2_diabetic",
+      "source_type": "patient_community",
+      "evidence_strength": "anecdotal",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "I was immediately prescribed Metformin 500 mg and was advice to get a glucose monitoring kit.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "One newly diagnosed patient was started on metformin 500 mg (reported) right away",
+        "Patient was advised to get a glucose monitoring kit"
+      ],
+      "limitations": [
+        "Single post",
+        "Snippet is short and gives no outcome"
+      ],
+      "patient_context": {
+        "experience_described": "Prescribed metformin 500 mg at diagnosis and told to get a glucose meter.",
+        "is_recurring": false,
+        "context": "Newly diagnosed type 2; no age or outcome stated.",
+        "what_helped": [
+          "glucose monitoring kit"
+        ],
+        "relevant_to_user": true
+      },
+      "sentiment": "neutral",
+      "relevance_score": 0.5,
+      "reliability_notes": "Single anonymous forum post with no outcomes.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_021",
+      "perspective": "patient",
+      "source_title": "Metformin! Your experiences please. : r/type2diabetes",
+      "source_url": "https://www.reddit.com/r/type2diabetes/comments/13hhqs7/metformin_your_experiences_please",
+      "source_type": "patient_community",
+      "evidence_strength": "anecdotal",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "Started ER 750 Metformin 4 weeks ago. Dr said to take once daily with breakfast. It gave me uncontrollable diarrhea.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "One patient reported severe diarrhea within weeks of starting extended-release metformin"
+      ],
+      "limitations": [
+        "Single case",
+        "59-year-old woman on a different formulation and schedule than the user"
+      ],
+      "patient_context": {
+        "experience_described": "Uncontrollable diarrhea after starting extended-release metformin 750 (reported).",
+        "is_recurring": false,
+        "context": "Newly diagnosed, 59F, 4 weeks on metformin ER once daily with breakfast.",
+        "what_helped": [],
+        "relevant_to_user": true
+      },
+      "sentiment": "negative",
+      "relevance_score": 0.5,
+      "reliability_notes": "Single forum anecdote and the snippet is truncated.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_022",
+      "perspective": "patient",
+      "source_title": "Recently diagnosed Type 2 with an A1c of 7.5 at 27 years ...",
+      "source_url": "https://www.reddit.com/r/diabetes_t2/comments/15aq78k/recently_diagnosed_type_2_with_an_a1c_of_75_at_27",
+      "source_type": "patient_community",
+      "evidence_strength": "anecdotal",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "Doctor prescribed Metformin, I want to try diet and exercise only for the first 3 months to see if I can self manage with lifestyle changes.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Some patients want to try lifestyle changes alongside prescribed metformin for the first 3 months"
+      ],
+      "limitations": [
+        "Poster is 27 with an A1c of 7.5, younger than the user",
+        "No outcome reported in the snippet"
+      ],
+      "patient_context": {
+        "experience_described": "Wants to try diet and exercise for 3 months to see if lifestyle alone can manage the diabetes.",
+        "is_recurring": false,
+        "context": "Recently diagnosed, A1c 7.5, age 27.",
+        "what_helped": [],
+        "relevant_to_user": true
+      },
+      "sentiment": "neutral",
+      "relevance_score": 0.45,
+      "reliability_notes": "Single anecdote about intent, with no results.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_023",
+      "perspective": "patient",
+      "source_title": "Newly Diagnosed (UK patient) : r/type2diabetes",
+      "source_url": "https://www.reddit.com/r/type2diabetes/comments/1mwatm6/newly_diagnosed_uk_patient",
+      "source_type": "patient_community",
+      "evidence_strength": "anecdotal",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "This morning I was diagnosed with type 2 diabetes mellitus and put straight on metformin twice a day.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Another newly diagnosed patient was started on metformin twice daily at diagnosis"
+      ],
+      "limitations": [
+        "Snippet is truncated",
+        "No outcome or detail given"
+      ],
+      "patient_context": {
+        "experience_described": "Diagnosed and put straight on metformin twice a day; seems to have been surprised by the diagnosis.",
+        "is_recurring": false,
+        "context": "UK patient, diagnosed that morning.",
+        "what_helped": [],
+        "relevant_to_user": true
+      },
+      "sentiment": "neutral",
+      "relevance_score": 0.3,
+      "reliability_notes": "Very short single post on the day of diagnosis.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_024",
+      "perspective": "patient",
+      "source_title": "r/diabetes on Reddit: [type 2] my doctor recently diagnosed ...",
+      "source_url": "https://www.reddit.com/r/diabetes/comments/ve657f/type_2_my_doctor_recently_diagnosed_me_with_type",
+      "source_type": "patient_community",
+      "evidence_strength": "anecdotal",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "Metformin (along with other medication that might be added as this progresses) helps you maintain a good glucose range despite this.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "A forum commenter says metformin helps maintain a good glucose range and other medication may be added as diabetes progresses"
+      ],
+      "limitations": [
+        "Snippet is truncated",
+        "Opinion of a forum user, not a clinician"
+      ],
+      "patient_context": {
+        "experience_described": "A commenter explains that metformin helps keep glucose in range and other drugs may be added later.",
+        "is_recurring": false,
+        "context": "Reply to a newly diagnosed type 2 patient.",
+        "what_helped": [
+          "metformin"
+        ],
+        "relevant_to_user": true
+      },
+      "sentiment": "positive",
+      "relevance_score": 0.3,
+      "reliability_notes": "Unverified forum reply, cut off mid-sentence.",
+      "verification_status": "pending"
+    },
+    {
+      "evidence_id": "ev_025",
+      "perspective": "doctor",
+      "source_title": "How long does it take for Jardiance to work?",
+      "source_url": "https://www.drugs.com/medical-answers/long-jardiance-work-3541202",
+      "source_type": "medical_reference",
+      "evidence_strength": "expert_or_reference",
+      "published_at": null,
+      "retrieved_at": "2026-10-19T19:50:45.678263Z",
+      "relevant_excerpt": "Jardiance starts lowering blood sugar on the first day, but your A1C (a blood test that shows your average blood sugar over about 3 months) changes more slowly.",
+      "is_direct_quote": true,
+      "claims_supported": [
+        "Jardiance is used with diet and exercise in type 2 diabetes",
+        "Added to metformin, A1C fell by 0.7% to 0.8% at 24 weeks",
+        "A1C is usually rechecked after about 12 weeks"
+      ],
+      "limitations": [
+        "Covers a drug the user is not taking; any change is for the doctor to decide"
+      ],
+      "patient_context": null,
+      "sentiment": null,
+      "relevance_score": 0.3,
+      "reliability_notes": "Drug reference page on a single brand and not specific to the user's case.",
+      "verification_status": "pending"
+    }
+  ],
+  "perspective_summaries": {
+    "research": "Research sources suggest vegetarian diets improve glycemic control and BMI in adults with type 2 diabetes. One meta-analysis found a possible reduced need for diabetes medication, with limited certainty and trials averaging about 26 weeks. Exercise lowers HbA1c by roughly 0.5\u20130.78% and guidelines recommend at least 150 minutes per week of aerobic activity plus resistance training. Breaking up sitting time with short activity breaks lowers post-meal glucose, which may suit a desk job. Some diet-plus-exercise approaches can lead to remission in some people, though this is not guaranteed. Pilot data suggest metformin may blunt some exercise benefits, so discuss medication questions with your doctor and do not change metformin on your own.\nPrevalence: One source estimates global diabetes prevalence at 9.3% of adults aged 20\u201379 (463 million), projected to reach 10.9% by 2045.",
+    "doctor": "Clinical sources agree that metformin plus lifestyle management (nutrition, weight management, physical activity) is the foundation of type 2 diabetes treatment. If glucose targets are not met, further drugs are usually added stepwise, chosen by A1C, comorbidities, side effects and preferences. Newer drug classes (SGLT-2 inhibitors, GLP-1 agonists) appear in guidelines, and some GLP-1 drugs are injections. Exercise guidance is consistent: about 150 minutes a week of moderate activity plus strength training 2-3 times weekly, with walking as an easy start. Thirst, frequent urination and tiredness are listed symptoms of type 2 diabetes. Persistent symptoms on treatment are worth discussing with your doctor, who can check A1C and review treatment. These sources say little about vegetarian diet and long-term outlook.\nPrevalence: About 1 in 10 people in the U.S. has diabetes, 90-95% of them type 2, and about 6.3% of the world's population is affected.",
+    "patient": "Patient posts describe being started on metformin (500 mg twice daily reported) at diagnosis and being advised to get a glucose monitor. Some want to try diet and exercise first. One patient reported severe diarrhea on extended-release metformin. Reference pages say metformin alone typically lowers A1C by about 1% to 2%, with effects seen by about 12 weeks, and that A1C is checked every 3 to 6 months. Metformin may not be enough alone over time, and other drugs can be added, which is a decision for the doctor. Diet pages suggest beans, lentils, tofu, nuts and seeds for a vegetarian. These sources give no information on exercise, weight-loss outcomes or long-term outlook.\nPrevalence: Not covered by these sources"
+  },
+  "research_summary": "## Research perspective (papers, studies, systematic reviews)\nResearch sources suggest vegetarian diets improve glycemic control and BMI in adults with type 2 diabetes. One meta-analysis found a possible reduced need for diabetes medication, with limited certainty and trials averaging about 26 weeks. Exercise lowers HbA1c by roughly 0.5\u20130.78% and guidelines recommend at least 150 minutes per week of aerobic activity plus resistance training. Breaking up sitting time with short activity breaks lowers post-meal glucose, which may suit a desk job. Some diet-plus-exercise approaches can lead to remission in some people, though this is not guaranteed. Pilot data suggest metformin may blunt some exercise benefits, so discuss medication questions with your doctor and do not change metformin on your own.\nPrevalence: One source estimates global diabetes prevalence at 9.3% of adults aged 20\u201379 (463 million), projected to reach 10.9% by 2045.\n\n## Doctor perspective (clinical guidelines, hospital and medical-reference sites)\nClinical sources agree that metformin plus lifestyle management (nutrition, weight management, physical activity) is the foundation of type 2 diabetes treatment. If glucose targets are not met, further drugs are usually added stepwise, chosen by A1C, comorbidities, side effects and preferences. Newer drug classes (SGLT-2 inhibitors, GLP-1 agonists) appear in guidelines, and some GLP-1 drugs are injections. Exercise guidance is consistent: about 150 minutes a week of moderate activity plus strength training 2-3 times weekly, with walking as an easy start. Thirst, frequent urination and tiredness are listed symptoms of type 2 diabetes. Persistent symptoms on treatment are worth discussing with your doctor, who can check A1C and review treatment. These sources say little about vegetarian diet and long-term outlook.\nPrevalence: About 1 in 10 people in the U.S. has diabetes, 90-95% of them type 2, and about 6.3% of the world's population is affected.\n\n## Patient perspective (real-world experiences from forums, Reddit, reviews)\nPatient posts describe being started on metformin (500 mg twice daily reported) at diagnosis and being advised to get a glucose monitor. Some want to try diet and exercise first. One patient reported severe diarrhea on extended-release metformin. Reference pages say metformin alone typically lowers A1C by about 1% to 2%, with effects seen by about 12 weeks, and that A1C is checked every 3 to 6 months. Metformin may not be enough alone over time, and other drugs can be added, which is a decision for the doctor. Diet pages suggest beans, lentils, tofu, nuts and seeds for a vegetarian. These sources give no information on exercise, weight-loss outcomes or long-term outlook.\nPrevalence: Not covered by these sources",
+  "evidence_gaps": [
+    "[research] medications beyond metformin and non-insulin options",
+    "[research] explanation of the user's specific symptoms (thirst, night urination, fatigue)",
+    "[research] cost of diet and treatment options",
+    "[doctor] diet (vegetarian-specific guidance)",
+    "[doctor] timeline and long-term outlook",
+    "[doctor] weight-loss approaches and expected results",
+    "[doctor] low-cost medication options",
+    "[patient] prevalence",
+    "[patient] exercise routine",
+    "[patient] weight loss results",
+    "[patient] night-time thirst and urination",
+    "[patient] long-term outlook"
+  ],
+  "conflicting_claims": [
+    {
+      "topic": "Initial combination versus stepwise drug therapy",
+      "evidence_ids": [
+        "ev_011",
+        "ev_008",
+        "ev_007"
+      ],
+      "description": "The ADA algorithm slides and UpToDate prefer starting metformin and adding drugs stepwise. NICE advises metformin plus an SGLT-2 inhibitor from the start for early-onset (before age 40) type 2 diabetes, so approaches differ by guideline and age."
+    }
+  ],
+  "rejected_sources": [
+    {
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11562588",
+      "title": "Metformin plus lifestyle interventions versus lifestyle interventions alone for the delay or prevention of type 2 diabetes in individuals with prediabetes: a meta-analysis of randomized controlled trials",
+      "perspective": "research",
+      "reason": "prediabetes, user already has type 2"
+    },
+    {
+      "url": "https://www.sciencedirect.com/science/article/abs/pii/S2213858725000221",
+      "title": "Long-term effects and effect heterogeneity of lifestyle and metformin interventions on type 2 diabetes incidence over 21 years in the US Diabetes Prevention Program randomised clinical trial",
+      "perspective": "research",
+      "reason": "diabetes prevention in prediabetes"
+    },
+    {
+      "url": "https://pubmed.ncbi.nlm.nih.gov/11832527",
+      "title": "Reduction in the incidence of type 2 diabetes with lifestyle intervention or metformin.",
+      "perspective": "research",
+      "reason": "prevention trial in nondiabetic people"
+    },
+    {
+      "url": "https://www.sciencedirect.com/science/article/pii/S2161831324001285",
+      "title": "Vegetarian and Vegan Dietary Patterns to Treat Adult Type 2 Diabetes: A Systematic Review and Meta-Analysis of Randomized Controlled Trials",
+      "perspective": "research",
+      "reason": "duplicate of kept vegetarian meta-analysis"
+    },
+    {
+      "url": "https://medicalxpress.com/news/2025-04-lifestyle-metformin-interventions-term-benefits.html",
+      "title": "Both lifestyle and metformin interventions show long-term benefits in reducing type 2 diabetes",
+      "perspective": "research",
+      "reason": "prediabetes prevention news article"
+    },
+    {
+      "url": "https://files.medelement.com/uploads/materials/c76c0056142981e0d88b7af225371f38.pdf",
+      "title": "Exercise/Physical Activity in Individuals with Type 2 Diabetes",
+      "perspective": "research",
+      "reason": "duplicate of kept ACSM statement"
+    },
+    {
+      "url": "https://www.aafp.org/afp/2015/0701/p27",
+      "title": "Management of Blood Glucose with Noninsulin Therapies in Type 2 Diabetes | AFP",
+      "perspective": "doctor",
+      "reason": "outdated 2015 guidance"
+    },
+    {
+      "url": "https://my.clevelandclinic.org/health/diseases/7104-diabetes",
+      "title": "Diabetes",
+      "perspective": "doctor",
+      "reason": "duplicate prevalence info"
+    },
+    {
+      "url": "https://www.reddit.com/r/PCOS/comments/znhma9/any_vegetarians_here_successful_in_keeping_their",
+      "title": "Any vegetarians here successful in keeping their weight ...",
+      "perspective": "patient",
+      "reason": "PCOS thread, unverified reversal claim"
+    },
+    {
+      "url": "https://www.quora.com/What-should-be-the-vegetarian-diet-for-type-2-diabetes",
+      "title": "What should be the vegetarian diet for type 2 diabetes?",
+      "perspective": "patient",
+      "reason": "unsupported Quora opinion, truncated"
+    },
+    {
+      "url": "https://andreasmith.quora.com/Meal-Plan-for-Diabetics-that-is-Vegetarian-A-vegetarian-meal-plan-for-diabetes-includes-a-week-of-plant-based-meals-tha",
+      "title": "A vegetarian meal plan for diabetes includes a week of plant ...",
+      "perspective": "patient",
+      "reason": "meal plan promotion, no checkable content"
+    }
+  ],
+  "research_retry_count": 0,
+  "debate_round": 0
+}

@@ -1,0 +1,8 @@
+# Never send secrets or local junk into the image build
+.env
+.env.*
+.venv
+.cache
+**/__pycache__
+*.png
+scripts
