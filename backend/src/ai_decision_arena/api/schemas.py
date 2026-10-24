@@ -37,7 +37,7 @@ class CreateDecisionRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)   # "   " counts as empty, like in intake
 
     question: str = Field(min_length=MIN_QUESTION_CHARS, max_length=MAX_QUESTION_CHARS,
-                          examples=["I have type 2 diabetes"])
+                          examples=["A habit tracker app for university students"])
     context: str = Field(default="", max_length=MAX_CONTEXT_CHARS, description="Optional extra context.")
     mode: Literal["full", "quick"] = Field(default="full", description='"full": every pause (admin view). "quick": the '
                                            "patient chat: faster, fewer loops, ends with a short summary.")
@@ -102,8 +102,8 @@ class DecisionStatus(BaseModel):
     run_state: RunState
     workflow_status: str | None = Field(description="The graph's own status (intake, researching, completed, ...).")
     question: str | None = None
-    condition_name: str | None = None
-    red_flags: list[str] = Field(default_factory=list)
+    project_name: str | None = None
+    risk_flags: list[str] = Field(default_factory=list)
     pending: PendingPause | None = None
     progress: list[ProgressLine] = Field(default_factory=list,
                                          description="Live progress of THIS server process (lost on restart).")
@@ -142,18 +142,18 @@ class ErrorResponse(BaseModel):
 class CaseView(BaseModel):
     """What the system understood about the user (intake + clarification)."""
 
-    condition_name: str | None = None
-    condition_category: str | None = None
-    case_summary: str | None = None
+    project_name: str | None = None
+    project_category: str | None = None
+    idea_summary: str | None = None
     user_context: str = ""
-    health_profile: dict[str, str] = Field(default_factory=dict)
-    symptoms: dict[str, str] = Field(default_factory=dict)
+    project_profile: dict[str, str] = Field(default_factory=dict)
+    requested_features: dict[str, str] = Field(default_factory=dict)
     constraints: dict[str, str] = Field(default_factory=dict)
     missing_information: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
     clarification_answers: dict[str, str] = Field(default_factory=dict)
-    red_flags: list[str] = Field(default_factory=list)
-    withdrawn_red_flags: list[dict[str, str]] = Field(default_factory=list, description='{"flag", "reason"}')
+    risk_flags: list[str] = Field(default_factory=list)
+    withdrawn_risk_flags: list[dict[str, str]] = Field(default_factory=list, description='{"flag", "reason"}')
 
 
 class ResearchView(BaseModel):
@@ -203,9 +203,9 @@ class SessionSummary(BaseModel):
     thread_id: str
     question: str
     mode: str = "full"
-    condition_name: str | None = None
+    project_name: str | None = None
     status: str
-    red_flag_count: int = 0
+    risk_flag_count: int = 0
     created_at: str
     updated_at: str | None = None
     completed_at: str | None = None
@@ -235,7 +235,7 @@ class ChatTranscript(BaseModel):
     thread_id: str
     mode: str
     question: str | None = None
-    condition_name: str | None = None
+    project_name: str | None = None
     clarifications: list[ClarificationTurn] = Field(default_factory=list, description="Answered onboarding questions, in order.")
     onboarding_summary: dict[str, str] | None = Field(default=None, description="OnboardingSummary once onboarding finished.")
     ready: bool = Field(description="True once the report exists: the patient can chat.")

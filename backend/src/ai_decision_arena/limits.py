@@ -15,11 +15,10 @@ def time_budget_left(state: ArenaState) -> bool:
 
 def loops_allowed(state: ArenaState) -> tuple[bool, bool, bool, list[str]]:
     """(can_debate, can_research, can_clarify, reasons_blocked). A research pass always starts a new debate
-    round, so can_research also needs can_debate. Red flags and the time budget block every automatic loop."""
+    round, so can_research also needs can_debate. The time budget blocks every automatic loop; risk flags are
+    informational and never change routing."""
     settings = get_settings()
     blocked: list[str] = []
-    if state.get("red_flags"):
-        blocked.append("red flags present")
     if not time_budget_left(state):
         blocked.append(f"session time budget ({settings.session_time_budget_seconds:.0f}s) spent")
     can_debate = state.get("debate_round", 0) < settings.max_debate_rounds and not blocked

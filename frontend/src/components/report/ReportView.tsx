@@ -22,7 +22,7 @@ import { WORKFLOW_STATUS_LABEL, formatDateTime, titleCase, workflowStatusTone } 
 
 export function ReportView({ report, workflowStatus, live }: { report: FinalReport; workflowStatus: string; live: LiveSnapshot | null }) {
   const [openPlan, setOpenPlan] = useState<string | null>(null);
-  const withdrawn = report.withdrawn_red_flags.map((text) => {
+  const withdrawn = report.withdrawn_risk_flags.map((text) => {
     const m = /^(.*?)\s*\((.*)\)$/.exec(text);
     return m ? { flag: m[1], reason: m[2] } : { flag: text, reason: "" };
   });
@@ -36,7 +36,7 @@ export function ReportView({ report, workflowStatus, live }: { report: FinalRepo
           title={
             <span className="flex items-center gap-2">
               <FileText className="size-5 text-brand" aria-hidden />
-              <span className="capitalize">{report.condition_name}</span>
+              <span className="capitalize">{report.project_name}</span>
             </span>
           }
           description={`Generated ${formatDateTime(report.generated_at)} for “${report.original_question}”`}
@@ -52,7 +52,7 @@ export function ReportView({ report, workflowStatus, live }: { report: FinalRepo
           }
         />
         <CardBody className="space-y-4">
-          <RedFlagBanner flags={report.red_flags} withdrawn={withdrawn} />
+          <RedFlagBanner flags={report.risk_flags} withdrawn={withdrawn} />
           {report.is_conditional && (
             <Callout tone="warning" title="Read this report as conditional">
               <p>
@@ -170,8 +170,8 @@ export function ReportView({ report, workflowStatus, live }: { report: FinalRepo
             <KeyValueList items={report.confirmed_profile} />
           </div>
           <div className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Symptoms</h3>
-            <KeyValueList items={report.symptoms} emptyText="None recorded." />
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Requested features</h3>
+            <KeyValueList items={report.requested_features} emptyText="None recorded." />
           </div>
           <div className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Constraints</h3>

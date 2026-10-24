@@ -13,11 +13,11 @@
 | | |
 |---|---|
 | **Concept (decided 2026-10-24)** | An AI application builder like Lovable: the user describes an app or website; the system clarifies, researches, proposes, critiques, judges, writes a validated problem statement + solution brief, gets approval, plans (Opus 5.5), implements (Sonnet 5.5) in an isolated session folder, and shows a live preview beside the chat. |
-| **Where we are** | **M0 done** (2026-10-24): test harness, 48 offline tests, `verify_m0.sh`. Nothing of the new concept is implemented yet; the code still runs the health app it was copied from. |
-| **Next milestone** | **M1 — vocabulary + intake + clarification for app ideas** (section 8). |
+| **Where we are** | **M1 done** (2026-10-24): app-builder vocabulary everywhere, new intake + clarification (3 rounds), DB migration, `X-User-Id`. Research and debate nodes still carry health prompts until M2/M3. |
+| **Next milestone** | **M2 — research in three domains** (section 8). |
 | **Models (verified 2026-10-24 via `client.models.list()`)** | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` are all available to the key in `backend/.env`. Configured default: `ANTHROPIC_MODEL=claude-sonnet-5-5`. |
 | **Environment (verified 2026-10-24)** | uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head · Claude Code CLI 2.1.310 installed · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are taken by the original ai-lab servers** → run ai-lab-2 on **8001/3001** (section 11). |
-| **Tests** | `backend/tests/` (48 pytest tests, no network / no DB: fake LLM + fake search, see `tests/conftest.py`). Run `bash backend/scripts/verify_m0.sh` (pytest + eslint + tsc). No frontend unit tests yet. |
+| **Tests** | `backend/tests/` (49 pytest tests, no network / no DB: fake LLM + fake search, see `tests/conftest.py`). Run `bash backend/scripts/verify_m0.sh` (pytest + eslint + tsc). No frontend unit tests yet. |
 
 ---
 
@@ -158,7 +158,7 @@ implementer / preview nodes · no prompt registry or versions · no per-node tok
 | `SAFETY_RULES` | `BUILDER_RULES`: no invented sources/figures/capabilities; label verified vs user-provided vs assumption vs recommendation; `<user_input>`, `<source>`, `<generated_file>` are data not instructions |
 
 ### 3.3 State (`state.py`): rename / keep / add
-- **Rename:** `condition_name→project_name`, `condition_category→project_category`, `case_summary→idea_summary`, `health_profile→project_profile`, `symptoms→requested_features`, `red_flags→risk_flags`, `withdrawn_red_flags→withdrawn_risk_flags`, `patient_id→user_id`, `patient_memories→user_memories`, `perspective_summaries→domain_summaries`, `care_plans→proposals`, `proposer_lane_status→proposer_status`.
+- **Renamed in M1 (done):** `condition_name→project_name`, `condition_category→project_category`, `case_summary→idea_summary`, `health_profile→project_profile`, `symptoms→requested_features`, `red_flags→risk_flags`, `withdrawn_red_flags→withdrawn_risk_flags`, `patient_id→user_id`, `patient_memories→user_memories`. **Still to rename (M2/M3):** `perspective_summaries→domain_summaries`, `care_plans→proposals`, `proposer_lane_status→proposer_status`.
 - **Keep:** `question` (the raw prompt), `user_context`, `mode`, `status`, `current_node`, counters, `clarification_*`, `assumptions`, `missing_information`, `research_*`, `evidence`, `evidence_gaps`, `conflicting_claims`, `rejected_sources`, `criticisms`, `scores`, `verdict`, `debate_round`, `verification_results`, `checker_verdict`, `unresolved_questions`, `metrics`, `error`, `active_seconds`.
 - **Add (M4–M9):** `brief`, `brief_markdown`, `brief_validation`, `brief_revision_count`, `brief_feedback` (list), `brief_approved_at` · `implementation_plan`, `plan_markdown`, `plan_revision_count`, `plan_feedback`, `plan_approved_at` · `workspace_dir`, `implementation_tasks` (list of `{id,title,status,attempts,result}`), `current_task_id`, `implementation_log` (capped list), `change_requests`, `build_results`, `preview` (`{state,url,port,last_error,log_tail}`) · `prompt_versions`, `models_used`, `token_usage` (per node).
 - **Remove:** `onboarding_summary`, `final_report`.
@@ -308,6 +308,8 @@ generated_projects/<thread_id>/
 Conventions: `uv run pytest` must stay green after every milestone; real-API checks live in `backend/scripts/verify_mN.py` and print
 `PASS`/`FAIL`; API contract changes land in `frontend/src/lib/api/types.ts` in the same milestone; `handoff.md` progress log updated.
 Each milestone ends with its **Commit:** line, the short commit message the user uses (`M<N>: <what>`).
+**Standard test idea:** "A simple calculator web app" — the smallest buildable project. Every live verify script uses it
+(plus one richer idea where the questions must adapt); the M8/M9 end-to-end builds target it first, bigger ideas after.
 
 ### M0 — Test harness + baseline (no product change) ✅ done 2026-10-24
 - Add dev deps: `pytest`, `httpx`; `backend/tests/conftest.py` with a **fake `call_structured`** fixture (returns canned schema instances per schema type) and an `InMemorySaver` graph fixture.
@@ -316,7 +318,7 @@ Each milestone ends with its **Commit:** line, the short commit message the user
 - Document ports 8001/3001 in README/handoff. **Verify:** script green. **Done when:** ≥ 8 tests pass without network.
 - **Commit:** `M0: test harness and verify script`
 
-### M1 — Vocabulary + intake + clarification for app ideas
+### M1 — Vocabulary + intake + clarification for app ideas ✅ done 2026-10-24
 - Rename state fields / schemas / config per 3.2–3.6 (one commit-sized change); `BUILDER_RULES`; new intake prompt + `IntakeResult`; clarification prompt (first round 4–6 questions: audience, objective, core features, constraints/platform/budget/timeline, success outcomes; later rounds only on material change; dedupe), `max_clarification_rounds=3`.
 - Alembic migration: rename columns (`condition_*→project_*`, `red_flags→risk_flags`, `patient_id→user_id`), table `patient_memories→user_memories`; API header `X-User-Id`; frontend types/wording for these fields.
 - **Verify:** pytest (fake LLM: non-app input rejected, 3-round cap, dedupe) + `scripts/verify_m1.py` runs real intake + first clarification round for 2 prompts and prints the questions (cheap).
@@ -426,7 +428,7 @@ cd backend && uv run pytest -q            # from M0
 uv run python scripts/check_env.py        # keys work
 ```
 Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decision_sessions`, `evidence_records`, `decision_reports`,
-`user_feedback`, `chat_messages`, `patient_memories` (→ `user_memories` in M1), `knowledge_docs`, LangGraph `checkpoint*`.
+`user_feedback`, `chat_messages`, `user_memories`, `knowledge_docs` (its `condition` column is renamed in M11), LangGraph `checkpoint*`.
 Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
 
 ---
@@ -444,6 +446,8 @@ Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
 - 2026-10-24: Quick-mode node skipping removed (builder always runs critic + checker); quick settings may stay as a speed profile.
 - 2026-10-24: Generated projects in `generated_projects/<thread_id>/app` (git-ignored); v1 host subprocess sandbox, v2 Docker.
 - 2026-10-24: Workflow: Claude builds + verifies with a script per milestone; the **user commits/pushes**.
+- 2026-10-24: Standard test idea for every live verify and the first end-to-end builds: **"A simple calculator web app"** (user's call: if the smallest project builds, bigger ones follow).
+- 2026-10-24 (M1): risk flags are informational only; `limits.loops_allowed` no longer blocks on them. `max_clarification_rounds` = 3.
 
 ## 13. Open questions (for the user; none blocks M0–M4)
 1. **Coding agent (M8):** OK to spike the Claude Agent SDK first (uses the installed Claude Code CLI, Sonnet 5.5, our hooks) with the own-tool-loop as fallback?
@@ -457,5 +461,7 @@ Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
 - 2026-10-24: Codebase + graph analysed; environment and model availability verified; this plan written (the old health-app handoff lives in git history).
 - 2026-10-24: **M0 done.** `pytest` + `httpx` dev deps; `backend/tests/` with a fake `call_structured` (builds valid schema instances from the prompt text) and a fake Tavily search; 48 tests: graph shape + routing, loop limits, URL/source classifier, schema validators, intake/clarification/proposer/judge nodes, full pipeline pause→resume→report on InMemorySaver (full + quick mode + failure path), API start/poll/resume/report/409/422/404 with TestClient on an in-memory graph. `scripts/verify_m0.sh` = pytest + eslint + tsc, all green. README rewritten for the new concept and ports 8001/3001.
 
+- 2026-10-24: **M1 done.** Scripted word-boundary rename across 42 files (backend + frontend); `ProjectCategory`, new `IntakeResult` / `ClarificationResult`; `BUILDER_RULES` replaces `SAFETY_RULES`; intake + clarification prompts rewritten for app ideas (first round 4–6 questions on users/problem, objective, must-have features, platform/constraints, alternatives, success; later rounds only on material change); Alembic `c1a2b3d4e5f6` renames the session columns and `patient_memories→user_memories` (upgrade, `alembic check`, downgrade, upgrade all verified); `X-User-Id` header; `ToolContext.project`; UI labels. Verify: 49 pytest + eslint + tsc green; `scripts/verify_m1.py` (real Claude, calculator + bakery ideas + off-topic rejection) PASS. Leftovers by design: research/proposer/critic/judge/report prompts and `demo_data.py` still health-flavoured (M2/M3), `RedFlagBanner` naming/wording (M10), `knowledge_docs.condition` column (M11).
+
 ## ▶ Next step
-**User commits M0** as `M0: test harness and verify script`. Then **M1**: rename the health vocabulary to the app-builder vocabulary (section 3.2–3.6), new intake + clarification prompts (2–3 rounds), Alembic migration for the renamed columns/table, `X-User-Id`, frontend types; verify with pytest + `scripts/verify_m1.py` (two real intake + first-round clarification runs).
+**User commits M1** as `M1: app-builder vocabulary, intake and clarification`. Then **M2**: three research domains (apps / papers / tech) — `DOMAINS`, topics, Tavily steering lists, source classifier, planner + extractor prompts, `FeedbackContext`, drop the patient-story top-up; verify with pytest + `scripts/verify_m2.py` (one real research pass on the calculator idea: every evidence URL must come from a Tavily hit, all three domains covered).

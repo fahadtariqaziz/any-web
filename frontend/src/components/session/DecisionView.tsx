@@ -94,7 +94,7 @@ export function DecisionView() {
   const act = activity!;
   const states = stageStates(status, act);
   const pending = status.pending;
-  const showRedFlagBanner = status.red_flags.length > 0;
+  const showRedFlagBanner = status.risk_flags.length > 0;
 
   let main: React.ReactNode;
   if (resuming || running) {
@@ -157,7 +157,7 @@ export function DecisionView() {
           </p>
         </Callout>
       )}
-      {showRedFlagBanner && <RedFlagBanner flags={status.red_flags} withdrawn={live?.case.withdrawn_red_flags ?? []} />}
+      {showRedFlagBanner && <RedFlagBanner flags={status.risk_flags} withdrawn={live?.case.withdrawn_risk_flags ?? []} />}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-6">

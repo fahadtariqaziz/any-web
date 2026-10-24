@@ -45,10 +45,10 @@ show("Bad evidence", lambda: Evidence.model_validate(bad))
 # 3) Clarification: the exact field name `need_clarification` is required, and questions must exist
 show("Clarification OK", lambda: ClarificationResult(
     need_clarification=True, questions=["How long ago were you diagnosed?"], reason="Changes the guidance.",
-    new_profile_facts=[], new_symptoms=[], new_constraints=[], new_red_flags=[], assumptions=[]))
+    new_profile_facts=[], new_features=[], new_constraints=[], new_risk_flags=[], assumptions=[]))
 show("Clarification asking with no questions (model_validator)", lambda: ClarificationResult(
     need_clarification=True, questions=[], reason="oops",
-    new_profile_facts=[], new_symptoms=[], new_constraints=[], new_red_flags=[], assumptions=[]))
+    new_profile_facts=[], new_features=[], new_constraints=[], new_risk_flags=[], assumptions=[]))
 
 # 4) Research plan must cover all three lanes
 show("Research plan missing the patient lane", lambda: ResearchPlan(search_term="type 2 diabetes", queries=[

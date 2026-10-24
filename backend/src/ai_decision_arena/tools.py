@@ -35,8 +35,8 @@ WEB_RESULTS = 4
 class ToolContext:
     """Who the tools work for. One per chat turn (the web-search counter starts at 0 every turn)."""
     thread_id: str | None = None
-    patient_id: str | None = None
-    condition: str = ""
+    user_id: str | None = None
+    project: str = ""
     web_searches: int = 0
     used: list[str] = field(default_factory=list)       # tool names in call order, for logs / traces
 
@@ -77,10 +77,10 @@ def remember_fact_tool(ctx: ToolContext) -> BaseTool:
         """Save ONE lasting fact about the patient for future chats, e.g. "allergic to penicillin", "works night
         shifts", "started walking 20 minutes daily (Oct 2026)". Short and factual, only what the patient said:
         no guesses about causes, no pronouns. Not for passing moods or things already in
-        <remembered_from_earlier_chats>. Do not tell the patient each time you save something."""
-        if not ctx.patient_id:
+        <remembered_from_earlier_sessions>. Do not tell the patient each time you save something."""
+        if not ctx.user_id:
             return "Not saved: this browser has no patient id."
-        saved = memory.remember(ctx.patient_id, [fact], "chat", ctx.thread_id)
+        saved = memory.remember(ctx.user_id, [fact], "chat", ctx.thread_id)
         return "Saved." if saved else "Not saved (database unavailable)."
     return StructuredTool.from_function(remember_fact, handle_tool_error=True)
 

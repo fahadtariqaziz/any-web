@@ -45,8 +45,8 @@ export interface DecisionStatus {
   run_state: RunState;
   workflow_status: string | null; // intake, researching, debating, completed, ...
   question: string | null;
-  condition_name: string | null;
-  red_flags: string[];
+  project_name: string | null;
+  risk_flags: string[];
   pending: PendingPause | null;
   progress: ProgressLine[]; // lost when the server restarts
   error: ErrorInfo | null;
@@ -61,18 +61,18 @@ export interface DecisionStatus {
 // --- live snapshot (GET /live): everything produced so far -----------------------------------
 
 export interface CaseView {
-  condition_name: string | null;
-  condition_category: string | null;
-  case_summary: string | null;
+  project_name: string | null;
+  project_category: string | null;
+  idea_summary: string | null;
   user_context: string;
-  health_profile: Record<string, string>;
-  symptoms: Record<string, string>;
+  project_profile: Record<string, string>;
+  requested_features: Record<string, string>;
   constraints: Record<string, string>;
   missing_information: string[];
   assumptions: string[];
   clarification_answers: Record<string, string>;
-  red_flags: string[];
-  withdrawn_red_flags: { flag: string; reason: string }[];
+  risk_flags: string[];
+  withdrawn_risk_flags: { flag: string; reason: string }[];
 }
 
 export interface ResearchView {
@@ -169,9 +169,9 @@ export interface SessionSummary {
   thread_id: string;
   question: string;
   mode: SessionMode;
-  condition_name: string | null;
+  project_name: string | null;
   status: string;
-  red_flag_count: number;
+  risk_flag_count: number;
   created_at: string;
   updated_at: string | null;
   completed_at: string | null;
@@ -288,9 +288,9 @@ export interface PerspectiveResult {
 export interface FinalReport {
   generated_at: string;
   original_question: string;
-  condition_name: string;
+  project_name: string;
   confirmed_profile: Record<string, string>;
-  symptoms: Record<string, string>;
+  requested_features: Record<string, string>;
   constraints: Record<string, string>;
   clarifications: Record<string, string>;
   assumptions: string[];
@@ -304,8 +304,8 @@ export interface FinalReport {
   unsupported_claims: string[];
   unresolved_questions: string[];
   next_steps: string[];
-  red_flags: string[];
-  withdrawn_red_flags: string[];
+  risk_flags: string[];
+  withdrawn_risk_flags: string[];
   disclaimer: string;
 }
 
@@ -337,7 +337,7 @@ export interface ChatTranscript {
   thread_id: string;
   mode: SessionMode;
   question: string | null;
-  condition_name: string | null;
+  project_name: string | null;
   clarifications: { question: string; answer: string }[]; // answered onboarding questions, in order
   onboarding_summary: OnboardingSummary | null;
   ready: boolean; // the report exists: the patient can chat

@@ -1,7 +1,7 @@
 """Run the full graph, with real pause/resume, saving checkpoints in PostgreSQL.
 
 Run from the backend/ folder:
-    uv run python scripts/run_graph.py                                  # new session, "I have diabetes"
+    uv run python scripts/run_graph.py                                  # new session, "A simple calculator web app"
     uv run python scripts/run_graph.py "I get migraines twice a week"   # new session, your own text
     uv run python scripts/run_graph.py --resume <thread_id>             # continue a saved session
     uv run python scripts/run_graph.py --resume                         # continue the most recent session
@@ -31,7 +31,7 @@ from ai_decision_arena.graph import build_graph
 from print_helpers import print_case, print_red_flags, print_report, stream_graph
 
 parser = argparse.ArgumentParser(description="Run Health Decision Arena end to end.")
-parser.add_argument("question", nargs="*", help='your health question (default: "I have diabetes")')
+parser.add_argument("question", nargs="*", help='your app idea (default: "A simple calculator web app")')
 parser.add_argument("--resume", metavar="THREAD_ID", nargs="?", const="latest",
                     help="continue a session saved in PostgreSQL (no id = the most recent session)")
 parser.add_argument("--memory", action="store_true", help="use InMemorySaver (nothing survives the script)")
@@ -120,9 +120,9 @@ with saver_context as saver:
             if not snapshot.values:
                 sys.exit(f"❌ No saved session with thread_id {thread_id} in the database.")
             print(f"📂 Loaded session {thread_id} from PostgreSQL  |  status: {snapshot.values.get('status')}  "
-                  f"|  condition: {snapshot.values.get('condition_name')}")
+                  f"|  condition: {snapshot.values.get('project_name')}")
             print_red_flags(snapshot.values)                  # show saved warnings once, then not again
-            shown_red_flags.update(snapshot.values.get("red_flags", []))
+            shown_red_flags.update(snapshot.values.get("risk_flags", []))
             if snapshot.interrupts:                           # paused at a clarification question
                 result, payload = snapshot.values, snapshot.interrupts[0].value
             elif snapshot.next:                               # stopped mid-node (e.g. Ctrl+C during research)
@@ -133,7 +133,7 @@ with saver_context as saver:
         else:
             print(graph.get_graph().draw_ascii())
             print(f"thread_id: {thread_id}\n")
-            question = " ".join(args.question) or "I have diabetes"
+            question = " ".join(args.question) or "A simple calculator web app"
             result, payload = stream_graph(graph, {"question": question}, config, shown_red_flags)
 
         result = answer_pauses(graph, config, result, payload, shown_red_flags)

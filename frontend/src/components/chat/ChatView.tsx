@@ -104,8 +104,8 @@ export function ChatView({ threadId }: { threadId: string }) {
 
   // The sidebar shows the condition name once intake found it.
   useEffect(() => {
-    if (status?.condition_name) refreshList();
-  }, [status?.condition_name, refreshList]);
+    if (status?.project_name) refreshList();
+  }, [status?.project_name, refreshList]);
 
   // --- chat ---------------------------------------------------------------------------------------
   const [sent, setSent] = useState<ChatMessage[]>([]); // this visit's messages (the server has them too)

@@ -65,7 +65,7 @@ from ai_decision_arena.api.schemas import (
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.db.repository import list_sessions, save_session_status
 from ai_decision_arena.graph import build_graph
-from ai_decision_arena.memory import valid_patient_id
+from ai_decision_arena.memory import valid_user_id
 from ai_decision_arena.triggers import CheckInScheduler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -101,9 +101,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Health Decision Arena API",
+    title="AI App Builder API",
     version="0.9.0",
-    description="Start a session, answer its pauses, read the report. Health information only, not medical advice.",
+    description="Describe an app or website; answer the agents' questions; review the brief and the plan; watch the build.",
     lifespan=lifespan,
     responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}, 422: {"model": ErrorResponse}},
 )
@@ -188,15 +188,15 @@ def _start(runner: GraphRunner, thread_id: str, graph_input) -> None:
 
 @app.post("/api/decisions", status_code=status.HTTP_202_ACCEPTED, response_model=Accepted, tags=["decisions"])
 def create_decision(body: CreateDecisionRequest, request: Request,
-                    x_patient_id: Annotated[str | None, Header(description="Anonymous browser id (long-term memory).")] = None):
+                    x_user_id: Annotated[str | None, Header(description="Anonymous browser id (long-term memory).")] = None):
     """Create a session and start the graph in the background. Returns at once with the thread_id.
-    With an X-Patient-Id header, what we remember about this patient goes into the session (memory.py)."""
+    With an X-User-Id header, what we remember about this patient goes into the session (memory.py)."""
     thread_id = str(uuid.uuid4())
-    patient_id = valid_patient_id(x_patient_id) or ""
+    user_id = valid_user_id(x_user_id) or ""
     if get_settings().persist_results:
-        save_session_status(thread_id, {"question": body.question, "mode": body.mode, "patient_id": patient_id}, "intake")
+        save_session_status(thread_id, {"question": body.question, "mode": body.mode, "user_id": user_id}, "intake")
     _start(request.app.state.runner, thread_id, {"question": body.question, "user_context": body.context, "mode": body.mode,
-                                                 "patient_id": patient_id, "patient_memories": memory.load(patient_id)})
+                                                 "user_id": user_id, "user_memories": memory.load(user_id)})
     return Accepted(thread_id=thread_id)
 
 
@@ -214,9 +214,9 @@ def list_decisions(limit: int = 20, mode: Literal["full", "quick"] | None = None
             thread_id=r.thread_id,
             question=r.question,
             mode=r.mode,
-            condition_name=r.condition_name,
+            project_name=r.project_name,
             status=r.status,
-            red_flag_count=len(r.red_flags or []),
+            risk_flag_count=len(r.risk_flags or []),
             created_at=r.created_at.isoformat(timespec="seconds"),
             updated_at=r.updated_at.isoformat(timespec="seconds") if r.updated_at else None,
             completed_at=r.completed_at.isoformat(timespec="seconds") if r.completed_at else None,
@@ -250,8 +250,8 @@ def get_decision(thread_id: str, request: Request):
         run_state=run_state,
         workflow_status=values.get("status"),
         question=values.get("question"),
-        condition_name=values.get("condition_name"),
-        red_flags=values.get("red_flags", []),
+        project_name=values.get("project_name"),
+        risk_flags=values.get("risk_flags", []),
         pending=pending,
         progress=runner.progress(thread_id),
         error=error,
@@ -332,18 +332,18 @@ def get_live(thread_id: str, request: Request):
         workflow_status=values.get("status"),
         current_node=values.get("current_node"),
         case=CaseView(
-            condition_name=values.get("condition_name"),
-            condition_category=values.get("condition_category"),
-            case_summary=values.get("case_summary"),
+            project_name=values.get("project_name"),
+            project_category=values.get("project_category"),
+            idea_summary=values.get("idea_summary"),
             user_context=values.get("user_context") or "",
-            health_profile=values.get("health_profile", {}),
-            symptoms=values.get("symptoms", {}),
+            project_profile=values.get("project_profile", {}),
+            requested_features=values.get("requested_features", {}),
             constraints=values.get("constraints", {}),
             missing_information=values.get("missing_information", []),
             assumptions=values.get("assumptions", []),
             clarification_answers=values.get("clarification_answers", {}),
-            red_flags=values.get("red_flags", []),
-            withdrawn_red_flags=values.get("withdrawn_red_flags", []),
+            risk_flags=values.get("risk_flags", []),
+            withdrawn_risk_flags=values.get("withdrawn_risk_flags", []),
         ),
         research=ResearchView(
             passes=_counters(values).research_passes,

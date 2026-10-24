@@ -54,15 +54,15 @@ def tag(name: str, text: str) -> str:
 def build_intake(system: str, user: str) -> S.IntakeResult:
     question = tag("question", user)
     return S.IntakeResult(
-        is_health_concern=True,
-        condition_name=question.lower()[:40] or "unspecified condition",
-        condition_category="other",
-        case_summary=f"The user wrote: {question}",
-        health_profile=[],
-        symptoms=[],
+        is_app_request=True,
+        project_name=question.lower()[:40] or "untitled project",
+        project_category="other",
+        idea_summary=f"The user wrote: {question}",
+        project_profile=[],
+        requested_features=[],
         constraints=[],
-        missing_information=["exact type or stage", "current treatment"],
-        red_flags=[],
+        missing_information=["target users", "must-have features"],
+        risk_flags=[],
     )
 
 
@@ -72,21 +72,21 @@ def build_clarification(system: str, user: str) -> S.ClarificationResult:
     ask = rounds_used == 0 and can_ask_more
     return S.ClarificationResult(
         need_clarification=ask,
-        questions=["How long have you had it?", "What treatment do you take now?"] if ask else [],
+        questions=["Who are the main users of this app?", "Which features must the first version have?"] if ask else [],
         reason="first round" if ask else "enough information",
-        new_profile_facts=[S.NamedValue(name="diagnosed_since", value="2 years")] if rounds_used else [],
-        new_symptoms=[],
+        new_profile_facts=[S.NamedValue(name="audience", value="university students")] if rounds_used else [],
+        new_features=[],
         new_constraints=[],
-        new_red_flags=[],
-        withdrawn_red_flags=[],
-        refined_condition_name="",
-        refined_case_summary="",
-        assumptions=[] if ask else ["Assumed an adult without other conditions."],
+        new_risk_flags=[],
+        withdrawn_risk_flags=[],
+        refined_project_name="",
+        refined_idea_summary="",
+        assumptions=[] if ask else ["Assumed a web app without user accounts."],
     )
 
 
 def build_research_plan(system: str, user: str) -> S.ResearchPlan:
-    term = tag("condition", user) or "condition"
+    term = tag("project", user) or "project"
     return S.ResearchPlan(
         search_term=term,
         queries=[
@@ -266,10 +266,10 @@ def graph():
 def base_state() -> dict:
     """A plausible state after intake + clarification, for node-level tests."""
     return {
-        "thread_id": "t1", "mode": "full", "question": "I have diabetes", "user_context": "",
-        "condition_name": "diabetes", "condition_category": "metabolic_endocrine",
-        "case_summary": "User has diabetes.", "health_profile": {}, "symptoms": {}, "constraints": {},
-        "missing_information": [], "red_flags": [], "withdrawn_red_flags": [],
+        "thread_id": "t1", "mode": "full", "question": "A habit tracker app for students", "user_context": "",
+        "project_name": "habit tracker app", "project_category": "mobile_app",
+        "idea_summary": "The user wants a habit tracker app for students.", "project_profile": {}, "requested_features": {}, "constraints": {},
+        "missing_information": [], "risk_flags": [], "withdrawn_risk_flags": [],
         "clarification_answers": {}, "assumptions": [], "clarification_round_count": 0,
         "research_retry_count": 0, "debate_round": 0, "research_focus": [], "unresolved_questions": [],
         "evidence": [], "evidence_gaps": [], "conflicting_claims": [], "research_queries": [],

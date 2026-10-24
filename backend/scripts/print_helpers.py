@@ -36,22 +36,22 @@ def stream_graph(graph, graph_input, config, shown_red_flags: set | None = None)
                     verdict = update.get("verdict", {})
                     line += f"   decision={verdict.get('decision')}   winners={verdict.get('winning_plan_ids')}"
                 print(line, flush=True)
-                new_flags = [f for f in update.get("red_flags") or [] if f not in shown]
+                new_flags = [f for f in update.get("risk_flags") or [] if f not in shown]
                 if new_flags:                           # shown the moment a node records them
-                    print_red_flags({"red_flags": new_flags})
+                    print_red_flags({"risk_flags": new_flags})
                     shown.update(new_flags)
-                for w in update.get("withdrawn_red_flags") or []:
+                for w in update.get("withdrawn_risk_flags") or []:
                     if ("withdrawn", w["flag"]) not in shown:
                         print(f"   ↩️  Red flag withdrawn after your answers: {w['flag']}\n      reason: {w['reason']}")
                         shown.add(("withdrawn", w["flag"]))
-                if node == "clarification" and update.get("condition_name"):
-                    print(f"   🩺 condition now: {update['condition_name']}")
+                if node == "clarification" and update.get("project_name"):
+                    print(f"   🩺 condition now: {update['project_name']}")
     return values, payload
 
 
 def print_red_flags(state: dict) -> None:
     """Shown FIRST whenever intake or clarification recorded a possible emergency."""
-    flags = state.get("red_flags") or []
+    flags = state.get("risk_flags") or []
     if not flags:
         return
     print("\n" + "!" * 100)
@@ -63,15 +63,15 @@ def print_red_flags(state: dict) -> None:
 
 
 def print_case(state: dict) -> None:
-    print(f"\n🩺 Condition: {state.get('condition_name')}  [{state.get('condition_category')}]")
-    print(f"   Summary:     {state.get('case_summary')}")
-    print(f"   Profile:     {state.get('health_profile')}")
+    print(f"\n🧩 Project: {state.get('project_name')}  [{state.get('project_category')}]")
+    print(f"   Summary:     {state.get('idea_summary')}")
+    print(f"   Profile:     {state.get('project_profile')}")
     print(f"   Symptoms:    {state.get('symptoms')}")
     print(f"   Constraints: {state.get('constraints')}")
     print(f"   Assumptions: {state.get('assumptions')}")
-    if state.get("red_flags"):
-        print(f"   🚨 Red flags: {state['red_flags']}  → seek medical care promptly")
-    for w in state.get("withdrawn_red_flags") or []:
+    if state.get("risk_flags"):
+        print(f"   🚨 Red flags: {state['risk_flags']}  → seek medical care promptly")
+    for w in state.get("withdrawn_risk_flags") or []:
         print(f"   ↩️  Withdrawn: {w['flag']}  ({w['reason']})")
 
 
@@ -181,16 +181,16 @@ def print_report(state: dict) -> None:
         print("\n(no final report)")
         return
     print("\n" + "═" * 100)
-    print(f"📋 FINAL REPORT — {r['condition_name']}   status={state.get('status')}   "
+    print(f"📋 FINAL REPORT — {r['project_name']}   status={state.get('status')}   "
           f"{'CONDITIONAL' if r['is_conditional'] else 'confident'}")
     print("═" * 100)
-    if r.get("red_flags"):
+    if r.get("risk_flags"):
         print("🚨 Red flags:")
-        for f in r["red_flags"]:
+        for f in r["risk_flags"]:
             print(f"   - {f}")
-    if r.get("withdrawn_red_flags"):
+    if r.get("withdrawn_risk_flags"):
         print("↩️  Withdrawn after your answers (shown for the record):")
-        for f in r["withdrawn_red_flags"]:
+        for f in r["withdrawn_risk_flags"]:
             print(f"   - {f}")
     print(f"\n{r['overview']}\n")
     print(f"Method: {r['research_methodology']}")

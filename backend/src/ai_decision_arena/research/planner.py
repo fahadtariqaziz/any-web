@@ -8,7 +8,7 @@ import json
 
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.llm import call_structured
-from ai_decision_arena.prompting import SAFETY_RULES, user_case_block
+from ai_decision_arena.prompting import BUILDER_RULES, user_case_block
 from ai_decision_arena.schemas import PERSPECTIVES, ResearchPlan, SearchQuery
 from ai_decision_arena.state import ArenaState
 
@@ -50,7 +50,7 @@ Case: migraine with aura, 3 attacks a month, office job.
 - doctor, good: "migraine with aura preventive treatment guideline"
 - patient, good: "migraine with aura how long until preventive worked reddit"
 </examples>
-""" + SAFETY_RULES
+""" + BUILDER_RULES
 
 LANE_ORDER = {p: i for i, p in enumerate(PERSPECTIVES)}
 
@@ -64,7 +64,7 @@ QUICK_QUERY = {
 
 def quick_plan(state: ArenaState) -> ResearchPlan:
     """No LLM: one broad management query + the outlook query per lane."""
-    term = (state.get("condition_name") or "").replace("(undiagnosed)", "").strip() or state.get("question", "")[:80]
+    term = (state.get("project_name") or "").replace("(undiagnosed)", "").strip() or state.get("question", "")[:80]
     queries = []
     for perspective in PERSPECTIVES:
         query, topic = QUICK_QUERY[perspective]

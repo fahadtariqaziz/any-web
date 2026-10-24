@@ -28,13 +28,13 @@ class DecisionSession(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     thread_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)   # links to the checkpoints
-    patient_id: Mapped[str | None] = mapped_column(String(64), index=True)        # anonymous browser id (memory.py)
+    user_id: Mapped[str | None] = mapped_column(String(64), index=True)        # anonymous browser id (memory.py)
     question: Mapped[str] = mapped_column(Text)
     mode: Mapped[str] = mapped_column(String(10), server_default="full", index=True)   # full (admin) / quick (patient chat)
-    condition_name: Mapped[str | None] = mapped_column(String(200))
-    condition_category: Mapped[str | None] = mapped_column(String(50))
+    project_name: Mapped[str | None] = mapped_column(String(200))
+    project_category: Mapped[str | None] = mapped_column(String(50))
     status: Mapped[str] = mapped_column(String(40), index=True)                   # a WorkflowStatus value
-    red_flags: Mapped[list] = mapped_column(JSONB, default=list)
+    risk_flags: Mapped[list] = mapped_column(JSONB, default=list)
     metrics: Mapped[dict] = mapped_column(JSONB, default=dict)                    # rounds, retries, seconds...
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -117,15 +117,15 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-class PatientMemory(Base):
+class UserMemory(Base):
     """Long-term memory: one remembered fact about a patient, kept across chats (memory.py).
-    patient_id is the anonymous id the browser keeps in localStorage: no login, so "same browser = same patient"."""
+    user_id is the anonymous id the browser keeps in localStorage: no login, so "same browser = same patient"."""
 
-    __tablename__ = "patient_memories"
-    __table_args__ = (UniqueConstraint("patient_id", "fact", name="uq_patient_memories_fact"),)
+    __tablename__ = "user_memories"
+    __table_args__ = (UniqueConstraint("user_id", "fact", name="uq_user_memories_fact"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    patient_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
     fact: Mapped[str] = mapped_column(String(300))
     source: Mapped[str] = mapped_column(String(20))                 # "onboarding" (completion) | "chat" (remember_fact tool)
     thread_id: Mapped[str | None] = mapped_column(String(64))       # the chat it came from

@@ -19,7 +19,7 @@ from langsmith.utils import ContextThreadPoolExecutor
 from ai_decision_arena.limits import loops_allowed
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
-from ai_decision_arena.prompting import SAFETY_RULES, criticisms_block, evidence_block, perspective_label, plans_block, user_case_block
+from ai_decision_arena.prompting import BUILDER_RULES, criticisms_block, evidence_block, perspective_label, plans_block, user_case_block
 from ai_decision_arena.schemas import PERSPECTIVES, ClaimVerification, PlanVerification
 from ai_decision_arena.state import ArenaState
 
@@ -47,7 +47,7 @@ Rules:
 - is_material: true if what the user is told to do would change were this claim wrong.
 - At most {max_claims} claims, most important first. material_gaps: for each MATERIAL claim that is
   unsupported, contradicted or unavailable, what a follow-up search should look for; empty list if none.
-""" + SAFETY_RULES
+""" + BUILDER_RULES
 
 
 def _check_lane(state: ArenaState, perspective: str, plan: dict) -> PlanVerification:

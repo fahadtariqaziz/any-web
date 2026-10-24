@@ -17,7 +17,7 @@ from langsmith.utils import ContextThreadPoolExecutor
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
-from ai_decision_arena.prompting import SAFETY_RULES, criticisms_block, evidence_block, perspective_label, user_case_block
+from ai_decision_arena.prompting import BUILDER_RULES, criticisms_block, evidence_block, perspective_label, user_case_block
 from ai_decision_arena.schemas import PERSPECTIVES, CarePlan, ProposerOutput
 from ai_decision_arena.state import ArenaState
 
@@ -45,7 +45,7 @@ Rules:
 - Plans must differ in approach (e.g. diet-first vs medication-supported vs lifestyle-intensive), not in wording.
 - If the evidence supports only one approach, return 1 plan and explain in why_fewer_than_two.
   If the evidence is too thin for any plan, return an empty list, explain, and set evidence_too_thin to true.
-- EMERGENCY RULE: if <red_flags> is non-empty, do NOT return an empty list. Return exactly ONE plan whose
+- EMERGENCY RULE: if <risk_flags> is non-empty, do NOT return an empty list. Return exactly ONE plan whose
   first routine item tells the user to seek emergency care now: call the local emergency number or have
   someone take them; never drive themselves. The remaining content is what this lens's evidence says for
   AFTER a clinician has assessed them. Do not anchor on a single diagnosis (e.g. DKA) when the symptoms could
@@ -54,7 +54,7 @@ Rules:
   The user must still get all three perspectives.
 - If <previous_criticisms> is non-empty this is a new debate round: fix those weaknesses, drop plans that
   cannot be defended, and keep what the critic accepted.
-""" + SAFETY_RULES
+""" + BUILDER_RULES
 
 
 QUICK_RULE = """QUICK SESSION: this overrides every plan count below and in the output schema. Return exactly ONE

@@ -77,7 +77,7 @@ Tools (use them when they make the answer better; most replies need none):
   are looking it up, then call it.
 - When you use what a tool found, name the source in plain words (and the link when it helps).
 - remember_fact: when the patient tells you something lasting about themselves that is not in
-  <remembered_from_earlier_chats> yet (an allergy, a new medicine, their job, a goal they set). Silently.
+  <remembered_from_earlier_sessions> yet (an allergy, a new medicine, their job, a goal they set). Silently.
 - load_skill: when the request matches one of <available_skills>, load it before answering and follow it.
 
 {context}"""
@@ -143,17 +143,17 @@ def build_context(state: ArenaState) -> str:
 <first_message>{state.get("question", "")}</first_message>
 <answers_to_your_questions>{json.dumps(state.get("clarification_answers", {}), indent=1)}</answers_to_your_questions>
 </patient_said>
-<condition>{state.get("condition_name", "")}</condition>
-<case_summary>{state.get("case_summary", "")}</case_summary>
-<health_profile>{json.dumps(state.get("health_profile", {}), indent=1)}</health_profile>
-<symptoms>{json.dumps(state.get("symptoms", {}), indent=1)}</symptoms>
+<project>{state.get("project_name", "")}</project>
+<idea_summary>{state.get("idea_summary", "")}</idea_summary>
+<project_profile>{json.dumps(state.get("project_profile", {}), indent=1)}</project_profile>
+<requested_features>{json.dumps(state.get("requested_features", {}), indent=1)}</requested_features>
 <constraints>{json.dumps(state.get("constraints", {}), indent=1)}</constraints>
 <assumptions>{json.dumps(state.get("assumptions", []), indent=1)}</assumptions>
-<warning_signs_noted>{json.dumps(state.get("red_flags", []))}</warning_signs_noted>
+<warning_signs_noted>{json.dumps(state.get("risk_flags", []))}</warning_signs_noted>
 <report>{json.dumps(_report_context(state.get("final_report") or {}), indent=1)}</report>
 <examples>{json.dumps(_examples(state.get("evidence", [])), indent=1)}</examples>
 <your_first_message_to_them>{summary_text(state.get("onboarding_summary") or {})}</your_first_message_to_them>
-{memory.memories_block(memory.load(state.get("patient_id")))}
+{memory.memories_block(memory.load(state.get("user_id")))}
 {skills_block()}"""
 
 
@@ -174,6 +174,6 @@ def stream_reply(thread_id: str, state: ArenaState, history: list[dict], message
 
     llm = get_llm(CHAT_MAX_TOKENS, model=get_settings().chat_model)
     config = {"run_name": "patient_chat", "metadata": {"thread_id": thread_id, "source": "chat"}}
-    ctx = ToolContext(thread_id=thread_id, patient_id=state.get("patient_id") or None,
-                      condition=state.get("condition_name", ""))
+    ctx = ToolContext(thread_id=thread_id, user_id=state.get("user_id") or None,
+                      project=state.get("project_name", ""))
     yield from stream_with_tools(llm, messages, chat_tools(ctx), ctx, config)

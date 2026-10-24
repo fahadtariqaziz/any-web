@@ -22,22 +22,22 @@ class ArenaState(TypedDict, total=False):
     status: WorkflowStatus               # editor warns on typos like "complete"
     current_node: str                    # last node that ran, for the frontend
     started_at: str                      # ISO time, set by intake
-    patient_id: str                      # anonymous browser id (X-Patient-Id), "" without one. Set by the API.
-    patient_memories: list[str]          # long-term memory loaded when the session starts (memory.py). Set by the API.
+    user_id: str                      # anonymous browser id (X-User-Id), "" without one. Set by the API.
+    user_memories: list[str]          # long-term memory loaded when the session starts (memory.py). Set by the API.
     active_seconds: float                # time spent inside nodes (pauses excluded); added by the error wrapper
 
     # --- case understanding -------------------------------------------- (intake)
     question: str                        # the user's original text, never rewritten
     user_context: str                    # optional extra context from the form
-    condition_name: str                  # e.g. "type 2 diabetes" (as the user frames it; clarification may refine it)
-    condition_category: str              # a ConditionCategory value, e.g. "metabolic_endocrine"
-    case_summary: str                    # neutral restatement (used for research queries; clarification may refine it)
-    health_profile: dict[str, str]       # e.g. {"age": "42", "medications": "metformin"}
-    symptoms: dict[str, str]             # e.g. {"fatigue": "most afternoons"}
+    project_name: str                  # e.g. "type 2 diabetes" (as the user frames it; clarification may refine it)
+    project_category: str              # a ProjectCategory value, e.g. "metabolic_endocrine"
+    idea_summary: str                    # neutral restatement (used for research queries; clarification may refine it)
+    project_profile: dict[str, str]       # e.g. {"age": "42", "medications": "metformin"}
+    requested_features: dict[str, str]             # e.g. {"fatigue": "most afternoons"}
     constraints: dict[str, str]          # e.g. {"diet": "vegetarian", "budget": "low-cost"}
     missing_information: list[str]
-    red_flags: list[str]                 # ACTIVE signs that may need urgent care (clarification appends / withdraws)
-    withdrawn_red_flags: list[dict]      # {"flag", "reason"}: contradicted by a later answer; kept for the record (clarification)
+    risk_flags: list[str]                 # ACTIVE signs that may need urgent care (clarification appends / withdraws)
+    withdrawn_risk_flags: list[dict]      # {"flag", "reason"}: contradicted by a later answer; kept for the record (clarification)
 
     # --- clarification ------------------------------------------ (clarification)
     need_clarification: bool

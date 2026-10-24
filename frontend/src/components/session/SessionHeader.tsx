@@ -10,7 +10,7 @@ import { RUN_STATE_META, WORKFLOW_STATUS_LABEL, formatDuration, relativeTime, wo
 export function SessionHeader({ status, now }: { status: DecisionStatus; now: number }) {
   const [copied, setCopied] = useState(false);
   const run = RUN_STATE_META[status.run_state];
-  const title = status.condition_name ?? status.question ?? "New session";
+  const title = status.project_name ?? status.question ?? "New session";
   const c = status.counters;
 
   async function copyLink() {
@@ -38,7 +38,7 @@ export function SessionHeader({ status, now }: { status: DecisionStatus; now: nu
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
             <span className="capitalize">{title}</span>
           </h1>
-          {status.question && status.condition_name && <p className="text-sm text-slate-600">“{status.question}”</p>}
+          {status.question && status.project_name && <p className="text-sm text-slate-600">“{status.question}”</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={run.tone} dot pulse={status.run_state === "running"} size="md">

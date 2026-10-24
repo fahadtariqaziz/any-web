@@ -8,12 +8,12 @@ Why split? On resume, LangGraph re-runs the paused node FROM ITS FIRST LINE.
 If the Claude call lived in the same node as interrupt(), it would run again on resume:
 extra cost, and possibly DIFFERENT questions than the ones the user just answered.
 
-Loop: clarification → await_clarification → clarification → ... → research
+Loop: clarification → await_clarification → clarification → ... → research   (up to max_clarification_rounds)
 The Judge can also send the graph back here with its own questions (verdict.clarification_questions).
 
-Writes (owner): need_clarification, clarification_questions, clarification_answers,
-assumptions, clarification_round_count, withdrawn_red_flags; also merges new profile facts / symptoms /
-constraints / red flags, and refines condition_name / case_summary when the answers make them more precise.
+Writes (owner): need_clarification, clarification_questions, clarification_answers, assumptions,
+clarification_round_count, withdrawn_risk_flags; also merges new project facts / features / constraints / risk flags,
+and refines project_name / idea_summary when the answers make them more precise.
 """
 
 import json
@@ -24,53 +24,50 @@ from pydantic import ValidationError
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
-from ai_decision_arena.prompting import SAFETY_RULES, user_case_block
+from ai_decision_arena.prompting import BUILDER_RULES, user_case_block
 from ai_decision_arena.schemas import ClarificationAnswers, ClarificationResult
 from ai_decision_arena.state import ArenaState
 
 MAX_QUESTIONS_PER_ROUND = 6
 MAX_ANSWER_CHARS = 2000
 
-SYSTEM_PROMPT = """You are the Clarification agent of Health Decision Arena, a system that explains how a health
-condition is managed from three perspectives: published research, doctors, and other patients.
+SYSTEM_PROMPT = """You are the Clarification agent of an AI application builder. Before research starts, decide whether
+the user must answer questions, and write those questions.
 
-Decide whether the user must answer questions BEFORE research starts, and write those questions.
+FIRST ROUND (no previous answers yet): ask 4-6 short questions so the research and the solution fit THIS project.
+Cover, unless already stated: (1) who the users are and what problem they face today, (2) the main objective or
+outcome the user wants, (3) the must-have features for a first version, (4) platform and constraints (web or mobile,
+technology preferences, budget, timeline, hosting, compliance), (5) existing alternatives they know or use and what
+is wrong with them, (6) how they will judge success. Skip anything already answered.
 
-FIRST ROUND (no previous answers yet): ask 5-6 short questions so the research fits this person. Cover,
-unless already stated: (1) exact type/stage and whether a doctor confirmed it, (2) how long they have had it,
-(3) current symptoms and when they occur, (4) current medications or treatments tried, (5) other conditions,
-allergies or pregnancy, (6) daily routine, diet and what they want to achieve. Skip anything already answered.
+LATER ROUNDS (at most {max_rounds} rounds in total): ask again ONLY if an answer revealed something that materially
+changes the research or the solution (a different audience, a regulated domain, a platform change, a contradiction
+between answers, a must-have feature that is still unclear). Otherwise set need_clarification to false.
 
-LATER ROUNDS: ask again ONLY if an answer revealed something that materially changes the research
-(e.g. "type 1" instead of "type 2", pregnancy, a new red-flag symptom). Otherwise set need_clarification to false.
-
-If <judge_questions> is non-empty, the Judge needs those answers to rank the plans: ask them (reworded if
+If <judge_questions> is non-empty, the Judge needs those answers to rank the proposals: ask them (reworded if
 helpful) plus anything else essential, within the limit.
 
 Rules:
 - At most {max_questions} questions per round, in plain language. ONE question = ONE answer: never pack several
-  sub-questions into one (not "does it come and go, did it start suddenly, one eye or both?"). If a topic has
-  several sub-questions, ask only the single most useful one, with example answers in brackets.
+  sub-questions into one. If a topic has several sub-questions, ask only the single most useful one, with example
+  answers in brackets.
+- Questions must be specific to this idea (name the product type, the audience, the feature), never generic.
 - Never ask about something the user already stated or already answered, including facts in
-  <remembered_from_earlier_chats> (a returning patient): at most confirm one that matters and may have changed.
-- Put new facts from the user's answers into new_profile_facts / new_symptoms / new_constraints.
+  <remembered_from_earlier_sessions> (a returning user): at most confirm one that matters and may have changed.
+- Put new facts from the user's answers into new_profile_facts / new_features / new_constraints.
   Extract only what the user actually said. An answer of "(skipped by user)" means unknown.
-- Put emergency warning signs the answers reveal into new_red_flags (e.g. a type 1 patient on tablets only
-  who reports vomiting or fast breathing). Red flags must be shown to the user, so never leave them only in
-  assumptions. Only GENUINELY NEW signs: never repeat or reword a flag already listed in <red_flags>.
-- If an answer CORRECTS a fact already in <health_profile>, reuse that exact key in new_profile_facts so the old
-  value is overwritten (e.g. "current_treatment": "insulin, weekly"), instead of adding a second, contradicting key.
-- withdrawn_red_flags: ONLY when a later answer of the user directly contradicts the factual premise of a flag in
-  <red_flags> (flag "no insulin reported", user now says "yes weekly"). Copy the flag text exactly. Never withdraw
-  a flag because a symptom seems mild, unlikely or unexplained. If in doubt, keep the flag. If the corrected
-  facts still describe an emergency, keep the old flag or add a new one that states the corrected facts.
-- refined_condition_name / refined_case_summary: fill them when the answers make the condition more precise
-  ("diabetes" -> "type 1 diabetes") or change the situation materially; otherwise empty strings.
-- When screening for warning signs, ask "Which of these do you have right now: ...?" instead of a yes/no list,
-  so a one-word answer cannot be ambiguous.
+- Put newly revealed risky aspects (payments, personal or health data, minors, scraping, regulated domains) into
+  new_risk_flags. Only GENUINELY NEW ones: never repeat or reword a flag already listed in <risk_flags>.
+- If an answer CORRECTS a fact already in <project_profile>, reuse that exact key in new_profile_facts so the old
+  value is overwritten (e.g. "platform": "mobile"), instead of adding a second, contradicting key.
+- withdrawn_risk_flags: ONLY when a later answer of the user directly contradicts the factual premise of a flag in
+  <risk_flags> (flag "stores health data", user now says "no personal data at all"). Copy the flag text exactly.
+  If in doubt, keep the flag.
+- refined_project_name / refined_idea_summary: fill them when the answers make the idea more precise or change it
+  materially; otherwise empty strings.
 - If can_ask_more is false, you MUST set need_clarification to false.
 - Whenever need_clarification is false, list explicit assumptions for important info that is still missing.
-""" + SAFETY_RULES
+""" + BUILDER_RULES
 
 
 def _build_user_content(state: ArenaState, can_ask_more: bool) -> str:
@@ -88,23 +85,25 @@ def clarification_node(state: ArenaState) -> dict:
     rounds_used = state.get("clarification_round_count", 0)
     can_ask_more = rounds_used < settings.max_clarification_rounds
 
-    report("clarification", "deciding whether questions are needed" if rounds_used == 0 else "reading your answers and deciding whether to ask more")
+    report("clarification", "deciding which questions would change the solution" if rounds_used == 0
+           else "reading your answers and deciding whether to ask more")
     result = call_structured(
         ClarificationResult,
-        SYSTEM_PROMPT.replace("{max_questions}", str(MAX_QUESTIONS_PER_ROUND)),
+        SYSTEM_PROMPT.replace("{max_questions}", str(MAX_QUESTIONS_PER_ROUND))
+                     .replace("{max_rounds}", str(settings.max_clarification_rounds)),
         _build_user_content(state, can_ask_more),
         max_tokens=2000,
         run_name="clarification_llm",
     )
 
     # Merge facts learned from the user's answers.
-    profile = dict(state.get("health_profile", {}))
+    profile = dict(state.get("project_profile", {}))
     profile.update({item.name: item.value for item in result.new_profile_facts})
-    symptoms = dict(state.get("symptoms", {}))
-    symptoms.update({item.name: item.value for item in result.new_symptoms})
+    features = dict(state.get("requested_features", {}))
+    features.update({item.name: item.value for item in result.new_features})
     constraints = dict(state.get("constraints", {}))
     constraints.update({item.name: item.value for item in result.new_constraints})
-    red_flags, withdrawn = _merge_red_flags(state, result)
+    risk_flags, withdrawn = _merge_risk_flags(state, result)
 
     # Python has the final say on routing, not the LLM:
     # no asking past the round limit, no repeated questions, no empty question lists.
@@ -113,21 +112,21 @@ def clarification_node(state: ArenaState) -> dict:
     need = result.need_clarification and can_ask_more and bool(questions)
 
     update = {
-        "health_profile": profile,
-        "symptoms": symptoms,
+        "project_profile": profile,
+        "requested_features": features,
         "constraints": constraints,
-        "red_flags": red_flags,
-        "withdrawn_red_flags": withdrawn,
+        "risk_flags": risk_flags,
+        "withdrawn_risk_flags": withdrawn,
         "need_clarification": need,
         "clarification_questions": questions if need else [],
         "clarification_reason": result.reason,
         "current_node": "clarification",
     }
     # Python accepts a refinement only if the LLM actually gave one.
-    if result.refined_condition_name.strip():
-        update["condition_name"] = result.refined_condition_name.strip().lower()
-    if result.refined_case_summary.strip():
-        update["case_summary"] = result.refined_case_summary.strip()
+    if result.refined_project_name.strip():
+        update["project_name"] = result.refined_project_name.strip().lower()
+    if result.refined_idea_summary.strip():
+        update["idea_summary"] = result.refined_idea_summary.strip()
     if need:
         update["status"] = "awaiting_clarification"
     else:
@@ -140,22 +139,22 @@ def clarification_node(state: ArenaState) -> dict:
     return update
 
 
-def _merge_red_flags(state: ArenaState, result: ClarificationResult) -> tuple[list[str], list[dict]]:
+def _merge_risk_flags(state: ArenaState, result: ClarificationResult) -> tuple[list[str], list[dict]]:
     """New flags are appended; a flag is withdrawn only if the LLM names an EXISTING flag (exact text,
-    ignoring case and spaces). Withdrawn flags are moved to withdrawn_red_flags, never deleted."""
+    ignoring case and spaces). Withdrawn flags are moved to withdrawn_risk_flags, never deleted."""
     def key(text: str) -> str:
         return " ".join(text.lower().split())
 
-    red_flags = list(state.get("red_flags", []))
-    withdrawn = list(state.get("withdrawn_red_flags", []))
-    for item in result.withdrawn_red_flags:
-        match = next((f for f in red_flags if key(f) == key(item.flag)), None)
+    risk_flags = list(state.get("risk_flags", []))
+    withdrawn = list(state.get("withdrawn_risk_flags", []))
+    for item in result.withdrawn_risk_flags:
+        match = next((f for f in risk_flags if key(f) == key(item.flag)), None)
         if match:                                   # unknown text → ignored, the flag stays active
-            red_flags.remove(match)
+            risk_flags.remove(match)
             withdrawn.append({"flag": match, "reason": item.reason})
     gone = {key(w["flag"]) for w in withdrawn}
-    red_flags += [f for f in result.new_red_flags if f not in red_flags and key(f) not in gone]
-    return red_flags, withdrawn
+    risk_flags += [f for f in result.new_risk_flags if f not in risk_flags and key(f) not in gone]
+    return risk_flags, withdrawn
 
 
 def await_clarification_node(state: ArenaState) -> dict:

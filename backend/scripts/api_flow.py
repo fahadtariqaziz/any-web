@@ -3,7 +3,7 @@
 Start the server first (another terminal, backend/ folder):
     uv run uvicorn ai_decision_arena.api.main:app --port 8000
 Then:
-    uv run python scripts/api_flow.py                                   # "I have diabetes", you answer
+    uv run python scripts/api_flow.py                                   # "A simple calculator web app", you answer
     uv run python scripts/api_flow.py "I get migraines twice a week"
     uv run python scripts/api_flow.py --auto                            # skip questions
     uv run python scripts/api_flow.py --thread <thread_id>              # pick up an existing session
@@ -58,7 +58,7 @@ if args.thread:
     thread_id = args.thread
 else:
     print("▶  POST /api/decisions")
-    started = check(api.post(P, json={"question": " ".join(args.question) or "I have diabetes"}))
+    started = check(api.post(P, json={"question": " ".join(args.question) or "A simple calculator web app"}))
     thread_id = started["thread_id"]
 print(f"   thread_id: {thread_id}\n")
 
@@ -81,7 +81,7 @@ report = api.get(f"{P}/{thread_id}/report")
 body = check(report)
 if report.status_code == 200:
     r = body["report"]
-    print(f"\n📋 {r['condition_name']}\n{r['overview']}")
+    print(f"\n📋 {r['project_name']}\n{r['overview']}")
     for item in r["perspectives"]:
         print(f"   {item['perspective']}: {(item.get('plan') or {}).get('name', item.get('unavailable_reason'))}")
 evidence = check(api.get(f"{P}/{thread_id}/evidence"))

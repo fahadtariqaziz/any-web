@@ -52,7 +52,7 @@ def get_chat(thread_id: str, request: Request):
         thread_id=thread_id,
         mode=values.get("mode") or "full",
         question=values.get("question"),
-        condition_name=values.get("condition_name"),
+        project_name=values.get("project_name"),
         clarifications=[ClarificationTurn(question=q, answer=a) for q, a in values.get("clarification_answers", {}).items()],
         onboarding_summary=values.get("onboarding_summary"),
         ready=ready,

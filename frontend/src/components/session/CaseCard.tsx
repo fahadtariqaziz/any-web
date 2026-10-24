@@ -12,16 +12,16 @@ export function CaseCard({ view }: { view: CaseView }) {
     <Card>
       <CardHeader
         eyebrow="Your profile as the agents understand it"
-        title={<span className="capitalize">{view.condition_name ?? "Not yet known"}</span>}
-        description={view.case_summary ?? "The intake agent fills this in from your message."}
-        aside={view.condition_category && <Badge tone="slate">{titleCase(view.condition_category)}</Badge>}
+        title={<span className="capitalize">{view.project_name ?? "Not yet known"}</span>}
+        description={view.idea_summary ?? "The intake agent fills this in from your message."}
+        aside={view.project_category && <Badge tone="slate">{titleCase(view.project_category)}</Badge>}
       />
       <CardBody className="grid gap-6 md:grid-cols-2">
-        <Section title="Health profile">
-          <KeyValueList items={view.health_profile} emptyText="No facts recorded yet." />
+        <Section title="Project profile">
+          <KeyValueList items={view.project_profile} emptyText="No facts recorded yet." />
         </Section>
-        <Section title="Symptoms">
-          <KeyValueList items={view.symptoms} emptyText="No symptoms recorded." />
+        <Section title="Requested features">
+          <KeyValueList items={view.requested_features} emptyText="No features recorded yet." />
         </Section>
         <Section title="Constraints & preferences">
           <KeyValueList items={view.constraints} emptyText="No constraints recorded." />

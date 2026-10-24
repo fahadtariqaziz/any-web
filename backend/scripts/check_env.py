@@ -47,7 +47,7 @@ def check_tavily() -> None:
     from tavily import TavilyClient
 
     client = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
-    result = client.search("type 2 diabetes management guidelines", max_results=1)
+    result = client.search("calculator web app open source", max_results=1)
     top = result["results"][0]
     print(f"  ✅ Tavily found: {top['title']}  ({top['url']})")
 

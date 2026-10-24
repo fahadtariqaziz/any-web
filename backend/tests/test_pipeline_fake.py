@@ -6,7 +6,7 @@ CONFIG = {"configurable": {"thread_id": "pipeline-test"}}
 
 
 def test_full_pipeline_pauses_for_clarification_then_completes(graph, fake_llm, fake_search):
-    result = graph.invoke({"question": "I have diabetes", "mode": "full"}, CONFIG)
+    result = graph.invoke({"question": "A habit tracker app for students", "mode": "full"}, CONFIG)
     snapshot = graph.get_state(CONFIG)
 
     # 1) paused at the clarification question, nothing researched yet
@@ -24,7 +24,7 @@ def test_full_pipeline_pauses_for_clarification_then_completes(graph, fake_llm, 
     assert result["status"] == "completed"
     assert result["clarification_round_count"] == 1
     assert result["clarification_answers"] == answers
-    assert result["health_profile"]["diagnosed_since"] == "2 years"
+    assert result["project_profile"]["audience"] == "university students"
 
     # research: evidence ids are Python-assigned and URLs come from the (fake) search hits, never from the LLM
     assert result["evidence"], "no evidence extracted"
@@ -49,7 +49,7 @@ def test_full_pipeline_pauses_for_clarification_then_completes(graph, fake_llm, 
 
 def test_quick_mode_skips_critic_and_checker(graph, fake_llm, fake_search):
     config = {"configurable": {"thread_id": "quick-test"}}
-    graph.invoke({"question": "I have diabetes", "mode": "quick"}, config)
+    graph.invoke({"question": "A habit tracker app for students", "mode": "quick"}, config)
     questions = graph.get_state(config).interrupts[0].value["questions"]
     result = graph.invoke(Command(resume={"answers": {q: "" for q in questions}}), config)
     assert result["status"] == "completed"
@@ -65,7 +65,7 @@ def test_a_failing_node_ends_the_session_as_failed(graph, fake_llm, fake_search,
     from ai_decision_arena import schemas as S
     fake_llm.overrides[S.ProposerOutput] = boom
     config = {"configurable": {"thread_id": "fail-test"}}
-    graph.invoke({"question": "I have diabetes", "mode": "full"}, config)
+    graph.invoke({"question": "A habit tracker app for students", "mode": "full"}, config)
     questions = graph.get_state(config).interrupts[0].value["questions"]
     result = graph.invoke(Command(resume={"answers": {q: "x" for q in questions}}), config)
     assert result["status"] == "failed"

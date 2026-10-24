@@ -25,7 +25,7 @@ from ai_decision_arena.db.repository import save_completion
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.memory import remember_session
 from ai_decision_arena.progress import report
-from ai_decision_arena.prompting import SAFETY_RULES, user_case_block
+from ai_decision_arena.prompting import BUILDER_RULES, user_case_block
 from ai_decision_arena.schemas import (
     PERSPECTIVES,
     PERSPECTIVE_LABELS,
@@ -55,7 +55,7 @@ no new medical facts, no numbers that are not in the input, no doses. Keep each 
 overview: 4-6 sentences. next_steps: concrete questions to bring to a doctor and things to monitor.
 If a perspective has no plan, say so and why. If red flags are present, the first sentence of overview and the
 first next step must be to seek medical care now.
-""" + SAFETY_RULES
+""" + BUILDER_RULES
 
 
 SUMMARY_PROMPT = """You are a warm, experienced doctor who has just finished reading up on a patient's situation.
@@ -214,8 +214,8 @@ def final_report_node(state: ArenaState) -> dict:
 <question>{state.get("question", "")}</question>
 <clarification_answers>{json.dumps(state.get("clarification_answers", {}), indent=1)}</clarification_answers>
 </user_input>
-<condition>{state.get("condition_name", "")}</condition>
-<case_summary>{state.get("case_summary", "")}</case_summary>
+<project>{state.get("project_name", "")}</project>
+<idea_summary>{state.get("idea_summary", "")}</idea_summary>
 <perspectives>{json.dumps([_summary_facts(r, state) for r in results], indent=1)}</perspectives>
 <research_summaries>{json.dumps(state.get("perspective_summaries", {}), indent=1)}</research_summaries>""",
             max_tokens=2000,
@@ -236,13 +236,13 @@ def final_report_node(state: ArenaState) -> dict:
         verdict.get("decision") != "proceed"
         or any(v != "sufficient" for v in statuses.values())
         or any(f.startswith("Unverified:") for f in unresolved)
-        or state.get("red_flags")
+        or state.get("risk_flags")
     )
     final = FinalReport(
         original_question=state.get("question", ""),
-        condition_name=state.get("condition_name", ""),
-        confirmed_profile=state.get("health_profile", {}),
-        symptoms=state.get("symptoms", {}),
+        project_name=state.get("project_name", ""),
+        confirmed_profile=state.get("project_profile", {}),
+        requested_features=state.get("requested_features", {}),
         constraints=state.get("constraints", {}),
         clarifications=state.get("clarification_answers", {}),
         assumptions=state.get("assumptions", []),
@@ -256,8 +256,8 @@ def final_report_node(state: ArenaState) -> dict:
         unsupported_claims=unsupported,
         unresolved_questions=unresolved,
         next_steps=narrative.next_steps,
-        red_flags=state.get("red_flags", []),
-        withdrawn_red_flags=[f"{w['flag']} ({w['reason']})" for w in state.get("withdrawn_red_flags", [])],
+        risk_flags=state.get("risk_flags", []),
+        withdrawn_risk_flags=[f"{w['flag']} ({w['reason']})" for w in state.get("withdrawn_risk_flags", [])],
         disclaimer=DISCLAIMER,
     )
     report("final_report", "report ready" + (" (conditional)" if is_conditional else ""))

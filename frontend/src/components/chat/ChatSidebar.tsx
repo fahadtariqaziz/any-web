@@ -37,7 +37,7 @@ export function ChatSidebar({ onNavigate }: { onNavigate?: () => void }) {
                 title={chat.question}
                 className={`block truncate rounded-lg px-3 py-2 ${active ? "bg-white/10 text-neutral-100" : "text-neutral-300 hover:bg-white/5"}`}
               >
-                {titleOf(chat.condition_name, chat.question)}
+                {titleOf(chat.project_name, chat.question)}
               </Link>
             </li>
           );
@@ -56,7 +56,7 @@ export function ChatSidebar({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 /** "type 2 diabetes" → "Type 2 diabetes"; falls back to the first message. */
-function titleOf(condition: string | null, question: string): string {
-  const text = condition && condition !== "unspecified condition" ? condition : question;
+function titleOf(project: string | null, question: string): string {
+  const text = project && project !== "untitled project" ? project : question;
   return text.charAt(0).toUpperCase() + text.slice(1);
 }

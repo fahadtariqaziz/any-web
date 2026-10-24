@@ -10,10 +10,10 @@ def test_fresh_session_allows_every_loop():
     assert blocked == []
 
 
-def test_red_flags_block_every_loop():
-    can_debate, can_research, can_clarify, blocked = loops_allowed({"red_flags": ["chest pain"]})
-    assert (can_debate, can_research, can_clarify) == (False, False, False)
-    assert "red flags present" in blocked
+def test_risk_flags_are_informational_and_block_nothing():
+    can_debate, can_research, can_clarify, blocked = loops_allowed({"risk_flags": ["handles card payments"]})
+    assert (can_debate, can_research, can_clarify) == (True, True, True)
+    assert blocked == []
 
 
 def test_debate_cap_blocks_debate_and_everything_after():

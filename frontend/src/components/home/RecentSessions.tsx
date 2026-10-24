@@ -48,7 +48,7 @@ export function RecentSessions() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <p className="min-w-0 truncate text-sm font-medium text-slate-900">
-                    {s.condition_name ?? s.question}
+                    {s.project_name ?? s.question}
                     {s.mode === "quick" && (
                       <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-slate-500">
                         chat
@@ -62,7 +62,7 @@ export function RecentSessions() {
                 <p className="mt-1 truncate text-xs text-slate-500">“{s.question}”</p>
                 <p className="mt-1 text-xs text-slate-400">
                   {relativeTime(s.created_at)}
-                  {s.red_flag_count > 0 && <span className="ml-2 text-red-600">• {s.red_flag_count} warning sign(s)</span>}
+                  {s.risk_flag_count > 0 && <span className="ml-2 text-red-600">• {s.risk_flag_count} warning sign(s)</span>}
                 </p>
               </Link>
             </li>

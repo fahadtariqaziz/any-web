@@ -85,19 +85,15 @@ JudgeDecision = Literal[
 
 Level = Literal["low", "medium", "high"]
 
-ConditionCategory = Literal[
-    "metabolic_endocrine",      # diabetes, thyroid, obesity
-    "cardiovascular",           # hypertension, heart disease
-    "respiratory",              # asthma, COPD
-    "digestive",                # IBS, GERD, Crohn's
-    "musculoskeletal",          # arthritis, back pain
-    "neurological",             # migraine, epilepsy
-    "mental_health",            # depression, anxiety
-    "dermatological",           # eczema, acne, psoriasis
-    "infectious",               # flu, hepatitis
-    "autoimmune_allergic",      # lupus, allergies
-    "reproductive_urinary",     # PCOS, kidney disease
-    "cancer",
+ProjectCategory = Literal[
+    "web_app",          # browser application with accounts / data (dashboards, tools, marketplaces)
+    "website",          # mostly content: landing page, portfolio, small business site, blog
+    "mobile_app",       # iOS / Android
+    "saas",             # subscription product for many customers
+    "internal_tool",    # for one team or company
+    "api_service",      # backend / API without its own UI
+    "ai_agent",         # chatbot, assistant, automation driven by an LLM
+    "game",
     "other",
 ]
 
@@ -122,37 +118,39 @@ class NamedValue(BaseModel):
 
 
 class IntakeResult(BaseModel):
-    """Output of the Intake node: the user's health concern, normalized. Nothing invented."""
+    """Output of the Intake node: the user's app or website idea, normalized. Nothing invented."""
 
-    is_health_concern: bool = Field(
-        description="False if the input is not about a health condition, symptom, treatment or recovery."
+    is_app_request: bool = Field(
+        description="False if the input does not describe something to build (an app, website, tool, service, game, "
+                    "automation or API): e.g. a general question, small talk, or a request for advice."
     )
-    condition_name: str = Field(
-        description='The condition as the user frames it, lowercase, e.g. "diabetes", "type 2 diabetes", '
-                    '"migraine". If only symptoms were given, describe them briefly, '
-                    'e.g. "recurring morning headaches (undiagnosed)".'
+    project_name: str = Field(
+        description='A short working name taken from the user\'s words, lowercase, e.g. "habit tracker app", '
+                    '"bakery website with online orders". Never invent a brand name.'
     )
-    condition_category: ConditionCategory
-    case_summary: str = Field(description="One or two neutral sentences restating the user's situation. Do not add facts.")
-    health_profile: list[NamedValue] = Field(
-        description="Facts the user EXPLICITLY stated about themselves: age, sex, when diagnosed, current "
-                    "medications, other conditions, lifestyle, goals. Never guess. Empty list if none.",
+    project_category: ProjectCategory
+    idea_summary: str = Field(description="One or two neutral sentences restating what the user wants to build and for "
+                                          "whom. Do not add features or goals they did not mention.")
+    project_profile: list[NamedValue] = Field(
+        description="Facts the user EXPLICITLY stated about the project: target audience, platform, timeline, budget, "
+                    "team, existing assets, business model. Never guess. Empty list if none.",
     )
-    symptoms: list[NamedValue] = Field(
-        description="Symptoms the user EXPLICITLY mentioned: symptom -> details (when, how often, how bad). "
+    requested_features: list[NamedValue] = Field(
+        description="Features or capabilities the user EXPLICITLY asked for: feature -> the details they gave. "
                     "Empty list if none.",
     )
     constraints: list[NamedValue] = Field(
-        description="Limits the user EXPLICITLY stated: allergies, dietary restrictions (vegetarian, halal...), "
-                    "budget, country, preferences such as 'no injections'. Empty list if none.",
+        description="Limits the user EXPLICITLY stated: technology preferences, hosting, budget, deadline, compliance, "
+                    "integrations that must be used, things to avoid. Empty list if none.",
     )
     missing_information: list[str] = Field(
-        description="Important unknowns that would change the guidance (type or stage, how long, current "
-                    "treatment, other conditions, age group, goals). Most important first, at most 8.",
+        description="Important unknowns that would change the solution (who the users are, the problem they face today, "
+                    "must-have features, platform, constraints, what success looks like). Most important first, at most 8.",
     )
-    red_flags: list[str] = Field(
-        description="Symptoms the user stated that may need urgent medical care (e.g. chest pain, confusion, "
-                    "vomiting with very high blood sugar). Only what the user said. Empty list if none.",
+    risk_flags: list[str] = Field(
+        description="Aspects the user stated that carry legal, safety, privacy or compliance risk (payments, health or "
+                    "financial data, minors, scraping, user-generated content, regulated domains). Only what the user "
+                    "said. Empty list if none.",
     )
 
 
@@ -160,48 +158,47 @@ class IntakeResult(BaseModel):
 # Clarification
 # ---------------------------------------------------------------------------
 
-class WithdrawnRedFlag(BaseModel):
-    flag: str = Field(description="The EXACT text of a flag listed in <red_flags>, copied character for character.")
-    reason: str = Field(description='Which later answer of the user contradicts the flag, e.g. \'user answered "yes weekly" to insulin use\'.')
+class WithdrawnRiskFlag(BaseModel):
+    flag: str = Field(description="The EXACT text of a flag listed in <risk_flags>, copied character for character.")
+    reason: str = Field(description='Which later answer of the user contradicts the flag, e.g. \'user answered "no personal data is stored"\'.')
 
 
 class ClarificationResult(BaseModel):
     """Output of the Clarification node: do we need to ask the user something?"""
 
     need_clarification: bool = Field(
-        description="True if answers could materially change the guidance. In the FIRST round this is "
-                    "normally true: ask the standard 5-6 questions that are not yet answered."
+        description="True if answers could materially change the research or the solution. In the FIRST round this is "
+                    "normally true: ask the standard 4-6 questions that are not yet answered."
     )
     questions: list[str] = Field(
-        description="The questions to ask, at most 6, one topic each. MUST be non-empty when "
+        description="The questions to ask, at most 6, one topic each, specific to this idea. MUST be non-empty when "
                     "need_clarification is true; empty list otherwise.",
     )
     reason: str = Field(description="Why these questions matter, or why no questions are needed.")
     new_profile_facts: list[NamedValue] = Field(
-        description="Profile facts newly confirmed by the user's answers (age, diagnosis, medications, goals...). "
-                    "Empty list if none.",
+        description="Project facts newly confirmed by the user's answers (audience, platform, timeline, budget, team, "
+                    "business model...). Empty list if none.",
     )
-    new_symptoms: list[NamedValue] = Field(
-        description="Symptoms newly confirmed by the user's answers: symptom -> details. Empty list if none.",
+    new_features: list[NamedValue] = Field(
+        description="Features newly requested or confirmed by the user's answers: feature -> details. Empty list if none.",
     )
     new_constraints: list[NamedValue] = Field(
         description="Constraints newly confirmed by the user's answers. Empty list if none.",
     )
-    new_red_flags: list[str] = Field(
-        description="Symptoms revealed by the answers that may need urgent care (e.g. possible DKA signs, chest pain, "
-                    "confusion), stated as the user said them. Empty list if none.",
+    new_risk_flags: list[str] = Field(
+        description="Risky aspects revealed by the answers (payments, personal or health data, minors, scraping, "
+                    "regulated domains), stated as the user said them. Empty list if none.",
     )
-    withdrawn_red_flags: list[WithdrawnRedFlag] = Field(
-        description="Flags from <red_flags> whose FACTUAL PREMISE a later answer of the user directly contradicts "
-                    "(e.g. flag 'no insulin reported', user now says 'yes weekly'). Never withdraw a flag because a "
-                    "symptom seems mild or unlikely. When in doubt, keep it. Empty list if none.",
+    withdrawn_risk_flags: list[WithdrawnRiskFlag] = Field(
+        description="Flags from <risk_flags> whose FACTUAL PREMISE a later answer of the user directly contradicts. "
+                    "When in doubt, keep the flag. Empty list if none.",
     )
-    refined_condition_name: str = Field(
-        description='The condition named more precisely because of the answers (e.g. "type 1 diabetes" instead of '
-                    '"diabetes"), lowercase. Empty string if the answers do not make it more precise.',
+    refined_project_name: str = Field(
+        description='The project named more precisely because of the answers (e.g. "habit tracker app for students" '
+                    'instead of "habit app"), lowercase. Empty string if the answers do not make it more precise.',
     )
-    refined_case_summary: str = Field(
-        description="One or two neutral sentences restating the user's situation INCLUDING what the answers revealed. "
+    refined_idea_summary: str = Field(
+        description="One or two neutral sentences restating the idea INCLUDING what the answers revealed. "
                     "Empty string if nothing material changed. Do not add facts.",
     )
     assumptions: list[str] = Field(
@@ -651,9 +648,9 @@ class OnboardingSummary(BaseModel):
 class FinalReport(BaseModel):
     generated_at: datetime = Field(default_factory=utc_now)
     original_question: str
-    condition_name: str
+    project_name: str
     confirmed_profile: dict[str, str]
-    symptoms: dict[str, str]
+    requested_features: dict[str, str]
     constraints: dict[str, str]
     clarifications: dict[str, str]
     assumptions: list[str] = Field(default_factory=list)
@@ -667,8 +664,8 @@ class FinalReport(BaseModel):
     unsupported_claims: list[str]
     unresolved_questions: list[str]
     next_steps: list[str] = Field(description="E.g. questions to bring to a doctor, what to monitor.")
-    red_flags: list[str]
-    withdrawn_red_flags: list[str] = Field(default_factory=list, description='"flag (reason)" for flags later answers contradicted.')
+    risk_flags: list[str]
+    withdrawn_risk_flags: list[str] = Field(default_factory=list, description='"flag (reason)" for flags later answers contradicted.')
     disclaimer: str
 
 

@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from ai_decision_arena.db.engine import session_factory
 from ai_decision_arena.db.models import (ChatMessage, DecisionReport, DecisionSession, EvidenceRecord, KnowledgeDoc,
-                                         PatientMemory)
+                                         UserMemory)
 
 EVIDENCE_COLUMNS = {"evidence_id", "perspective", "source_url", "source_title", "source_type",
                     "relevant_excerpt", "verification_status", "retrieved_at"}
@@ -18,13 +18,13 @@ EVIDENCE_COLUMNS = {"evidence_id", "perspective", "source_url", "source_title", 
 def _upsert_session(db, thread_id: str, state: dict, status: str, metrics: dict | None):
     values = {
         "thread_id": thread_id,
-        "patient_id": state.get("patient_id") or None,
+        "user_id": state.get("user_id") or None,
         "question": state.get("question", ""),
         "mode": state.get("mode") or "full",
-        "condition_name": state.get("condition_name"),
-        "condition_category": state.get("condition_category"),
+        "project_name": state.get("project_name"),
+        "project_category": state.get("project_category"),
         "status": status,
-        "red_flags": state.get("red_flags", []),
+        "risk_flags": state.get("risk_flags", []),
         "metrics": metrics or {},
         "completed_at": datetime.now(timezone.utc) if metrics is not None else None,
     }
@@ -41,13 +41,13 @@ def save_session_status(thread_id: str, state: dict, status: str) -> None:
     live statuses, not only finished sessions. Leaves metrics / completed_at alone: completion owns those."""
     values = {
         "thread_id": thread_id,
-        "patient_id": state.get("patient_id") or None,
+        "user_id": state.get("user_id") or None,
         "question": state.get("question", ""),
         "mode": state.get("mode") or "full",
-        "condition_name": state.get("condition_name"),
-        "condition_category": state.get("condition_category"),
+        "project_name": state.get("project_name"),
+        "project_category": state.get("project_category"),
         "status": status,
-        "red_flags": state.get("red_flags", []),
+        "risk_flags": state.get("risk_flags", []),
     }
     with session_factory().begin() as db:
         stmt = insert(DecisionSession).values(**values)
@@ -87,7 +87,7 @@ def save_completion(thread_id: str, state: dict, status: str, metrics: dict) -> 
         # The knowledge base grows with every session: its evidence becomes searchable for later chats.
         _upsert_knowledge(db, [
             {"kind": "evidence", "key": f"{thread_id}:{e['evidence_id']}", "title": e["source_title"],
-             "url": str(e["source_url"]), "perspective": e["perspective"], "condition": state.get("condition_name"),
+             "url": str(e["source_url"]), "perspective": e["perspective"], "condition": state.get("project_name"),
              "content": " ".join([e.get("relevant_excerpt", ""), *e.get("claims_supported", [])]), "thread_id": thread_id}
             for e in state.get("evidence", [])
         ])
@@ -109,7 +109,7 @@ def list_sessions(limit: int = 20, mode: str | None = None) -> list[DecisionSess
     if mode:
         query = query.where(DecisionSession.mode == mode)
     if mode == "quick":   # chats whose first message intake rejected (not about health): nothing to reopen
-        query = query.where(~((DecisionSession.status == "failed") & DecisionSession.condition_name.is_(None)))
+        query = query.where(~((DecisionSession.status == "failed") & DecisionSession.project_name.is_(None)))
     with session_factory()() as db:
         return list(db.execute(query).scalars())
 
@@ -128,27 +128,27 @@ def list_chat_messages(thread_id: str, limit: int = 200) -> list[ChatMessage]:
 
 # --- long-term memory (memory.py) ---------------------------------------------------------------
 
-def add_memories(patient_id: str, facts: list[str], source: str, thread_id: str | None) -> None:
-    """Insert facts; a fact the patient already has is skipped (unique patient_id + fact)."""
+def add_memories(user_id: str, facts: list[str], source: str, thread_id: str | None) -> None:
+    """Insert facts; a fact the patient already has is skipped (unique user_id + fact)."""
     if not facts:
         return
-    rows = [{"patient_id": patient_id, "fact": f, "source": source, "thread_id": thread_id} for f in facts]
+    rows = [{"user_id": user_id, "fact": f, "source": source, "thread_id": thread_id} for f in facts]
     with session_factory().begin() as db:
-        db.execute(insert(PatientMemory).values(rows).on_conflict_do_nothing(constraint="uq_patient_memories_fact"))
+        db.execute(insert(UserMemory).values(rows).on_conflict_do_nothing(constraint="uq_user_memories_fact"))
 
 
-def list_memories(patient_id: str, limit: int = 40) -> list[PatientMemory]:
+def list_memories(user_id: str, limit: int = 40) -> list[UserMemory]:
     """The newest `limit` facts, oldest first (so the prompt reads like a history)."""
-    query = (select(PatientMemory).where(PatientMemory.patient_id == patient_id)
-             .order_by(PatientMemory.id.desc()).limit(limit))
+    query = (select(UserMemory).where(UserMemory.user_id == user_id)
+             .order_by(UserMemory.id.desc()).limit(limit))
     with session_factory()() as db:
         return list(reversed(db.execute(query).scalars().all()))
 
 
-def delete_memories(patient_id: str) -> int:
+def delete_memories(user_id: str) -> int:
     """"Forget me": removes every remembered fact of this patient. Returns how many were deleted."""
     with session_factory().begin() as db:
-        return db.execute(delete(PatientMemory).where(PatientMemory.patient_id == patient_id)).rowcount
+        return db.execute(delete(UserMemory).where(UserMemory.user_id == user_id)).rowcount
 
 
 # --- knowledge base (knowledge.py) --------------------------------------------------------------
@@ -212,7 +212,7 @@ def backfill_knowledge_from_evidence() -> int:
         return db.execute(text("""
             INSERT INTO knowledge_docs (kind, key, title, url, perspective, condition, content, thread_id)
             SELECT 'evidence', s.thread_id || ':' || e.evidence_id, e.source_title, e.source_url, e.perspective,
-                   s.condition_name, e.excerpt, s.thread_id
+                   s.project_name, e.excerpt, s.thread_id
             FROM evidence_records e JOIN decision_sessions s ON s.id = e.session_id
             ON CONFLICT ON CONSTRAINT uq_knowledge_docs_kind_key DO NOTHING""")).rowcount
 

@@ -12,7 +12,7 @@ from langsmith.utils import ContextThreadPoolExecutor
 
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
-from ai_decision_arena.prompting import SAFETY_RULES, evidence_block, perspective_label, plans_block, user_case_block
+from ai_decision_arena.prompting import BUILDER_RULES, evidence_block, perspective_label, plans_block, user_case_block
 from ai_decision_arena.schemas import PERSPECTIVES, Criticism, CriticOutput
 from ai_decision_arena.state import ArenaState
 
@@ -36,10 +36,10 @@ Rules:
   risks (false). basis = "evidence" only when evidence_ids are given; otherwise "clinical_reasoning".
 - Cite evidence ids exactly as given. Never cite an id that is not in the evidence.
 - Every point needs an actionable suggested_improvement when one exists.
-- If <red_flags> is non-empty, a plan that puts urgent care first is correct; do not criticise it for
+- If <risk_flags> is non-empty, a plan that puts urgent care first is correct; do not criticise it for
   being a single plan. Check that its urgency is unconditional and critique the after-assessment content.
 - Return exactly one criticism per plan, at most {max_points} points each, most severe first.
-""" + SAFETY_RULES
+""" + BUILDER_RULES
 
 
 def _critique_lane(state: ArenaState, perspective: str) -> list[dict]:

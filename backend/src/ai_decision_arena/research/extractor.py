@@ -20,7 +20,7 @@ from langsmith.utils import ContextThreadPoolExecutor
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
-from ai_decision_arena.prompting import SAFETY_RULES, perspective_label, user_case_block
+from ai_decision_arena.prompting import BUILDER_RULES, perspective_label, user_case_block
 from ai_decision_arena.schemas import (
     PERSPECTIVES,
     ConflictingClaim,
@@ -67,7 +67,7 @@ Also report: summary (what this lane says about routine, diet, medications, time
 prevalence_note, evidence_gaps (which of those topics no kept source covers) and conflicting_claims
 between kept sources. In descriptions, name sources by title or publisher, never by index number.
 Every source must be either kept or rejected.
-""" + SAFETY_RULES
+""" + BUILDER_RULES
 
 
 def lane_extra(perspective: str) -> int:

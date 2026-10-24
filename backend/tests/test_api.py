@@ -52,7 +52,7 @@ def test_invalid_body_is_422_in_our_error_shape(client):
 
 
 def test_start_pause_resume_report(client):
-    started = client.post("/api/decisions", json={"question": "I have diabetes"})
+    started = client.post("/api/decisions", json={"question": "A habit tracker app for students"})
     assert started.status_code == 202
     thread_id = started.json()["thread_id"]
 
@@ -94,7 +94,7 @@ def test_start_pause_resume_report(client):
 
 
 def test_second_start_while_running_is_409(client):
-    started = client.post("/api/decisions", json={"question": "I have diabetes"}).json()
+    started = client.post("/api/decisions", json={"question": "A habit tracker app for students"}).json()
     thread_id = started["thread_id"]
     status = wait_until_not_running(client, thread_id)
     assert status["run_state"] == "paused"

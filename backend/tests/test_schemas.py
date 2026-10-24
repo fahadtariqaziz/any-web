@@ -9,9 +9,9 @@ from ai_decision_arena.config import Settings, get_settings
 
 def test_clarification_needs_questions_when_asking():
     with pytest.raises(ValidationError, match="questions is empty"):
-        S.ClarificationResult(need_clarification=True, questions=[], reason="", new_profile_facts=[], new_symptoms=[],
-                              new_constraints=[], new_red_flags=[], withdrawn_red_flags=[], refined_condition_name="",
-                              refined_case_summary="", assumptions=[])
+        S.ClarificationResult(need_clarification=True, questions=[], reason="", new_profile_facts=[], new_features=[],
+                              new_constraints=[], new_risk_flags=[], withdrawn_risk_flags=[], refined_project_name="",
+                              refined_idea_summary="", assumptions=[])
 
 
 def test_research_plan_must_cover_every_perspective():

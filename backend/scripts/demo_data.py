@@ -4,11 +4,11 @@ This is a made-up example profile, not evidence."""
 CLARIFIED_STATE = {
     "question": "I have diabetes",
     "user_context": "",
-    "condition_name": "type 2 diabetes",
-    "condition_category": "metabolic_endocrine",
-    "case_summary": "The user has type 2 diabetes diagnosed about six months ago, takes metformin, "
+    "project_name": "type 2 diabetes",
+    "project_category": "other",   # health demo data; replaced in M3
+    "idea_summary": "The user has type 2 diabetes diagnosed about six months ago, takes metformin, "
                     "and wants to lower blood sugar and lose weight without insulin.",
-    "health_profile": {
+    "project_profile": {
         "diagnosis": "type 2 diabetes, confirmed by a doctor",
         "diagnosed_since": "about 6 months ago",
         "age": "42",
@@ -17,7 +17,7 @@ CLARIFIED_STATE = {
         "other_conditions": "overweight, mildly high blood pressure",
         "goal": "lower blood sugar and lose weight, avoid insulin if possible",
     },
-    "symptoms": {
+    "requested_features": {
         "fatigue": "most afternoons",
         "increased thirst": "especially at night",
         "frequent urination": "two or three times every night",
@@ -28,7 +28,7 @@ CLARIFIED_STATE = {
         "preferences": "would rather avoid injections",
     },
     "missing_information": ["latest HbA1c or blood sugar readings", "current activity level"],
-    "red_flags": [],
+    "risk_flags": [],
     "clarification_answers": {
         "Has a doctor confirmed the diabetes, and do you know if it is type 1 or type 2?": "yes, type 2",
         "How long ago were you diagnosed?": "about 6 months ago",

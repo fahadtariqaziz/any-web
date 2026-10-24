@@ -33,22 +33,22 @@ export class ApiError extends Error {
 }
 
 // Long-term memory without a login: a random id kept in this browser and sent with every request, so the
-// agents can remember the patient from one chat to the next (backend memory.py). Not a secret, not an account.
-const PATIENT_KEY = "patientId";
+// agents can remember the user from one session to the next (backend memory.py). Not a secret, not an account.
+const USER_KEY = "userId";
 
-export function patientId(): string | null {
+export function userId(): string | null {
   if (typeof window === "undefined") return null; // server render: no browser storage
-  let id = localStorage.getItem(PATIENT_KEY);
+  let id = localStorage.getItem(USER_KEY);
   if (!id) {
     id = crypto.randomUUID();
-    localStorage.setItem(PATIENT_KEY, id);
+    localStorage.setItem(USER_KEY, id);
   }
   return id;
 }
 
-function patientHeader(): Record<string, string> {
-  const id = patientId();
-  return id ? { "X-Patient-Id": id } : {};
+function userHeader(): Record<string, string> {
+  const id = userId();
+  return id ? { "X-User-Id": id } : {};
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -56,7 +56,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetch(`${API_URL}${path}`, {
       ...init,
-      headers: { "Content-Type": "application/json", ...patientHeader(), ...init?.headers },
+      headers: { "Content-Type": "application/json", ...userHeader(), ...init?.headers },
       cache: "no-store", // status changes every few seconds: never reuse an old answer
     });
   } catch {
@@ -121,7 +121,7 @@ export async function sendChatMessage(threadId: string, content: string, onText:
   try {
     response = await fetch(`${API_URL}${CHATS}/${encodeURIComponent(threadId)}/messages`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...patientHeader() },
+      headers: { "Content-Type": "application/json", ...userHeader() },
       body: JSON.stringify({ content }),
     });
   } catch {

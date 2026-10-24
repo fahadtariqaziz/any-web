@@ -19,7 +19,7 @@ from ai_decision_arena.limits import loops_allowed
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
 from ai_decision_arena.prompting import (
-    SAFETY_RULES,
+    BUILDER_RULES,
     criticisms_block,
     evidence_block,
     perspective_label,
@@ -45,14 +45,14 @@ risk), and the evidence (strength, relevance, gaps, conflicts). Scores are a rea
 explain them. Be strict on safety: a plan with a serious unaddressed safety risk must not score above 4 on
 safety. Reward plans whose medications/treatments are reported by the evidence, not assumed.
 
-If <red_flags> is non-empty the plans are "emergency first" by design: judge them mainly on whether the
+If <risk_flags> is non-empty the plans are "emergency first" by design: judge them mainly on whether the
 urgent-care guidance is correct, unconditional and easy to follow; the after-assessment content is secondary
 and thin evidence for it should lower evidence_quality, not make evidence_sufficient false.
 
 evidence_sufficient: true only if this lens's evidence lets you defend a best plan for this user. If not,
 say why and list required_evidence a follow-up search should find (at most 4 items).
 clarification_questions: at most 2, and ONLY if the user's answer would change which plan wins; otherwise empty.
-""" + SAFETY_RULES
+""" + BUILDER_RULES
 
 
 def _rubric_text() -> str:
@@ -95,7 +95,7 @@ def _criterion(score: PlanScore, name: str) -> float:
 
 def judge_node(state: ArenaState) -> dict:
     weights = get_settings().rubric_weights
-    condition = state.get("condition_name", "the condition")
+    condition = state.get("project_name", "the condition")
     known_evidence = {e["evidence_id"] for e in state.get("evidence", [])}
     report("judge", "scoring plans on the rubric (3 lanes in parallel)")
 
@@ -152,11 +152,8 @@ def judge_node(state: ArenaState) -> dict:
         reasons.append(f"[{perspective}] {out.comparison}{note}")
 
     # --- Routing decision: Python has the final say, bounded by the loop limits -----------------
-    # limits.loops_allowed applies the debate/research/clarification caps, the session time budget and the
-    # emergency rule (red flags → no automatic loops: every lane already leads with "seek care now").
+    # limits.loops_allowed applies the debate/research/clarification caps and the session time budget.
     can_debate, can_research, can_clarify, blocked = loops_allowed(state)
-    if state.get("red_flags"):
-        reasons.append("Red flags are present: no further research or clarification loops; continuing now.")
     blocking = [p for p, v in status.items() if v in ("insufficient", "no_plans")]   # 'declined' never blocks
     all_sufficient = not blocking
     wants_clarification = bool(questions) and not all_sufficient

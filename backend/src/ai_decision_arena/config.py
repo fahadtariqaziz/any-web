@@ -95,7 +95,7 @@ class Settings(BaseSettings):
                                      "Checker (about +20 s). Off by default to keep onboarding near 30 s.")
 
     # --- loop limits (see handoff.md for what each counter means) ---
-    max_clarification_rounds: int = Field(default=2, ge=0, le=5)
+    max_clarification_rounds: int = Field(default=3, ge=0, le=5)
     max_research_retries: int = Field(default=2, ge=0, le=5)
     max_debate_rounds: int = Field(default=2, ge=1, le=5)
 
