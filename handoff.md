@@ -1,314 +1,461 @@
-# Health Decision Arena — Handoff
+# ai-lab-2 — Handoff: AI App Builder (Lovable-style)
 
-> **Read this first in every new session.** It records the plan, how we work, what's done, and what's next.
+> **Read this first in every new session.** It is the always-current record: where the project stands, how it is built,
+> the plan we follow, and what is next. **Update it after every major change** (structure, decisions, progress, next step).
+>
+> **Working rule (agreed 2026-10-24):** one milestone at a time. For each: build → run its verify script → if it passes,
+> the user commits and pushes (Claude never commits) → next milestone. Ask the user when a decision is theirs.
 
-## How we work (agreed workflow)
-- We build in **small steps**. One step finishes → we check it → we move on.
-- Each step is tagged **[YOU]** (user does it, sends a screenshot) or **[CLAUDE]** (Claude implements it).
-- Before each [CLAUDE] step, Claude explains briefly: **what** it will build, **why**, **how**, and **prerequisites** to understand it.
-- Claude asks questions when something is unclear instead of guessing.
-- After each step, update the **Progress Log** and **Next Step** sections below.
-- Goal is **learning** as well as a working app — prefer simple, readable code first, then add features.
-- **Git:** Claude never commits/pushes. After each step Claude gives a commit name; the user tests, commits and pushes (repo: github.com/fahadtariqaziz/neurons-battle).
-- **Testing:** No automated test suite — the user tests manually by running things. Claude gives exact commands to run + what output to expect, and the user shares script output + LangSmith traces.
+---
 
-## Project summary
-A user describes a health condition ("I have diabetes"). Instead of one LLM answer, agents
-clarify the user's situation (5–6 questions) → research the web from **three perspectives**
-(research papers · doctors/clinical guidance · patients' real-world experiences) → propose 2–3 care
-plans per perspective → critique → judge/score → verify evidence → let the human review → write a
-final report with **one best plan per perspective**. Every plan covers: daily routine, diet,
-medications/treatments as reported, expected time to progress, and whether the condition is common or rare.
+## 0. Status at a glance
 
-The system gives **health information to discuss with a clinician** — it never diagnoses, prescribes,
-invents doses or advises stopping medication, and it flags red-flag symptoms.
+| | |
+|---|---|
+| **Concept (decided 2026-10-24)** | An AI application builder like Lovable: the user describes an app or website; the system clarifies, researches, proposes, critiques, judges, writes a validated problem statement + solution brief, gets approval, plans (Opus 5.5), implements (Sonnet 5.5) in an isolated session folder, and shows a live preview beside the chat. |
+| **Where we are** | **M0 done** (2026-10-24): test harness, 48 offline tests, `verify_m0.sh`. Nothing of the new concept is implemented yet; the code still runs the health app it was copied from. |
+| **Next milestone** | **M1 — vocabulary + intake + clarification for app ideas** (section 8). |
+| **Models (verified 2026-10-24 via `client.models.list()`)** | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` are all available to the key in `backend/.env`. Configured default: `ANTHROPIC_MODEL=claude-sonnet-5-5`. |
+| **Environment (verified 2026-10-24)** | uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head · Claude Code CLI 2.1.310 installed · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are taken by the original ai-lab servers** → run ai-lab-2 on **8001/3001** (section 11). |
+| **Tests** | `backend/tests/` (48 pytest tests, no network / no DB: fake LLM + fake search, see `tests/conftest.py`). Run `bash backend/scripts/verify_m0.sh` (pytest + eslint + tsc). No frontend unit tests yet. |
 
-History: the project started (2026-10-18) as a *technical* decision arena. On **2026-10-20** it pivoted to
-health conditions. Original brief: `docs/requirements.md` (architecture + engineering rules still apply).
-What changed and the concept mapping: `docs/pivot-medical.md`.
+---
 
-## Tech stack (fixed)
+## 1. Target product in one paragraph
+
+User prompt → **clarification** (2–3 rounds, pauses for answers) → **research** in 3 domains (existing apps & user feedback ·
+papers & technical literature · feasibility & implementations) → **proposer** (4–5 solution proposals) → **critic** → **judge**
+(scores, picks the strongest, may loop to research / clarification) → **evidence checker** → **brief writer** (one-page problem
+statement + solution brief with labelled claims and real references) → **brief validator** (deterministic + LLM checks) →
+**user review** (approve or request changes; changes route back to the right node) → **planner** (Opus 5.5, Claude-Code-style
+implementation plan) → **user approval** → **implementer** (Sonnet 5.5 coding agent, one task per step, verified by real
+commands) → **build check** → **preview** (dev server per session, health-checked) → **change requests** from the chat →
+done. Every generated project lives in `generated_projects/<session_id>/`, isolated from the builder and from other sessions.
+
+---
+
+## 2. Current architecture (copied from ai-lab, health app)
+
+### 2.1 Graph today (`backend/src/ai_decision_arena/graph.py`, 10 nodes + completion)
+```
+START → intake → clarification ──(need answers, ≤2 rounds)──► await_clarification ──► clarification
+                     │ enough info
+                     ▼
+                 research (3 lanes: research / doctor / patient, parallel) ◄───────────────┐
+                     ▼                                                                      │
+                 proposer (2–3 plans per lane) → critic → judge ──(more research, bounded)─┤
+                                                           ├──(ask user)──► clarification   │
+                                                           ▼                                │
+                                                     evidence_checker ──(material gap)──────┘
+                                                           ▼
+                                                     final_report → completion → END
+Any node that raises → error stored (nodes/node_wrapper.py) → completion (status failed).
+```
+
+### 2.2 Tech stack (unchanged)
 | Area | Choice |
 |---|---|
-| Orchestration | LangGraph (StateGraph, conditional edges, `interrupt()`) |
-| LLM | Anthropic Claude **only** (via `langchain-anthropic`) |
+| Orchestration | LangGraph 1.2 (`StateGraph`, conditional edges, `interrupt()`, Postgres checkpointer) |
+| LLM | Anthropic Claude only via `langchain-anthropic` 1.7 (`ChatAnthropic.with_structured_output(method="json_schema")`) |
 | Web research | Tavily |
-| Tracing | LangSmith (project: `ai-decision-arena`) |
-| Backend | Python 3.13 + FastAPI + Pydantic, managed with `uv` |
-| Persistence | PostgreSQL 16 (local, Homebrew) + LangGraph Postgres checkpointer + SQLAlchemy/Alembic |
-| Frontend | Next.js + TypeScript + Tailwind CSS |
+| Tracing | LangSmith |
+| Backend | Python 3.13 + FastAPI + Pydantic 2, managed with `uv` |
+| Persistence | PostgreSQL 16 (Homebrew) + SQLAlchemy 2 / Alembic; LangGraph `checkpoint*` tables in the same DB |
+| Frontend | Next.js 16 + React 19 + TypeScript + Tailwind 4 |
+| Runtime (optional) | Docker for the backend (`docker-compose.yml`, sandboxed container) |
 
-Local machine (checked 2026-10-18): Python 3.13.12, uv installed, Node 22.22.1, PostgreSQL 16 (Homebrew).
-Python package is still named `ai_decision_arena` (see Open questions).
-
-## Graph design (red-flag pause, error_recovery and human_review removed 2026-10-24)
+### 2.3 Folder layout
 ```
-START → intake
-          ▼
-      clarification ──(need_clarification? interrupt & loop, max 2 rounds)──┐
-          │ no                                                              │
-          ▼
-      research (3 lanes: research / doctor / patient; parallel) ◄──────────────────────────────┐
-          ▼                                                                                    │
-      proposer → critic → judge ──(request_clarification)──► clarification                     │
-                             ├──(request_more_research, focused, bounded)──────────────────────┤
-                             │ proceed / insufficient_evidence                                 │
-                             ▼                                                                 │
-                      evidence_checker ──(material gap, loop allowed)──────────────────────────┘
-                             ▼
-                      final_report (best plan of all 3 perspectives) → completion → END
-
-Any LLM call fails → SDK retries + self-correction → fallback model → still failing: node error stored in state
-                  → completion (status failed, API error shown to the user)
+ai-lab-2/
+├── handoff.md                      # this file
+├── docker-compose.yml              # backend container (Postgres stays on the host)
+├── docs/                           # requirements.md (original brief), pivot-medical.md, agent-anatomy.md — history
+├── backend/
+│   ├── .env (not in git; template .env.example), pyproject.toml, uv.lock, alembic.ini, Dockerfile
+│   ├── migrations/versions/        # Alembic migrations (5 so far)
+│   ├── knowledge/*.md              # curated knowledge docs (health; to be replaced)
+│   ├── skills/*/SKILL.md           # chat skills (health; to be replaced)
+│   ├── scripts/                    # run_graph, run_intake, run_research, run_debate, run_report, api_flow,
+│   │                               #   check_env, draw_graph, load_knowledge, print_helpers, demos, verify_m0.sh
+│   ├── tests/                      # pytest: conftest (fake LLM + fake search), graph, limits, sources, schemas,
+│   │                               #   nodes, full pipeline on InMemorySaver, API with TestClient
+│   └── src/ai_decision_arena/      # package name kept (rename = churn, no value now)
+│       ├── graph.py, state.py, schemas.py (682 lines), config.py, limits.py, prompting.py, llm.py, progress.py
+│       ├── nodes/  intake, clarification, research, proposer, critic, judge, evidence_checker, final_report, node_wrapper
+│       ├── research/  planner (queries), search (Tavily), extractor (snippets → Evidence), sources (domains, url utils)
+│       ├── chat.py, tools.py, researcher.py, skills.py, knowledge.py, memory.py, triggers.py, checkpointing.py
+│       ├── db/  engine, models (7 tables), repository
+│       └── api/  main (decisions endpoints), runner (background threads), chat, memories, triggers, schemas, errors
+└── frontend/src/
+    ├── app/(chat)/   `/` and `/c/[threadId]`  — ChatGPT-style chat (ChatShell, ChatView, Composer, Messages…)
+    ├── app/(admin)/  `/admin`, `/decisions/[threadId]` — full pipeline view (stepper, clarification form, debate, evidence, report)
+    ├── hooks/  useDecision (poll 2 s), useLive, useFetch, useStartChat…
+    └── lib/  api/client.ts, api/types.ts (hand-written mirror of API models), pipeline.ts, chatStages.ts, format.ts
 ```
-Loop limits (`limits.loops_allowed`): debate rounds ≤ 2, research retries ≤ 2 (first pass isn't a retry), clarification
-rounds ≤ 2, node retries ≤ 2 (backoff 1 s, 2 s), session active-time budget 900 s. A research pass always starts a new
-debate round, so with the defaults the system can loop at most once automatically. Red flags and an exhausted time budget
-block every automatic loop (the human can still ask for one at review, within the caps).
 
-Per-perspective design: Research tags every evidence item with a `perspective`. Proposer / Critic / Judge / Evidence
-Checker each run **three parallel LLM calls (one per lane)**. Plan ids are `research_a`, `doctor_b`, `patient_c`…
-The Judge's `verdict.winning_plan_ids` holds one winner per lane; the report shows those three.
+### 2.4 Mechanisms we keep (platform, not health-specific)
+- `llm.call_structured(schema, system, user)`: validated Pydantic output, self-correcting retries, truncation handling, fallback model, `LLMUnavailableError`.
+- `nodes/node_wrapper.wrap_node`: session mode, `active_seconds`, exception → `ErrorRecord` in state → `completion` (status failed); interrupts re-raised.
+- `graph.guarded()` edges: any stored error short-circuits to completion.
+- Clarification split in two nodes: LLM decision (`clarification`) and human pause (`await_clarification` with `interrupt()` + validation loop). **Every new pause copies this split.**
+- `limits.loops_allowed()`: Python decides every loop (round caps + active-time budget); the LLM only suggests.
+- Python-owned trust boundaries: evidence ids/URLs/titles come from Tavily hits, never from the LLM; quotes are checked against snippets; cited ids are filtered to known ids; weighted totals computed in Python.
+- `progress.report()` custom stream events → `GraphRunner` progress lines → frontend "now" panel.
+- `api/runner.GraphRunner`: one background run per thread, checkpoint is the truth, `interrupted` state resumable with `{"type":"continue"}`.
+- `config.Settings` (pydantic-settings, `.env` overrides, validated rubric), `session_mode` context var.
+- Chat tool loop (`tools.stream_with_tools`, bounded rounds), research sub-agent (`researcher.py`), skills loader, knowledge base (Postgres FTS), long-term memory keyed by a browser id, scheduled trigger thread.
+- Frontend: polling hook, resume flow, discriminated `pending` payloads, stepper derived from status, live snapshot tabs.
 
-## Implementation plan (small steps)
+### 2.5 Health-specific parts (to replace)
+Prompts of every node and of `research/planner.py`, `research/extractor.py`, `chat.py`, `researcher.py`; `SAFETY_RULES`; vocabularies in
+`schemas.py` (`Perspective`, `SourceType`, `EvidenceStrength`, `ConditionCategory`, `ResearchTopic`, `CarePlan`, `FinalReport`,
+`OnboardingSummary`…); domain lists in `research/sources.py`; rubric in `config.py`; red-flag / emergency logic; `knowledge/*.md`;
+`skills/*`; DB columns `condition_name`, `condition_category`, `red_flags`, `patient_id`, table `patient_memories`; all UI wording,
+`PERSPECTIVE_META`, `NODE_INFO`, report components.
 
-### Phase 0 — Setup ✅
-- [x] 0.1–0.4 Keys, uv project, `.env`, `scripts/check_env.py` (Claude/Tavily/LangSmith ping).
+### 2.6 Gaps for the new product
+No file/command tools or sandbox for generated code · only one pause type · no approval checkpoints · no planner /
+implementer / preview nodes · no prompt registry or versions · no per-node token/cost accounting · no per-session workspace.
 
-### Phase 1 — LangGraph basics (learning) ✅
-- [x] 1.1–1.3 `hello_graph.py`, `claude_graph.py`, first LangSmith trace.
+---
 
-### Phase 2 — Real state & schemas ✅ (re-done for health on 2026-10-20)
-- [x] 2.1 `schemas.py` (Perspective, ConditionCategory, Evidence w/ perspective + strength, CarePlan, PlanScore, Verdict, FinalReport…), `state.py`, `scripts/schemas_demo.py`.
-- [x] 2.2 `config.py`: health rubric (fit_to_user .30, safety .25, evidence_quality .20, practicality .15, completeness .10), per-lane research limits. Demo: `scripts/config_demo.py`.
+## 3. Reuse map: what changes, what stays
 
-### Phase 3 — Intake + Clarification ✅ (re-done for health)
-- [x] 3.1 `nodes/intake.py`: condition name/category, health_profile, symptoms, constraints, missing info, red flags. `scripts/run_intake.py`.
-- [x] 3.2 `nodes/clarification.py`: first round asks 5–6 questions; later rounds only if material; accepts Judge questions. `prompting.py` shared blocks + safety rules.
-- [x] 3.3 [YOU] Run CLI, answer questions, screenshot trace. *(re-verify after pivot in 5.4)*
+### 3.1 Node by node
+| Node | Reuse | What changes |
+|---|---|---|
+| `intake` | logic as-is | prompt, `IntakeResult` fields, validation message ("describe an app or website"), `is_app_request` |
+| `clarification` + `await_clarification` | **as-is** (split, dedupe, merge, interrupt loop) | prompt (audience, objectives, features, constraints, outcomes), field names, `max_clarification_rounds` 2 → 3 |
+| `research` + `research/*` | structure as-is (planner → parallel Tavily → parallel extractor) | 3 lanes become 3 **domains**, prompts, topics, domain lists, source classifier, evidence vocab, drop patient-story top-up |
+| `proposer` | call pattern + id assignment + citation filter | **one call** producing 2–3 `SolutionProposal`s from all evidence (not per lane) |
+| `critic` | parallel fan-out + evidence-id filter | fan-out per **proposal**, prompt |
+| `judge` | scoring, Python weighted total, routing + loop limits | one call scoring all proposals; `winning_proposal_id`; `domain_status`; rubric keys |
+| `evidence_checker` | as-is | verifies the **winning proposal** only; prompt wording |
+| `final_report` | pattern only (Python assembles facts, LLM writes narrative) | **replaced** by `brief_writer` (section 4) |
+| `completion` | as-is | persists brief + plan + runtime instead of the health report; runs at the real end (after preview) |
+| `chat.py` tools, researcher, skills, knowledge, memory, triggers | kept as platform capabilities | re-pointed at the builder (section 7); not on the main path until M11 |
 
-### Phase 4 — Research ✅ (re-done for 3 lanes)
-- [x] 4.1 `research/planner.py` (3 queries per lane), `research/search.py` (lane domain steering: research/doctor "prefer" medical domains; patient "restrict" to forums + advanced depth), `research/sources.py` (medical classifier). Demo: `scripts/run_research_plan.py`.
-- [x] 4.2 `research/extractor.py` (one call per lane, in parallel; ids assigned after all lanes) + `nodes/research.py`. Scripts: `run_research.py` (saves `.cache/research_state.json`), `run_graph.py`, `demo_data.py`, `print_helpers.py`.
+### 3.2 Concept mapping (old → new)
+| Old (health) | New (app builder) |
+|---|---|
+| `is_health_concern` | `is_app_request` (idea for an app, website, tool, service) |
+| `condition_name` / `condition_category` | `project_name` / `project_category` ∈ {web_app, website, mobile_app, saas, internal_tool, api_service, ai_agent, game, other} |
+| `case_summary` | `idea_summary` |
+| `health_profile` | `project_profile` (audience, platform, timeline, budget, team, existing assets) |
+| `symptoms` | `requested_features` |
+| `constraints` | `constraints` (tech preferences, budget, compliance, hosting, deadlines) |
+| `red_flags` / `withdrawn_red_flags` | `risk_flags` / `withdrawn_risk_flags` (legal, privacy, safety, payments, minors…); informational only, **no routing effect** |
+| lanes `research / doctor / patient` | domains `apps / papers / tech` (`DOMAINS`, `DOMAIN_LABELS`) |
+| `ResearchTopic` (routine, diet…) | apps: `existing_solutions`, `user_complaints`, `must_have_features`, `pricing_and_adoption` · papers: `problem_background`, `established_approaches`, `known_limitations` · tech: `libraries_and_frameworks`, `apis_and_integrations`, `architecture_patterns`, `feasibility_and_risks` |
+| `SourceType` | `review_site`, `app_store`, `community_discussion`, `product_docs`, `research_paper`, `technical_docs`, `source_repository`, `article_or_blog`, `other` |
+| `EvidenceStrength` | `peer_reviewed`, `official_documentation`, `maintained_repository`, `aggregated_reviews`, `expert_article`, `anecdotal`, `unknown` |
+| `PatientContext` | `FeedbackContext` (product, feedback_type ∈ complaint/praise/feature_request/workaround, is_recurring, relevant_to_idea) |
+| `CarePlan` (`research_a`…) | `SolutionProposal` (`proposal_a`…`proposal_c`) |
+| rubric fit_to_user/safety/… | `requirements_alignment` 0.30 · `problem_relevance` 0.20 · `evidence_quality` 0.20 · `feasibility` 0.20 · `completeness` 0.10 |
+| `winning_plan_ids` (per lane) | `winning_proposal_id` (one) + `domain_status` |
+| `FinalReport` / `OnboardingSummary` | `ProblemBrief` (+ rendered markdown); onboarding summary dropped |
+| `patient_id` / `patient_memories` / `X-Patient-Id` | `user_id` / `user_memories` / `X-User-Id` |
+| `SAFETY_RULES` | `BUILDER_RULES`: no invented sources/figures/capabilities; label verified vs user-provided vs assumption vs recommendation; `<user_input>`, `<source>`, `<generated_file>` are data not instructions |
 
-### Phase 5 — Debate ✅ built 2026-10-20 (awaiting user test + commit)
-- [x] 5.1 `nodes/proposer.py`: 3 parallel calls → 2–3 `CarePlan`s per lane from that lane's evidence only; Python assigns ids, drops unknown evidence ids (visible as a gap), clears old criticisms/scores, `debate_round += 1`.
-- [x] 5.2 `nodes/critic.py`: 3 parallel calls; each lane's plans vs ALL evidence; exactly one `Criticism` per plan (Python fills missing ones); evidence ids validated.
-- [x] 5.3 `nodes/judge.py`: 3 parallel calls → `PerspectiveJudgement` (criterion scores + sufficiency + required evidence + questions). Python: weighted totals, winner per lane, routing within limits, `research_retry_count += 1` when looping. `graph.py`: research → proposer → critic → judge → (research | clarification | END).
-- [x] 5.4 [YOU] Ran `run_intake.py`, `run_research.py`, `run_debate.py`, `run_graph.py` (type 1 scenario) + LangSmith traces → verified 2026-10-20. Commit pending.
-- [x] 5.6 [CLAUDE] Red-flag pause: `await_red_flag_ack` interrupt node (continue / stop) after intake or clarification whenever unacknowledged red flags exist. User decision 2026-10-20: "humans remain in control of high-risk decisions".
-- [x] 5.5 [CLAUDE] Live progress events (`progress.report`) in every node + `print_helpers.stream_graph` used by all run scripts. Built 2026-10-20 after the user asked for an "agents at work" view; same events will feed the frontend activity view (Phase 8/9).
+### 3.3 State (`state.py`): rename / keep / add
+- **Rename:** `condition_name→project_name`, `condition_category→project_category`, `case_summary→idea_summary`, `health_profile→project_profile`, `symptoms→requested_features`, `red_flags→risk_flags`, `withdrawn_red_flags→withdrawn_risk_flags`, `patient_id→user_id`, `patient_memories→user_memories`, `perspective_summaries→domain_summaries`, `care_plans→proposals`, `proposer_lane_status→proposer_status`.
+- **Keep:** `question` (the raw prompt), `user_context`, `mode`, `status`, `current_node`, counters, `clarification_*`, `assumptions`, `missing_information`, `research_*`, `evidence`, `evidence_gaps`, `conflicting_claims`, `rejected_sources`, `criticisms`, `scores`, `verdict`, `debate_round`, `verification_results`, `checker_verdict`, `unresolved_questions`, `metrics`, `error`, `active_seconds`.
+- **Add (M4–M9):** `brief`, `brief_markdown`, `brief_validation`, `brief_revision_count`, `brief_feedback` (list), `brief_approved_at` · `implementation_plan`, `plan_markdown`, `plan_revision_count`, `plan_feedback`, `plan_approved_at` · `workspace_dir`, `implementation_tasks` (list of `{id,title,status,attempts,result}`), `current_task_id`, `implementation_log` (capped list), `change_requests`, `build_results`, `preview` (`{state,url,port,last_error,log_tail}`) · `prompt_versions`, `models_used`, `token_usage` (per node).
+- **Remove:** `onboarding_summary`, `final_report`.
 
-### Phase 6 — Verification & finishing nodes ✅ built 2026-10-20 (awaiting user test + commit)
-- [x] 6.1 `nodes/evidence_checker.py`: one call per winning plan (3 lanes parallel) → `PlanVerification` (claims with status + is_material + material_gaps). Python stores `ClaimVerification`s, sets `evidence[].verification_status`, loops to research once if material gaps and loops allowed, else records them as `unresolved_questions`.
-- [x] 6.2 `nodes/human_review.py`: interrupt with a summary payload; `HumanReviewInput` validated; 7 actions with bounded routes; impossible choices re-interrupt with an error.
-- [x] 6.3 `nodes/final_report.py`: Python assembles `FinalReport` (3 `PerspectiveResult`s with scores, cited evidence + verification status, objections, unsupported claims, unresolved questions, methodology); ONE LLM call writes `ReportNarrative` (overview, agree/differ, uncertainties, next steps). `completion_node` sets the final status + metrics.
-- [x] 6.4 `nodes/error_recovery.py`: `recoverable(name)` wrapper on every node (exceptions → `ErrorRecord` in state, interrupts re-raised, `active_seconds` accumulated); guarded edges; `error_recovery_node` retries with backoff or fails; `limits.py` time budget.
-- [x] 6.5 [YOU] `run_report.py` (fast, cached) then `run_graph.py` end-to-end → verified 2026-10-20; commit.
-- [x] 6.6 [CLAUDE] Fixes from 6.5: condition/summary refined by clarification, contradicted red flags withdrawn (kept for the record), select_plan shown as ⭐ your choice, CLI fixes.
-- [x] 6.7 [YOU] Re-ran `run_graph.py` (type 2 scenario) → 6.6 verified 2026-10-21.
-- [x] 6.8 [CLAUDE] select_plan accepts only the three shown winners (payload `selectable_plan_ids`).
-- [x] 6.9 [YOU] Checked 6.8 with `run_report.py` 2026-10-21 (refusal works; its message was missing → fixed).
+### 3.4 Schemas (`schemas.py`)
+Update: `WorkflowStatus` (add `writing_brief`, `validating_brief`, `awaiting_brief_review`, `planning`, `awaiting_plan_review`,
+`implementing`, `building`, `previewing`, `awaiting_changes`), vocabularies above, `IntakeResult`, `ClarificationResult`, `SearchQuery`,
+`ResearchPlan` (every domain covered), `Evidence`, `ExtractedEvidence`, `ExtractionResult` (summary of what the domain says about the
+problem / alternatives / feasibility), `ProposedSolution`/`SolutionProposal`, `ProposerOutput`, `CriticismCategory`
+(`unsupported_claim`, `contradicts_evidence`, `copies_existing_app`, `missing_requirement`, `infeasible`, `security_privacy_risk`,
+`weak_assumption`, `scope_too_large`, `better_alternative`), `PerspectiveJudgement→ProposalJudgement`, `Verdict`.
+New: `ProblemBrief` (sections 4.1–4.10, every claim item carries `label ∈ verified|research_backed|user_provided|recommendation|assumption`
+and `evidence_ids`; `references` are **assembled by Python** from cited ids), `BriefValidation`, `FeedbackRouting`, `ImplementationPlan`
+(phases → tasks with `id`, `depends_on`, `files`, `acceptance_criteria`, `verify_commands`), `TaskResult`, `BuildResults`, `PreviewStatus`.
+Keep the rules at the top of `schemas.py` (required lists, limits in descriptions, cross-field validators).
 
-### Phase 7 — PostgreSQL
-- [x] 7.1 [YOU] Postgres 16 already running (Homebrew service, local `trust` auth); created database `ai_decision_arena` 2026-10-21.
-- [x] 7.2 [CLAUDE] `checkpointing.py` (`postgres_checkpointer()` → `PostgresSaver` + `setup()`), `run_graph.py` uses Postgres by default with `--resume <thread_id>` and `--memory`.
-- [x] 7.2b [YOU] Verified + committed 2026-10-21.
-- [x] 7.3 [CLAUDE] SQLAlchemy models + Alembic migration (`decision_sessions`, `evidence_records`, `decision_reports`, `user_feedback`); completion saves results idempotently.
-- [x] 7.4 [YOU] Verified 2026-10-21 (run_report → select patient_a → "saved session, 25 evidence and the report"; 2 sessions / 49 evidence rows in psql).
+### 3.5 Routing conditions (`graph.py`)
+Keep `route_after_clarification`, `route_after_judge` (decision names unchanged), `route_after_evidence_checker` (→ `brief_writer`
+instead of `final_report`), `guarded`. Remove `skips_double_check` / quick-mode node skipping (the builder always runs critic + checker).
+Add: `route_after_brief_validator`, `route_after_brief_review`, `route_after_plan_review`, `route_after_implementer` (self-loop while
+tasks remain), `route_after_build_check`, `route_after_change_request`. Hard guard: `implementer` is reachable only when
+`brief_approved_at` and `plan_approved_at` are set (checked in the route, not only in the UI).
 
-### Phase 8 — FastAPI backend
-- [x] 8.1 [CLAUDE] `api/` package (`main.py`, `schemas.py`, `runner.py`): create / status / resume / report / evidence (feedback dropped: no ratings), background threads + polling, connection pool, `{"error": {code, message}}`. Built 2026-10-21; `scripts/api_flow.py` drives a full session.
-- [x] 8.2 [YOU] Tested via `/docs` Swagger UI 2026-10-22 (full session, report 200).
+### 3.6 Config (`config.py`)
+Rubric keys/weights as above; `max_clarification_rounds=3`; new: `planner_model="claude-opus-5-5"`, `implementer_model="claude-sonnet-5-5"`,
+`max_brief_revisions=2`, `max_review_rounds=6`, `max_plan_revisions=3`, `max_task_attempts=2`, `max_build_fix_rounds=2`,
+`task_timeout_seconds`, `command_timeout_seconds=120`, `install_timeout_seconds=600`, `preview_port_range="4100-4199"`,
+`preview_idle_minutes=30`, `session_token_budget`, `session_usd_budget`, `generated_projects_dir`. Remove patient-lane and check-in settings.
+Startup check: the configured planner/implementer models must appear in `client.models.list()`; otherwise log a warning and fall back to
+`anthropic_model` (never silently assume a model exists).
 
-### Phase 9 — Next.js frontend
-- [x] 9.1 [CLAUDE] `frontend/` (Next.js 16.4, React 19, Tailwind 4, App Router, cacheComponents on): `lib/api/types.ts` + `lib/api/client.ts`, `hooks/useDecision.ts` (2 s polling), `/` form → `/decisions/[threadId]` bare status + live progress + Continue for interrupted runs. Built 2026-10-22.
-- [x] 9.1b [YOU] 9.1 committed 2026-10-22 (23ed864).
-- [x] 9.2 [CLAUDE] Clarification form (one box per question, blank = skip, round N of 2, payload errors shown) + red-flag decision screen (stop / continue, consequences explained). Built 2026-10-22.
-- [x] 9.3 [CLAUDE] Backend: `GET /live` (case, research counts + summaries, plans, criticisms, scores, verdict, verification, review, errors, metrics), `GET /api/decisions` (recent sessions), `DecisionStatus` + `current_node` / `next_nodes` / `started_at` / `active_seconds` / `counters`. Frontend: pipeline stepper, live "now" panel, activity feed, plans & debate view, evidence panel, profile card. Built 2026-10-22.
-- [x] 9.4 [CLAUDE] Human review panel (3 winners side by side, 7 actions with the backend's rules, select-plan / feedback / profile editor) + final report (red flags first, overview, 3 perspective cards, side-by-side comparison grid, agree / differ, next steps, uncertainties, your information, methodology, print). Markdown rendered everywhere agents write prose. Built 2026-10-22.
-- [ ] 9.5 [YOU] Restart the backend (new endpoints + CORS), `npm install` in frontend/, click through a full session in the browser, screenshot; commit.
+---
 
-- [x] 9.6 [CLAUDE] Patient chat (user request 2026-10-22): current UI moved to `/admin` (+ `/decisions/[id]`); `/` and `/c/[id]` are a ChatGPT-style full-screen dark chat. Onboarding = a **quick session** (`mode: "quick"`): questions one at a time under a highlighted banner, agents shown only as a chip ("✻ Researching… (12s)"), then a short summary (doctors / patients / research, 2-3 lines each, no alerts); then free chat with the report as context. New chat = new onboarding; old chats resume from the sidebar. Built 2026-10-22.
-- [ ] 9.7 [YOU] `uv run alembic upgrade head` (already applied on the local DB by Claude), restart backend + `npm run dev`, try a chat end to end at `/`, check `/admin` still works; commit.
+## 4. Target graph
 
-### Phase 11 — Agent anatomy: make all 16 parts ✅ built 2026-10-23 (awaiting user test + commit)
-Slide "Anatomy of an Agent" (Day 1 · AI in 2026, p.10): think · know · do · steer. User decisions 2026-10-23:
-anonymous browser patient id (no login) · Claude-chosen tools only in the patient chat (onboarding stays fixed, ~30 s) ·
-Postgres full-text search for the knowledge base (no embeddings key) · backend in Docker (Postgres stays on Homebrew).
-- [x] 11.1 [CLAUDE] **Prompting**: few-shot examples (planner queries) + chain of thought (Judge writes `reasoning` before scores).
-- [x] 11.2 [CLAUDE] **LTM**: browser `patient_id` (localStorage → `X-Patient-Id` header), `patient_memories` table; memories shown to intake / clarification / chat for a returning patient.
-- [x] 11.3 [CLAUDE] **Knowledge base**: `knowledge_docs` table (Postgres full-text search), curated docs in `backend/knowledge/*.md` + every session's evidence, `search_knowledge()` with citations.
-- [x] 11.4 [CLAUDE] **Skills**: `backend/skills/<name>/SKILL.md` (frontmatter name/description), only the list goes in the prompt; the body is loaded on demand.
-- [x] 11.5 [CLAUDE] **Tools**: the chat agent picks tools itself (`search_knowledge`, `web_search`, `remember_fact`, `load_skill`) in a bounded tool loop (max rounds, results wrapped as data).
-- [x] 11.6 [CLAUDE] **Sub-agents**: `ask_researcher` tool delegates to a research sub-agent with its own context and tools; returns a short cited answer.
-- [x] 11.7 [CLAUDE] **Triggers**: scheduled check-in (background scheduler posts a follow-up message in quiet chats) + manual `POST /api/triggers/check-ins`.
-- [x] 11.8 [CLAUDE] **Runtime**: `backend/Dockerfile` + `docker-compose.yml` (non-root, read-only fs, no capabilities, only Postgres + internet).
-- [x] 11.9 [CLAUDE] `docs/agent-anatomy.md`: the 16-part table, each part → code.
-- [ ] 11.10 [YOU] Test each part (commands in the progress log) and commit.
+```
+START → intake → clarification ⇄ await_clarification
+            │
+            ▼
+        research (apps · papers · tech) ◄───────────────────────────────────────────┐
+            ▼                                                                       │
+        proposer → critic → judge ──(request_more_research)─────────────────────────┤
+                              ├──(request_clarification)──► clarification           │
+                              ▼ proceed / insufficient_evidence                     │
+                        evidence_checker ──(material gap, loops allowed)────────────┘
+                              ▼
+                        brief_writer ◄──────────────(revise, ≤ max_brief_revisions)──┐
+                              ▼                                                      │
+                        brief_validator ──(clarify: requirement gap)──► clarification│
+                              ▼ ok                                                   │
+                        await_brief_review ──(request_changes: wording)──────────────┘
+                              │   ├──(requirements)──► clarification
+                              │   ├──(research)──────► research       (research_focus = feedback)
+                              │   └──(proposal)──────► proposer       (feedback as criticism)
+                              ▼ approve
+                        planner (Opus 5.5) ◄──(request_changes)── await_plan_review
+                              ▼                                       ▲
+                        await_plan_review ─────────────────────────────┘
+                              ▼ approve
+                        implementer (Sonnet 5.5, ONE task per step) ──(tasks left)──► implementer
+                              ▼ all tasks done / failure cap
+                        build_check ──(fails, ≤ max_build_fix_rounds)──► implementer (fix task)
+                              ▼
+                        preview (start dev server, health check)
+                              ▼
+                        await_change_request ──(change)──► implementer (change task)
+                              │               ├──(replan)──► planner
+                              ▼ finish
+                        completion → END
+```
 
-### Phase 10 — Quality
-- [ ] 10.1 [YOU] Manual test pass using the scenario checklist in `docs/requirements.md` §12 (adapted to health cases).
-- [ ] 10.2 [CLAUDE] (optional) Small eval dataset + LangSmith evaluation.
-- [ ] 10.3 [CLAUDE] README (install, run, troubleshoot).
+| Node | Kind | Model | Writes (owner) |
+|---|---|---|---|
+| `brief_writer` | LLM (1 call) + Python assembly | default | `brief`, `brief_markdown`, `brief_revision_count` |
+| `brief_validator` | Python checks + LLM (1 call) | default (Haiku acceptable later) | `brief_validation`, `unresolved_questions`, `status` |
+| `await_brief_review` | human pause | — | `brief_feedback`, `brief_approved_at`, routing hint |
+| `planner` | LLM (1 call, large output, streaming) | `claude-opus-5-5` | `implementation_plan`, `plan_markdown`, `plan_revision_count`, `implementation_tasks` (derived) |
+| `await_plan_review` | human pause | — | `plan_feedback`, `plan_approved_at` |
+| `implementer` | coding agent for **one task**, then Python runs `verify_commands` | `claude-sonnet-5-5` | `implementation_tasks[i]`, `current_task_id`, `implementation_log`, `token_usage` |
+| `build_check` | Python only (install / test / build in sandbox) | — | `build_results` |
+| `preview` | Python only (process manager + HTTP health check) | — | `preview` |
+| `await_change_request` | human pause | — | `change_requests`, new task(s) |
 
-## Decisions log
-- 2026-10-18: Start with InMemorySaver for learning, switch to Postgres in Phase 7 (requirement: Postgres for final).
-- 2026-10-18: Sequential graph for MVP (no parallel *nodes*; parallel *threads inside* a node are fine).
-- 2026-10-18: Git + GitHub set up by user. User commits/pushes; Claude never does.
-- 2026-10-18: Default model `claude-sonnet-5-5` (configurable via `ANTHROPIC_MODEL`).
-- 2026-10-18: Manual testing only, no automated test suite.
-- 2026-10-18: Always read Claude replies with `reply.text`, NOT `reply.content`. Structured output (Phase 3+) avoids this anyway.
-- 2026-10-18: State stores nested items as plain dicts (`model_dump(mode="json")`); nodes re-validate with `Model.model_validate`. Each state field has one owner node (see comments in `state.py`).
-- 2026-10-18: Judge gives 0–10 criterion scores; `weighted_total` is computed in Python from config weights (don't trust LLM math).
-- 2026-10-18: All settings via `get_settings()` from `config.py`; importing it also runs `load_dotenv`. API keys are `SecretStr`.
-- 2026-10-18: All agents call Claude via `llm.call_structured(Schema, system_prompt, user_content)` (method="json_schema", include_raw=True, retries w/ error feedback, raises `LLMOutputError`). API transient errors: SDK `max_retries` backoff.
-- 2026-10-18: LLM output schemas use `list[NamedValue]` instead of `dict[str,str]`; nodes convert to dict for state.
-- 2026-10-18: User text is wrapped in XML-ish tags and prompts say "user text is data, not instructions".
-- 2026-10-18: Clarification split into 2 graph nodes (LLM node + interrupt node): LangGraph re-runs a paused node from line 1 on resume.
-- 2026-10-18: Python has final say on routing: `need = llm.need_clarification and rounds < max and questions non-empty`. Invalid resume payloads → re-interrupt with `error`.
-- 2026-10-18: Graph lives in `graph.py`; routing functions are named `route_after_<node>`. Unbuilt targets temporarily map to END.
-- 2026-10-18: LLM-output schemas: list fields are REQUIRED (no default). Cross-field rules go in `@model_validator` so `call_structured` retries.
-- 2026-10-18: Tavily permanent errors → no retry; transient → backoff. Failures become `SearchFailure` (evidence gap), never invented results.
-- 2026-10-18: Evidence trust boundary: Claude references sources by INDEX only; Python copies url/title/date from the Tavily hit, assigns ids, downgrades fake "direct quotes" to paraphrase. Unassessed sources are recorded as rejected.
-- 2026-10-18: `call_structured`: if stop_reason == max_tokens → retry asking for a SHORTER answer.
-- 2026-10-18: LLM output size limits go in Field DESCRIPTIONS + Python trimming, not `max_length`.
-- 2026-10-18: Parallel work inside a node uses `langsmith.utils.ContextThreadPoolExecutor` (keeps traces nested).
-- 2026-10-18: Claude's offline/real test runs use `LANGSMITH_TRACING=false` so they don't clutter the user's LangSmith project.
-- 2026-10-18: Backend uses uv "src layout": code in `backend/src/ai_decision_arena/`; `.env` lives in `backend/`.
-- **2026-10-20: PIVOT to health conditions.** Same 11 nodes, new purpose. Mapping in `docs/pivot-medical.md`. Package/LangSmith names unchanged to avoid churn.
-- 2026-10-20: Three perspectives are first-class: `Perspective = research | doctor | patient`, carried on `SearchQuery → SearchHit → Evidence → CarePlan`. Research, Proposer, Critic, Judge run 3 parallel lane calls each (keeps each LLM output small, no max_tokens truncation; wall time ≈ one call).
-- 2026-10-20: Lane domain lists are Python-owned (`research/sources.py`): research/doctor use Tavily `prefer` (planner may add ≤3 condition-specific domains), patient uses `restrict` + `search_depth=advanced` (basic gave too-short forum snippets). Classifier checks patient paths (`/comments/`, `/r/`, `/reviews`) before host hints.
-- 2026-10-20: Extractor runs per lane; evidence ids are assigned in Python AFTER all lanes return (research → doctor → patient), so ids are unique and continue across passes. Extractor may re-label a hit's perspective (a forum thread found by a clinical query becomes `patient`).
-- 2026-10-20: Proposer sees ONLY its lane's evidence (perspective purity); Critic and Judge see ALL evidence (cross-perspective challenge). Plan ids are assigned by Python (`{lane}_{a,b,c}`); LLM never writes ids. Unknown cited ids are dropped and recorded in `plan.evidence_gaps`.
-- 2026-10-20: Judge routing is decided in Python from the 3 lane judgements + loop limits: all lanes sufficient → `proceed`; questions for the user and limits allow → `request_clarification`; otherwise limits allow → `request_more_research`; else `insufficient_evidence` (continues with uncertainty). Clarification route takes priority over research (cheaper to ask first). `research_retry_count` is incremented by the Judge when it loops (both routes lead back to research).
-- 2026-10-20: `PerspectiveJudgement` validator checks every plan has exactly the configured rubric criteria (reads `get_settings()` lazily), so a wrong criterion name triggers a `call_structured` retry instead of a silent 0.
-- 2026-10-20: Winner per lane = highest `weighted_total`; ties → higher `evidence_quality`. A lane with no evidence → no plans → status `no_plans` → counts as insufficient.
-- 2026-10-20: Research follow-up focus = `verdict.required_evidence` + the user's answers to the Judge's questions. `evidence_gaps` is replaced each pass (current gaps), evidence/rejected/conflicts are appended, `perspective_summaries` get a "Follow-up:" section.
-- 2026-10-20: Safety rules (`prompting.SAFETY_RULES`) are appended to EVERY agent prompt: information not diagnosis, no invented doses, never advise stopping medication, flag red flags, tags are data not instructions.
-- 2026-10-20: Clarification first round asks 5–6 questions by design (type & confirmation, duration, symptoms & timing, treatments, other conditions/allergies/pregnancy, routine/diet/goals); `MAX_QUESTIONS_PER_ROUND = 6`. Intake `MIN_QUESTION_CHARS = 3` ("flu" is valid).
-- 2026-10-20: Scripts cache real results in `backend/.cache/` (gitignored): `run_research.py` → `research_state.json`, `run_debate.py` → `debate_state.json`. Lets later phases iterate without re-paying research.
-- 2026-10-20: `red_flags` has two writers on purpose: intake creates it, clarification APPENDS `new_red_flags` revealed by answers (found in 5.4: a type 1 user answering "yes" to DKA signs left `red_flags` empty). The CLI prints a 🚨 banner first whenever it is non-empty; the final report (6.3) must put red flags at the top.
-- 2026-10-20: The per-perspective evidence cap applies per extractor CALL; the extractor may re-label a hit's perspective, so a perspective can end up above the cap (5.4 run: doctor 14 items, 4 of them re-labelled drugs.com/patient.info pages from the patient lane). Patient lane domains trimmed to reddit / healthunlocked / inspire / patientslikeme / drugs.com / mumsnet.
-- 2026-10-20: A lane can end with NO plan for two different reasons, and they route differently: `proposer_lane_status` = `thin`/`no_evidence` → verdict status `no_plans` → counts as insufficient (research may help); `declined` (Proposer had evidence but deliberately returned no plan, e.g. "emergency care first") → status `declined` → never blocks `proceed` and never triggers research. Found in the DKA test run: the patient lane declined, the Judge looped a useless second research pass + debate round, then hit the cap.
-- 2026-10-20: PROGRESS EVENTS: nodes call `progress.report(node, message)` at sub-steps (planner done, each search, each extractor/proposer/critic/judge lane, judge decision). Implemented with LangGraph `get_stream_writer()` → delivered live under `stream_mode="custom"`, also from the parallel worker threads (verified). Outside a graph run it is a no-op (RuntimeError caught); under plain `invoke` LangGraph ignores it. Events are NOT state and NOT traced; they exist only for people watching. Phase 8: the API forwards these over SSE (or keeps the latest per thread for polling); Phase 9: the activity view renders them.
-- 2026-10-20: All run scripts go through `print_helpers.stream_graph(graph, input, config)` which streams `["custom", "updates", "values"]`: `·` lines for progress, `✔` per finished node, red flags immediately, and returns the last `values` chunk as the final state (works without a checkpointer too).
-- 2026-10-20 (superseded by the above): `run_graph.py` STREAMS the graph (`stream_mode="updates"`): one line per finished node, red flags printed the moment intake/clarification record them, interrupts arrive as an `__interrupt__` chunk, final state read from `graph.get_state(config).values`. Pattern to reuse in the FastAPI layer (Phase 8) for live progress.
-- 2026-10-20: Design choice (open for user): when red flags are present the graph still researches and debates (plans lead with emergency guidance). Alternative: pause after clarification and ask whether to continue. See Open questions.
-- 2026-10-20: EMERGENCY RULE in the Proposer: when `red_flags` is non-empty each lane returns exactly ONE "Emergency first: ..." plan (urgent care now, then that lens's after-assessment guidance) instead of declining, so the user still gets three perspectives. Found in the secondary-diabetes run: doctor lane built an emergency plan while research and patient lanes declined → only one perspective. Declining remains for lanes with no usable evidence. The Critic is told an emergency-first single plan is correct and to check its urgency is unconditional.
-- 2026-10-20 (Phase 6): ERROR HANDLING = wrapper + guarded edges, not try/except per node. `recoverable(name)` converts any exception into `state.error` (safe `ErrorRecord`: node, exception type, category, message ≤500 chars, recoverable flag) and re-raises LangGraph's `GraphBubbleUp` (interrupts are control flow). `graph.connect()` makes every edge conditional with an `error_recovery` branch. Categories: invalid_input (never retried), invalid_llm_output / rate_limit / timeout / 5xx (retried with backoff 1 s, 2 s up to `MAX_NODE_RETRIES`), unknown = bug (never retried). `completion` and `error_recovery` themselves are not wrapped (pure Python, terminal).
-- 2026-10-20 (Phase 6): SESSION TIME BUDGET counts ACTIVE seconds only (time inside nodes, added by the wrapper), so a user who leaves a pause open for an hour is not penalised. Over budget → no new loops or retries (`limits.loops_allowed`, `time_budget_left`).
-- 2026-10-20 (Phase 6): ONE field for follow-up research: `research_focus`, written by whichever node sends the graph back (judge, evidence_checker, human_review) and cleared by research. Replaces the earlier "read verdict.required_evidence" logic.
-- 2026-10-20 (Phase 6): Evidence Checker verifies the three WINNING plans only (cost: 3 calls); runners-up stay unverified and the report says so via verification counts. Evidence verification status is aggregated from the claims that cite it (contradicted > unsupported > irrelevant; verified only if every citing claim is verified; mixed → partially_supported). Safety instructions ("seek care", "ask your doctor") are not claims.
-- 2026-10-20 (Phase 6): Human review actions are validated in Python against the limits: reject needs feedback; research-type actions need a research pass left (else the error lists what is still possible); `modify_profile`/`add_context` merge the facts then re-check (research if possible, else a debate round, else recorded only). Reject when no round is left → final report records the rejection (`is_conditional`).
-- 2026-10-20 (Phase 6): Final report `is_conditional` = Judge decision ≠ proceed, or any lane not sufficient, or an unverified material claim remains, or the user rejected, or red flags are present. Completion: `completed` / `completed_with_uncertainty` / `failed` (never completed without a report) / `stopped_by_user`.
-- 2026-10-20 (Phase 6): `run_report.py` injects the cached debate state with `graph.update_state(config, state, as_node="judge")` and continues the real graph from there (checker → review → report), so Phase 6 can be tested in ~1 minute without research.
-- 2026-10-20: RED-FLAG PAUSE (user decision: option 1, human in control). `nodes/red_flag_ack.py`: `pending_red_flags(state)` = red_flags minus `red_flags_acknowledged`. Two entry points: `route_after_intake` (emergency sign in the first message → pause BEFORE the questions) and `route_after_clarification` (answers revealed one → pause before research). Payload `{type: "red_flag", red_flags, resume_to, options}`; reply `{"action": "continue"|"stop"}` validated by `RedFlagResponse`, invalid → re-interrupt with `error`. `continue` → resumes at `red_flag_resume_to` and records the flags shown at that moment; `stop` → END with status `stopped_by_user`, nothing researched. The decision is made ONCE per session (`pending_red_flags` is empty once `red_flag_action == "continue"`): later flags are shown in the banner immediately but never pause again. First version re-paused for "new" flags; the user's test showed two prompts within a minute, partly because the LLM reworded already-acknowledged flags (text matching is not semantic). Clarification prompt now says: only genuinely new signs, never reword existing ones. Statuses added: `awaiting_red_flag_ack`, `stopped_by_user`. No LLM in the pause node.
-- 2026-10-20: After "continue" the emergency rules still apply (one emergency-first plan per lane, no Judge loops): consent to continue is not consent to wait twice as long.
-- 2026-10-20: EMERGENCY = NO LOOPS in the Judge: when `red_flags` is non-empty, `can_loop` is False, so an insufficient lane yields `insufficient_evidence` (continue with uncertainty) instead of a research retry or clarification detour. Found in the "unsure type + deep breathing" run: a second research pass + debate added 2.3 min after the user had already been told to seek urgent care. The Judge prompt also says to judge emergency-first plans on their urgent-care guidance; thin after-assessment evidence lowers evidence_quality rather than sufficiency.
-- 2026-10-20: Observed real timings (progress lines): research 45–53 s (planner 5 s, 9 searches 4 s, extractors 35 s), proposer 13–28 s, critic 25–67 s (slowest node; one lane with 3 plans and 14 points took 43 s), judge 11–21 s. Speed-up candidates if needed later: cap critic points at 4 per plan, shorter evidence excerpts for the critic, Haiku for the extractor.
-- 2026-10-20: Clarification rule "ONE question = ONE answer" (no sub-question packs): a 4-part blurred-vision question got the answer "yes". Second occurrence of compound questions; if it recurs, enforce in Python (reject questions containing more than one "?" or " or " chains) rather than in the prompt.
-- 2026-10-20: Improvement idea (not done): follow-up research re-searches ALL three lanes; a lane-targeted follow-up (only lanes named in `required_evidence`) would save ~40 s and tokens per loop. Needs the `ResearchPlan` all-lanes validator relaxed for follow-ups.
-- 2026-10-20: Known limitation: `evidence_strength` and `prevalence` come from snippets only; prevalence is often a gap (3 lanes reported it missing in the first real run). Consider a dedicated prevalence query if the final report needs it reliably.
+---
 
-- 2026-10-20: Red-flag withdrawal rule (user agreed): clarification may withdraw a flag ONLY when a later user answer contradicts its factual premise, never because a symptom seems mild; Python accepts exact text only (case/space-insensitive), moves it to `withdrawn_red_flags` (never deleted, shown in the report), and a withdrawn flag still triggers the one-time pause if no decision was made yet.
+## 5. Human pauses: clarification and approvals
 
-- 2026-10-21: select_plan accepts ONLY the Judge's three winners (user chose B over "any plan, swapped into the report"): a non-winner would have been accepted but silently vanished from the report.
+Mechanics (same for every pause; proven by `await_clarification`):
+1. A dedicated `await_*` node calls `interrupt(payload)`; **no LLM call in that node** (LangGraph re-runs the node from its first line on resume).
+2. The payload carries `type` and everything the UI needs to render (questions / brief markdown / plan markdown / preview status).
+3. The API exposes it as `pending` on `GET /api/decisions/{id}`; the client answers with `POST /resume` whose body is a discriminated union on `type`; the API checks `type` matches, the node re-validates and re-interrupts with `error` on bad input.
+4. The reply is stored in state (feedback, approval timestamp); a pure-Python `route_after_*` reads it.
+5. Checkpoints make every pause survive restarts; `{"type":"continue"}` resumes an interrupted run.
 
-- 2026-10-21: Checkpoints in PostgreSQL via `langgraph-checkpoint-postgres` + `psycopg[binary]` (psycopg 3). `postgres_checkpointer()` is a context manager (open connection → `setup()` → yield → close); the graph must be used inside the with-block. LangGraph owns its 4 tables (`checkpoints`, `checkpoint_blobs`, `checkpoint_writes`, `checkpoint_migrations`); our own tables come in 7.3 via Alembic. `run_graph.py` defaults to Postgres; `run_report.py` stays on InMemorySaver (cached demo).
+| Pause `type` | Payload | Resume body | Routes to |
+|---|---|---|---|
+| `clarification` (exists) | `questions`, `round` | `{answers}` | `clarification` |
+| `brief_review` | `brief_markdown`, `brief`, `validation_summary`, `unresolved_questions`, `round` | `{action: approve \| request_changes, feedback, target: auto \| requirements \| research \| proposal \| wording}` | approve → `planner`; `auto` → small `FeedbackRouting` LLM call picks the target; else the named node |
+| `plan_review` | `plan_markdown`, `plan`, `round` | `{action: approve \| request_changes, feedback}` | approve → `implementer`; changes → `planner` |
+| `change_request` | `preview`, `build_results`, task summary | `{action: change \| replan \| finish, request}` | change → `implementer` (new task); replan → `planner`; finish → `completion` |
 
-- 2026-10-21: App tables via SQLAlchemy 2.x + Alembic (`backend/migrations`, URL from DATABASE_URL via `db/engine.sqlalchemy_url()` → `postgresql+psycopg://`). `env.py` `include_object` ignores LangGraph's 4 checkpoint tables (otherwise autogenerate proposes dropping them). Completion node persists session + evidence + report in ONE transaction with `insert … on conflict do update` (unique `thread_id`, unique `(session_id, evidence_id)`, unique report per session) → retries never duplicate; a failed save → status `failed`, `database` error (report stays in the checkpoint). `PERSIST_RESULTS=false` skips saving. `user_feedback` table exists but has no writer (user: no rating prompt; Phase 8 API may write it).
+Rules: implementation never starts before **both** approvals (route guard); every revision is re-validated before it is shown again;
+user-driven loops are bounded by `max_review_rounds` (then only wording edits are accepted); each approval records what was approved
+(hash of the markdown) so a later edit invalidates the approval.
 
-- 2026-10-22 (Phase 9): LIVE VIEW = polling, not SSE. `GET /api/decisions/{id}` every 2 s while running (cheap: one `get_state` read); `GET /live` only when something finished (the frontend keys it on run_state + number of "✔ finished" lines + counters), `GET /report` once, `GET /evidence` when the tab is open. Between polls the page still moves: a 1 s clock drives elapsed timers, and per-lane sub-steps are parsed from the known `progress.report` messages (`lib/pipeline.ts` mirrors the backend wording; change both together).
-- 2026-10-22 (Phase 9): WHICH NODE IS RUNNING comes from the checkpoint: `next_nodes = snapshot.next` (while running, `[0]` is the node in progress; before the first checkpoint it is intake). `current_node` is the last node that FINISHED (nodes write it at their end). The 7 user-facing stages map many nodes to one stage (`NODE_INFO` in `lib/pipeline.ts`); loops simply move the "current" marker back, and the done/upcoming states are recomputed from it (honest, no fake progress).
-- 2026-10-22 (Phase 9): `GET /live` returns state slices validated with the existing Pydantic models (CarePlan, Criticism, PlanScore, Verdict, ClaimVerification) so the TypeScript types in `lib/api/types.ts` stay a 1:1 mirror. The session list reads `decision_sessions`, so its status is the one saved at the last pause (an interrupted run can still show "awaiting_clarification" there until it pauses again).
-- 2026-10-22 (Phase 9): CORS allows `FRONTEND_URL`, localhost:3000/127.0.0.1:3000 and, via `allow_origin_regex`, any localhost port (a second dev server on :3001 is used for Claude's own screenshot checks).
-- 2026-10-22 (Phase 9): UI conventions: one light theme (`color-scheme: light`), brand teal (`--color-brand`), perspective colours research = violet / doctor = sky / patient = amber, run states running = teal / paused = amber / interrupted = orange / finished = emerald. Pause screens mirror the backend rules client-side (reject needs feedback, select_plan only among `selectable_plan_ids`, options disabled by `limits`) so a 422/409 is rare, and the payload `error` from a re-interrupt is always shown. Agent prose goes through `<Markdown>` (react-markdown + remark-gfm + Tailwind typography); links open in a new tab.
-- 2026-10-22 (Phase 9): Chrome headless screenshots are Claude's visual check (see memory); `npm audit` reports only dev-time, transitive issues (eslint-config-next's braces/micromatch chain from create-next-app, and postcss-selector-parser under @tailwindcss/typography); nothing ships to the browser from them.
+---
 
-- 2026-10-22: **Two faces of one graph.** `/admin` = full mode (every pause and loop visible). `/` = patient chat = quick mode: same nodes, `state["mode"] = "quick"`. Quick mode skips the red-flag pause (`pending_red_flags` empty; flags still recorded) and the human review (evidence_checker/judge → final_report), and uses `QUICK_OVERRIDES` (config.py): Haiku (`QUICK_MODEL`), 2 template queries per lane (no planner LLM), 4 sources per lane, 1 plan per lane, 1 debate round, 0 research retries, 1 clarification round, short-output note in every prompt (`llm.QUICK_MODE_NOTE`). Critic + Evidence Checker skipped unless `QUICK_DOUBLE_CHECK=true` (+~20 s). Measured: 30-40 s from the last answer to the summary (was 65 s with everything on).
-- 2026-10-22: Mode switching via a ContextVar: the error-recovery wrapper runs every node inside `config.session_mode(state["mode"])`, and `get_settings()` returns the quick settings there. `ContextThreadPoolExecutor` copies the context, so the 3 lanes see it too. LLM clients are cached per (model, max_tokens, timeout, retries).
-- 2026-10-22: Onboarding summary (`OnboardingSummary`, state `onboarding_summary`) is written in parallel with the report narrative, quick mode only. By user decision: no alerts / emergency wording / "see a doctor now" in it; the report keeps every red flag, and the chat agent is told to bring up urgent help calmly if the patient describes an emergency.
-- 2026-10-22: Chat = one streamed Claude call per message (`chat.py`, `CHAT_MODEL`, default Sonnet), not a graph. Context = profile + answers + compact report + the summary (in the system prompt: Anthropic needs the first message to be the user's). Messages in the new `chat_messages` table (migration `628680ee0dc4`, also adds `decision_sessions.mode`); onboarding itself is read from the checkpoint. `POST /api/chats/{id}/messages` streams `text/plain`; the frontend reads it with `response.body.getReader()`.
+## 6. Session isolation and execution
 
-## Open questions for user
-- (none right now; the emergency-behaviour question was answered 2026-10-20: pause and ask → built as 5.6)
-- Rename the Python package `ai_decision_arena` → e.g. `health_arena` (and LangSmith project)? Mechanical but touches every import and the uv project name. Claude's suggestion: do it in Phase 8 before the API exists, or never.
+**Layout** (`generated_projects/` is git-ignored; `session_id = thread_id`):
+```
+generated_projects/<thread_id>/
+├── app/        # the generated project; the ONLY directory the coding agent and commands may touch
+└── .builder/   # brief.md, plan.json, tasks.json, logs/<task>.log, runtime.json (pid, port, started_at), agent-session ids
+```
+**Modules (new, `backend/src/ai_decision_arena/workspace/`):**
+- `paths.py`: `safe_path(session_dir, relative)` — resolves symlinks, rejects anything outside `app/`, `..`, `~`, absolute paths outside; unit-tested against traversal and symlink escape.
+- `sandbox.py`: `run(session_dir, argv, timeout, env)` — `cwd=app/`, **scrubbed env** (minimal `PATH`, `HOME=<session>/.builder/home`, no `ANTHROPIC_*`, `TAVILY_*`, `LANGSMITH_*`, `DATABASE_URL`), executable allowlist (`npm npx pnpm node python python3 uv pip pytest git ls cat mkdir cp mv rm`), per-call timeout, output cap (20 kB), new process group, kill on timeout; returns `{argv, exit_code, stdout_tail, stderr_tail, duration}`; the LLM never sets these fields.
+- `processes.py`: dev-server registry (`project_runtimes` table): allocate a port from `preview_port_range`, start with `PORT` injected, health-check `http://127.0.0.1:<port>/` (any HTTP answer within 60 s), stop (process group), restart, idle cleanup trigger.
+- `agent.py` (M8): the coding agent adapter — see section 8 / M8 for the decision between Claude Agent SDK and an own tool loop. Either way: cwd pinned to `app/`, path guard + command policy enforced in a pre-tool hook, max turns / time / tokens per task, the agent's own settings and the user's Claude Code config are **not** loaded, generated files are treated as untrusted content.
+**Policy:** no secrets are written into `app/` (generated apps that need keys get a `.env.example`); no `git push`, `npm publish`, `sudo`, `docker`, `curl | sh`, process signals to unknown pids; destructive operations outside the task's files require a user approval pause (reuse `change_request`-style interrupt) or are denied.
+**Preview:** the frontend iframes `http://localhost:<port>`; the backend reports `preview.state ∈ starting|ready|failed|stopped`, `url`, `last_error`, `log_tail`; `preview.ready` is set only after a successful health check.
+**v2 (M12, optional):** run each session's commands and dev server in a Docker container (`node:22` / `python:3.13`, only the session dir mounted, memory/CPU/pids limits) — the Docker daemon must be running; v1 uses host subprocesses with the controls above.
 
-## Progress log
-- 2026-10-18: Phases 0–4 built and verified (technical version). Details in git history.
-- 2026-10-20: **Pivot to health conditions.** Rewrote `schemas.py`, `state.py`, `config.py`, intake, clarification, planner, search, sources, extractor, research node; added `prompting.py`, `docs/pivot-medical.md`; updated all scripts, `.env.example`, README. Offline smoke test (fake Claude + Tavily, 29 LLM calls): full graph incl. one judge→research loop, all assertions passed.
-- 2026-10-20: Real check (tracing off) — intake "I have diabetes" → 8 missing items, 0 red flags; clarification round 1 asked 6 questions (type/confirmation, duration, symptoms, treatments, other conditions/pregnancy, routine/goals); round 2 with answers → no more questions, facts merged into profile/symptoms/constraints, 6 explicit assumptions.
-- 2026-10-20: Real `run_research.py` on the demo type-2 profile: 9 queries, 28 evidence (research 9 / doctor 9 / patient 10; 15 direct quotes, 1 downgraded), 8 rejected with reasons (duplicates, PCOS thread, wrong drug combination), 9 gaps (prevalence missing in all 3 lanes), 4 conflicts. Patient lane now yields real Reddit + Drugs.com reviews.
-- 2026-10-20: Phase 5 built: proposer / critic / judge nodes + graph wiring + `run_debate.py` + `print_debate`. Real `run_debate.py` (tracing off, 134 s): 7 plans (research 3 / doctor 2 / patient 2), 7 criticisms (3–6 points each, mostly evidence-based), per-lane winners research_c 6.50 / doctor_a 6.00 / patient_a 5.83; patient lane judged insufficient (anecdotal) → verdict `request_clarification` with 4 required-evidence items. Plans were honest about gaps ("timeline: not covered by the evidence") and kept all medication decisions with the doctor.
-- 2026-10-20: Fixes after the real run: (a) planner guarantees one prevalence/timeline query per lane on the first pass (prompt rule + Python fallback `_ensure_outlook_query`; verified with a real planner call: research & patient lanes complied, doctor lane got the fallback); (b) Judge asks ≤2 questions per lane only if the answer changes the winner, exact duplicates removed in Python; (c) follow-up research focus no longer depends on matching the Judge's question text.
-- 2026-10-20: **5.4 verified by user.** `run_research.py`: 25 evidence (research 6 / doctor 14 / patient 5), 11 rejected with reasons, prevalence now covered in research+doctor lanes. `run_debate.py` (134 s): 8 plans, winners research_c 7.10 / doctor_a 6.95 / patient_b 5.35, patient lane insufficient → `request_clarification`, 3 Judge questions. `run_graph.py` with a type 1 scenario: 2 clarification rounds (round 2 triggered correctly by "type 1 + tablets only + lows"), research re-planned for type 1 (DKA, insulin, hypoglycaemia queries), verdict `proceed`, all three winners put urgent care / insulin review first. LangSmith: per-lane LLM runs nested under each node, 9 tavily_search under research, full run visible as a 3-turn thread (`revision_id 1d77869-dirty`).
-- 2026-10-20: Fixes from 5.4: (1) clarification now returns `new_red_flags` and merges them into `red_flags`; CLI banner `print_red_flags`; real re-run of the user's round-2 answers captured the DKA-sign red flag. (2) Clarification prompt: screening questions ask "which of these" instead of yes/no lists (the user's "yes" to a 5-symptom list was ambiguous). (3) Extractor rejects title-only snippets (ev_010 in the type 1 run supported no claim). (4) Patient lane domains trimmed (see decisions).
-- 2026-10-20: User ran the emergency scenario (type 1, tablets only, "all" DKA signs): screening question format worked ("Which of these do you have right now" → "all" → 6 symptoms recorded), red-flag banner shown, research and doctor lanes each produced ONE emergency-first plan (7.62 / 8.25), the patient lane's Proposer deliberately declined. Bug exposed: the Judge treated the declined lane as "no plans → more research" → second research pass (52 evidence) + second debate round → `insufficient_evidence` at the cap, with a misleading reason ("no usable evidence"). Fixed: `ProposerOutput.evidence_too_thin` + `proposer_lane_status` + Judge `declined` status (see decisions). Also: `run_graph.py` now streams progress and shows red flags immediately. Offline: full graph + declined/thin lane routes + streaming order verified.
-- 2026-10-20: User ran a secondary-diabetes scenario ("other" type, 1 year, blurred vision, tablets, "deep breathing" in round 2). Verified: round 2 triggered by the ambiguous type; red-flag banner printed at 8 s, right after clarification and before research (streaming works); research 51 s / 24 evidence; proposer 21 s, critic 25 s, judge 11 s; total 108 s; research and patient lanes `declined`, doctor lane won with one emergency-first plan (7.05); verdict `proceed` with NO loop (declined-lane fix confirmed). Follow-ups: Proposer emergency rule (see decisions; verified with a real patient-lane call on cached research + injected red flags → one "Emergency first" plan, lane status ok), compound-question rule tightened.
-- 2026-10-20: 5.5 built: `progress.py` + report() calls in intake, clarification, research (planner / per search / per extractor lane), proposer, critic, judge (per lane + decision); `stream_graph` in `print_helpers.py`; `run_graph.py`, `run_research.py`, `run_debate.py` all stream. Offline streaming test asserts progress lines appear BEFORE each node's ✔ line.
-- 2026-10-20: User verified 5.5 live: `run_debate.py` showed per-lane `·` lines with real timings (proposer 28 s, critic 95 s cumulative, judge 116 s); `run_graph.py` ("not sure" type, tablets, deep breathing) showed the banner at 8 s, all three lanes returned "Emergency first" plans (7.42 / 7.85 / 7.00), verdict `proceed` with three winners. Exposed: the Judge still looped once (patient lane "insufficient") in an emergency → fixed with the no-loops-on-red-flags rule (offline-tested: insufficient lane + red flags → `insufficient_evidence`, no retry; all sufficient + red flags → `proceed`).
-- 2026-10-20: User chose option 1 for emergencies (pause, human decides) and a SINGLE commit. 5.6 built: pause node + routes + statuses + CLI handling (`continue`/`stop`, stop prints a closing message and skips research/debate output). Offline tests: answers-revealed flags → pause (resume_to research) → invalid reply re-pauses with error → continue → no loop; stop → END `stopped_by_user` with nothing researched; intake-detected flags → pause BEFORE the clarification LLM runs → continue → questions → no second pause; streaming order incl. the pause.
-- 2026-10-20: User tested the pause with "diabetes + vomiting + fast breathing": banner + pause at 5 s before any questions ✔, wrong reply "yes go" re-prompted with the error ✔, continue → questions ✔. Then answers revealed "chest" and the graph paused AGAIN ("2 times continue"): fixed → one decision per session; later flags only show. Offline test updated (new flag after continue → no second pause).
-- 2026-10-20: User re-ran the emergency scenario after the pause-once fix: ONE pause (5 s, before questions), continue → 2 clarification rounds ("some" → asked which), later red flags (chest pain) printed only, research 66 s / 27 evidence, three "Emergency first" plans (7.10 / 7.30 / 7.30), `proceed`, no loop, ~2 min after continue. Critic findings used for two prompt tweaks in the Proposer emergency rule: never drive yourself (unconditional), don't anchor on one diagnosis (chest pain + fast breathing may be cardiac). 5.6 verified by user → ready for the single commit.
-- 2026-10-20: **Phase 6 built in one pass** (user request): evidence_checker, human_review, final_report + completion, error_recovery + wrapper + guarded edges + time budget, `limits.py`, `run_report.py`, `print_report` / `ask_human_review`, `run_graph.py` now ends with the report and saves `.cache/final_state.json` + `final_report.json`. Verified mid-graph injection (`update_state(as_node=)`) and that the wrapper re-raises interrupts before building. Offline suite (fakes, 7 scenarios): normal flow → `completed` with a 3-perspective report; checker gap → focused research pass → gap persists → `completed_with_uncertainty` with the claim listed as unsupported/unresolved; reject → proposer round → approve; modify_profile → research → review; transient error retried once → completed with `errors=1`; permanent error → `failed`; invalid input → `failed` (not retried); red flags continue → `completed_with_uncertainty`, stop → `stopped_by_user` via completion; bad review replies re-prompt. Streaming test: judge → checker → review → report → completion with progress lines.
-- 2026-10-20: **6.5 verified by user.** `run_report.py` (cached type 2): checker 25 s (research 7/10 verified, doctor 9/10, patient 5/10), approve → report 10 s → `completed_with_uncertainty`; report reads well (agree/differ/uncertainties/next steps all grounded). `run_graph.py` (type 1, "yes weekly" insulin, deep breathing): 2 clarification rounds, red-flag pause → continue, research 46 s / 26 evidence, three emergency-first plans (7.10 / 7.85 / 6.65), checker found 2 material gaps → NOT looped (red flags) → listed as unresolved ✔, review showed "another round / more research NOT possible (red flags present)" ✔, select_plan patient_a → `completed_with_uncertainty`, 153 s active, 0 errors. Issues found (→ 6.6): (1) `condition_name` / `case_summary` stay as intake wrote them ("diabetes", "no details about type…") although clarification learned "type 1"; (2) red flags are append-only, so the round-1 flag "no insulin reported" survives after the user said "yes weekly"; profile also keeps contradictory `current_treatment: no` next to `insulin_use: yes, weekly`; (3) `select_plan` only adds one line to the report; (4) CLI prints "▶ Resuming. Research (~1 min)…" before a 2nd clarification round too; (5) CLI cuts unresolved questions at 160/220 chars (JSON is complete).
-- 2026-10-20: **6.6 built.** `ClarificationResult` + `withdrawn_red_flags` / `refined_condition_name` / `refined_case_summary`; prompt rule to reuse a profile key when an answer corrects it; `_merge_red_flags` in clarification; `pending_red_flags` includes withdrawn flags (pause never skipped); `PerspectiveResult.is_user_choice` + `<selected_plan>` in the narrative prompt; `FinalReport.withdrawn_red_flags`; CLI: choice printed first with ⭐, withdrawn flags shown live and in the report, condition change shown live, no truncation of unresolved questions / report sections, honest resume message. Offline: 5 checks passed. Real clarification call replaying the user's round-2 answers: condition → "type 1 diabetes", new case summary, "no insulin reported" withdrawn with reason "yes weekly", `current_treatment` overwritten to "insulin, weekly", DKA flag kept → pause.
+---
 
-- 2026-10-21: **6.6 verified by user** (type 2 scenario, select patient_a): `🩺 condition now: type 2 diabetes` shown live, refined summary in the report, honest resume message, ⭐ YOUR CHOICE printed first and the overview + next steps focused on the chosen plan, no truncated lists; `completed` in 212 s. The withdrawal path wasn't exercised live (no red flags), only by the replayed real call in 6.6. Gap found: the plan-id prompt offered all 9 plans and a non-winner was accepted but not shown → 6.8.
-- 2026-10-21: 6.8 built: `_winner_ids` in human_review; payload `all_plan_ids` → `selectable_plan_ids` (winners only); a non-winner re-prompts with "Only the three shown plans can be selected: …". Offline on the cached run: research_b rejected, patient_a accepted → final_report.
+## 7. Platform capabilities (for the builder itself, not for generated apps)
 
-- 2026-10-21: **6.8 verified by user** (`run_report.py`, cached type 2): `research_b` and `winner` both refused and the menu re-shown, `research_a` accepted → ⭐ YOUR CHOICE first, overview names the choice. This run also exercised the checker loop live: patient lane gap → focused research pass (52 evidence) → debate round 2 → limits reached (2 rounds / 2 retries) → remaining gaps listed as "Unverified", `completed_with_uncertainty`, 258 s, 1 unsupported claim surfaced ("nocturia link stronger in men"). Bug: the refusal reason was not printed (`run_report.py` printed payload errors only for clarification) → fixed: `ask_human_review` prints the error right above "What do you want to do?"; `run_graph.py` no longer double-prints it for the review.
+| Area | Exists | Improve / introduce (milestone) |
+|---|---|---|
+| **10.1 Hallucination prevention** | Python-owned evidence ids/URLs, quote check, id filtering, critic/judge/checker, assumptions list, unresolved questions | Claim labels + Python-assembled references in the brief; validator rejects unknown ids and unlabelled claims; build/test/preview facts come only from subprocess exit codes and HTTP checks; "not verified" shown in UI (M4, M9, M10) |
+| **10.2 Prompt rot** | Prompts inline in nodes, shared blocks in `prompting.py` | `prompts/` registry: one module per agent with `VERSION`, owner, changelog; `prompt_versions` recorded per session; eval cases per agent in `backend/evals/<agent>/*.json` + `scripts/run_evals.py`; rule: change a prompt → bump version → run its cases (M11) |
+| **10.3 Prompt management** | XML-tag separation of user input / evidence / instructions | Registry above; system prompts stable for prompt caching (`cache_control` on the system block via `ChatAnthropic`); structured outputs everywhere (already); one place for shared rules (`BUILDER_RULES`) (M1, M11) |
+| **10.4 Tool management** | Chat tools with Pydantic schemas, bounded rounds, `<source>` wrapping, `handle_tool_error` | Tool registry (research, workspace, sandbox, preview, knowledge, memory) with schemas, permission boundaries (path guard, allowlist, network only for package installs), timeouts/retries, `tool_calls` log table + LangSmith (M7, M8, M11) |
+| **10.5 Skills & subagents** | `skills/` loader, research sub-agent, lane fan-out | Builder skills (`nextjs-app`, `fastapi-service`, `testing`, `ui-basics`); subagents: `researcher` (exists), `reviewer` (before a task is marked done), `debugger` (on failing verify); spawn only on review/failure, capped; task ownership in `implementation_tasks` (M8, M11) |
+| **10.6 Memory** | STM = state + Postgres checkpoint; LTM = `patient_memories` per browser id; context trimming | Rename to `user_memories` (preferences like preferred stack); approved brief/plan versions in `project_artifacts`; invalidate on re-approval; cap `implementation_log` and summarize old tool results; scope every read by `user_id` + `thread_id` (M1, M8, M11) |
+| **10.7 Guardrails** | Data-not-instruction tags, `SecretStr`, loop caps, time budget, model fallback, forget-me endpoint, container sandbox for the backend | Workspace path guard, command policy, env scrub, process limits, approval pause for destructive ops, security event log, no secrets in generated code, generated files untrusted in prompts (M7, M8) |
+| **10.8 Triggers / events** | Routing functions, interrupts, `GraphRunner`, check-in scheduler | Explicit transition table (section 4 + 5); scheduler repurposed: stop idle previews, clean orphan processes on startup (M9, M11) |
+| **10.9 Prompting strategy** | Roles, structured schemas, reasoning-first judge, few-shot queries | `BUILDER_RULES`; per-task context only (task + plan excerpt + brief excerpt + file list); stop/escalate rules in implementer; regression cases (M1, M8, M11) |
+| **10.10 Knowledge** | `knowledge_docs` (FTS) with curated docs + session evidence | Curated builder docs (stack cheat-sheets with sources) replace health docs; session evidence kept per `thread_id`; freshness = `retrieved_at` shown; no vector DB until a measured need (M11) |
+| **10.11 Evaluation / observability / cost** | LangSmith traces, metrics at completion, progress lines | `token_usage` per node from `usage_metadata` + price table → USD; session budget stops new loops; `/metrics` endpoint; eval runner + E2E regression script; failure counters (M11) |
 
-- 2026-10-21: **7.2 built.** `uv add langgraph-checkpoint-postgres psycopg[binary]`; `checkpointing.py`; `run_graph.py` rewritten: argparse (`question…`, `--resume THREAD_ID`, `--memory`), everything inside the saver's with-block, resume handles 3 cases (paused → re-show the pause from `snapshot.interrupts`, stopped mid-node → `stream_graph(None)`, finished → re-print), Ctrl+C / EOF at a pause prints the `--resume` command instead of a traceback. Real check (tracing off), ONE session over THREE processes: (1) new run → stopped at Q1; (2) `--resume` → same questions instantly (no LLM call), answered → research → debate → checker → stopped at review; (3) `--resume` → approve → report, `completed`, `active_seconds` 225.6 carried across processes. DB: 14 checkpoints, 1 thread.
+---
 
-- 2026-10-21: User's 7.2b try: Ctrl+C pressed WHILE clarification was running (not at a pause) → friendly message printed, but Python waited for the in-flight Claude call in LangGraph's worker thread and a 3rd Ctrl+C printed a `threading._shutdown` traceback; then `--resume` without an id failed. Fixed: one try/except around the whole run (new session, resume, pauses) → `stop()` prints the resume command and exits with `os._exit(130)` (doesn't wait for worker threads; last finished step is already saved); `--resume` with no id = latest session (`saver.list(None, limit=1)`, checkpoint ids are time-ordered). Verified: latest = the user's session, `next=('clarification',)`, 0 interrupts, all 6 answers saved → resume re-runs clarification from the answers.
+## 8. Milestones (do in order; each ends with its verify script green, then the user commits)
 
-- 2026-10-21: **7.2 verified by user.** `run_graph.py --resume` (no id) picked the latest session (stopped mid-clarification), re-ran clarification from the 6 saved answers (condition → type 2 diabetes), research 50 s / 24 evidence, debate, checker, review → approve → `completed`, 205 s, 0 errors. DB showed 2 threads (6 and 14 checkpoints). Committed.
+Conventions: `uv run pytest` must stay green after every milestone; real-API checks live in `backend/scripts/verify_mN.py` and print
+`PASS`/`FAIL`; API contract changes land in `frontend/src/lib/api/types.ts` in the same milestone; `handoff.md` progress log updated.
+Each milestone ends with its **Commit:** line, the short commit message the user uses (`M<N>: <what>`).
 
-- 2026-10-21: **7.3 built.** `uv add sqlalchemy alembic`; `db/engine.py`, `db/models.py`, `db/repository.py`; completion_node(state, config) saves via `save_completion`; `alembic init migrations` + custom `env.py`; migration `47de46d6c98d create app tables` (autogenerated, reviewed: only our 4 tables + indexes). Verified: upgrade → downgrade (only LangGraph tables + alembic_version left) → upgrade; `alembic check` = no differences. Real DB: saved the user's last run (thread 4abb8eae…) twice → 1 session / 24 evidence / 1 report (idempotent); simulated DB failure → `failed` + `database` error; completion inside the graph got thread_id from config and saved; deleting a session cascaded its evidence.
+### M0 — Test harness + baseline (no product change) ✅ done 2026-10-24
+- Add dev deps: `pytest`, `httpx`; `backend/tests/conftest.py` with a **fake `call_structured`** fixture (returns canned schema instances per schema type) and an `InMemorySaver` graph fixture.
+- Tests: graph compiles with the expected nodes; routing functions; `limits.loops_allowed`; `sources.normalize_url/classify_source`; API smoke with `TestClient` (lifespan patched to use `InMemorySaver`, `PERSIST_RESULTS=false`).
+- `backend/scripts/verify_m0.sh`: `uv run pytest -q`, `cd frontend && npm run lint && npx tsc --noEmit`.
+- Document ports 8001/3001 in README/handoff. **Verify:** script green. **Done when:** ≥ 8 tests pass without network.
+- **Commit:** `M0: test harness and verify script`
 
-- 2026-10-21: **7.3 verified by user.** `run_report.py` → select_plan patient_a → completion printed "saved session, 25 evidence and the report to the database" → `completed_with_uncertainty`. psql: 2 sessions (4abb8eae… completed, 24627c46… completed_with_uncertainty) with completed_at; evidence_records 49 rows (24 + 25) by perspective / verification status. **Phase 7 done.**
+### M1 — Vocabulary + intake + clarification for app ideas
+- Rename state fields / schemas / config per 3.2–3.6 (one commit-sized change); `BUILDER_RULES`; new intake prompt + `IntakeResult`; clarification prompt (first round 4–6 questions: audience, objective, core features, constraints/platform/budget/timeline, success outcomes; later rounds only on material change; dedupe), `max_clarification_rounds=3`.
+- Alembic migration: rename columns (`condition_*→project_*`, `red_flags→risk_flags`, `patient_id→user_id`), table `patient_memories→user_memories`; API header `X-User-Id`; frontend types/wording for these fields.
+- **Verify:** pytest (fake LLM: non-app input rejected, 3-round cap, dedupe) + `scripts/verify_m1.py` runs real intake + first clarification round for 2 prompts and prints the questions (cheap).
+- **Commit:** `M1: app-builder vocabulary, intake and clarification`
 
-- 2026-10-21: 7.3 committed (f07e4ad). **8.1 built.** `uv add fastapi uvicorn[standard] psycopg-pool`. `api/main.py`: lifespan opens a `psycopg_pool.ConnectionPool` (autocommit, prepare_threshold 0, dict_row) → `PostgresSaver(pool)` + `setup()` + graph once; CORS for localhost:3000; error handlers (ours, FastAPI 422, unknown routes) all return `{"error": {code, message}}`. `api/runner.py`: `GraphRunner.start()` claims the session under a lock (one run per session → 409 `already_running`), streams `custom` + `updates` into in-memory progress lines, daemon threads (server stop doesn't wait), crash message kept, session row updated at pauses. `db/repository.save_session_status()` (no metrics/completed_at; completion owns those); create writes the row with status `intake`. `run_state` (running / paused / interrupted / finished) derived from the runner + `get_state()` (interrupts → paused, `next` without a run → interrupted). Resume body = discriminated union on `type` (clarification / red_flag / human_review / continue); 409 `nothing_pending` / `wrong_pause_type` / `not_interrupted`; 422 for unknown questions and select_plan ids outside `selectable_plan_ids`. Verified live: `api_flow.py --auto` (type 2 diabetes) → clarification → 205 s to review → approve → `completed`, report 200, evidence 200 (25). Error cases all returned the expected codes; killed the server during research → after restart GET showed `interrupted` (progress lines gone, as designed) → `continue` resumed from the research step. decision_sessions shows `awaiting_clarification` for a paused session.
+### M2 — Research in three domains
+- `DOMAINS=(apps, papers, tech)`, labels, topics, Tavily steering lists in `sources.py` (apps: g2, capterra, producthunt, trustpilot, app stores, reddit, HN; papers: arxiv, acm, ieee, springer, sciencedirect, semanticscholar; tech: github, stackoverflow, mdn, npm, pypi, framework docs), `classify_source`, planner prompt + `_ensure_required_topics` (≥1 `user_complaints`, `established_approaches`, `feasibility_and_risks`), extractor prompt + `FeedbackContext`, remove patient-story top-up.
+- **Verify:** pytest (classifier, required-topic fix-up, dedupe) + `scripts/verify_m2.py`: real research pass for one idea; asserts every evidence URL came from a Tavily hit, every domain has queries, summaries present.
+- **Commit:** `M2: research in three domains`
 
-- 2026-10-22: **8.1 verified by user in Swagger** (thread a774b4a3…, "I have type 2 diabetes"): POST 202 → GET paused with 6 questions → resume (exact question keys) 202 → progress lines visible while running → evidence checker found a gap → automatic 2nd research + debate round (429 s total) → human_review pause (research_a 7.75, doctor_c 7.80, patient_a 7.65) → approve → `completed`, GET /report 200 (2 research passes, 51 sources, 30 claims checked, plans used the user's answers: rice/bread, walking, metformin 500 mg, HbA1c 7.8%). Note for Phase 9: Swagger's example body for `answers` shows `additionalProp1…`; the frontend must send the exact question texts as keys. **Phase 8 done.**
+### M3 — Proposer, critic, judge, evidence checker for solutions
+- `SolutionProposal` + prompts; proposer single call (2–3 proposals, ids `proposal_a..c`, citation filter); critic per proposal in parallel (new categories incl. `copies_existing_app`); judge single call + rubric + `winning_proposal_id` + `domain_status` + unchanged routing; checker on the winner.
+- **Verify:** pytest routing with fakes (proceed / more research / clarification / insufficient, caps) + `scripts/verify_m3.py` runs the debate on the cached M2 state.
+- **Commit:** `M3: solution proposals, critic and judge`
 
-- 2026-10-22: 8.1 committed + pushed. **9.1 built.** `create-next-app` (TS, Tailwind, ESLint, App Router, src/, Turbopack) → Next 16.4.2 with `cacheComponents: true` by default: the dynamic session page is a Server Component wrapping the `"use client"` `DecisionView` (reads `useParams`) in `<Suspense>`, as the bundled docs require (`node_modules/next/dist/docs/`; `frontend/AGENTS.md` says to read them — APIs differ from older Next). `LayoutProps`/`PageProps` are generated types (exist after `next dev`/`build`). API client: one function per endpoint, `ApiError(status, code, message)` from our error shape, status 0 = backend unreachable, `cache: "no-store"`; `NEXT_PUBLIC_API_URL` (public, no secrets) in `.env.local` / `.env.example` (gitignore exception added). `useDecision`: polls while `running`, stops on paused/finished, retries every 5 s when unreachable / 5xx, stops on 404; `refresh()` after a resume. Backend CORS now also allows `http://127.0.0.1:3000`. Checks: lint, `tsc`, `next build` OK; pages 200; CORS preflight OK for both origins.
+### M4 — Brief writer + validator
+- `ProblemBrief`, `brief_writer` (Python facts → one LLM call → Python assembles references from cited ids → `render_brief_markdown`, word budget ≈ 1 page + appendix), `BriefValidation` with deterministic checks (unknown ids, unlabelled claims, invented targets, word count, required sections) + LLM checks (the 9 criteria of the spec), routing with `max_brief_revisions`, `clarify` route.
+- **Verify:** pytest (deterministic checks, revision cap, clarify route) + `scripts/verify_m4.py` on cached M3 state; prints the markdown.
+- **Commit:** `M4: problem brief writer and validator`
 
-- 2026-10-22: 9.1 committed (23ed864). **9.2 + 9.3 + 9.4 built in one pass** (user asked for the whole of Phase 9 with a UI/UX-lead-quality design and "never a second where the user sees nothing"). Backend: `GET /live`, `GET /api/decisions`, richer status (`current_node`, `next_nodes`, counters), CORS regex. Frontend (`npm i react-markdown remark-gfm lucide-react`, `-D @tailwindcss/typography`): design tokens in `globals.css`; `lib/pipeline.ts` (7 stages, node → stage, per-node headline / plain-words "doing" / usual duration, sub-step parsing from progress lines); `lib/format.ts`; hooks `useDecision` (+ `lastUpdate`, `firstSeenRunning`), `useNow` (1 s clock), `useFetch` → `useLive` / `useReport` / `useEvidence` / `useSessions`; `components/ui` (Button, Badge, Card, Callout, Tabs, Markdown, EmptyState, KeyValueList, BulletList, Spinner); home (hero, form with examples + ⌘Enter + collapsible context, How it works, Recent sessions); session (SessionHeader, PipelineStepper, NowPanel, ActivityFeed with per-agent groups + durations + stick-to-bottom, ClarificationForm, RedFlagDecision, HumanReviewPanel, InterruptedPanel, RedFlagBanner, CaseCard, DecisionView orchestrator with Plans & debate / Evidence / Your profile tabs); report (ReportView, PerspectiveCard, PlanDetails, ScoreBars, ComparisonGrid); evidence (EvidencePanel with lane / status / text filters); debate (DebateView: lane summaries, Judge verdict, all plans with winner badges, Critic counts, Evidence Checker results). Checks: `tsc`, eslint (React Compiler rules: no setState in effect bodies), `next build` all clean. Live check on a scratch stack (backend :8001 with tracing off, frontend :3001, headless Chrome screenshots): new type 2 diabetes session → questions screen → answers via API → live panel showed planning / "6 of 9 searches" / "1 of 3 lanes extracted" with lane chips, then Proposer / Critic / Judge / Evidence check with lane progress and ticking timers; plans + scores appeared under the tabs as each agent finished; review screen with 3 winners; `select_plan doctor_a` → "Writing your report" → report with ⭐ Your choice, comparison grid, activity log incl. the Saving step. Old sessions: finished (a774b4a3…) renders the report with "no live log"; interrupted (36340e58…) shows Continue; unknown id shows "Session not found"; backend down shows the retrying banner. Phone width (500 px) stacks cleanly.
+### M5 — Brief review pause + API + admin UI
+- `await_brief_review`, `FeedbackRouting`, resume union `BriefReviewResume`, `GET /api/decisions/{id}/brief`, `project_artifacts` table, `types.ts`, `BriefReviewPanel` in `DecisionView`, stepper stages.
+- **Verify:** pytest API tests (wrong type → 409, approve → planner next, request_changes targets) + `scripts/api_flow.py --auto` extended to approve the brief.
+- **Commit:** `M5: brief review pause and API`
 
-- 2026-10-22: 9.5 skipped for now; **9.6 built** (patient chat). Backend: `mode` on create + session list (`?mode=quick`), quick settings + routing, `OnboardingSummary`, `chat.py`, `api/chat.py` (GET transcript, POST streaming message), `api/errors.py` (ApiError moved out of main.py so the chat router can use it), migration applied locally. Frontend: route groups `(admin)` (old header/footer layout, `/admin`, `/decisions/[id]`) and `(chat)` (`ChatShell` with sidebar + recents, `NewChat`, `ChatView`, `Composer`, `WorkingChip`, `Messages`), `lib/chatStages.ts` (node → chip label), `useStoredList` (onboarding answers survive a reload until all are sent), `Markdown dark`. Checks: lint, tsc, `next build` clean. Live on a scratch stack: 5 quick runs, 30-40 s after the answers (one 56 s outlier: all Tavily calls hung → quick Tavily timeout cut to 6 s); streamed chat reply in ~6 s, warm and specific; screenshots of home, intake chip, question 1 of 6, "Researching… (13s)", "Judging…" at 500 px, finished summary + chat. Full mode still pauses with 6 questions. Test sessions created during this check are in the local DB (sidebar recents: several "Type 2 diabetes", "Migraine", "High blood pressure").
+### M6 — Planner (Opus 5.5) + plan review pause
+- `call_structured(..., model=...)` parameter; `ImplementationPlan` + Python checks (unique ids, DAG, allowlisted commands); planner prompt; `render_plan_markdown`; `await_plan_review`; API + UI panel; model availability check at startup.
+- **Verify:** pytest (DAG/command checks, revision cap, guard "no implementer without both approvals") + `scripts/verify_m6.py` on a cached approved brief (one Opus call).
+- **Commit:** `M6: Opus planner and plan review`
 
-- 2026-10-22: **Summary rewrite (9.6 follow-up).** User found the onboarding summary vague ("regular meals and steady sleep") and the doctors section opened with "contact emergency services" (red flag: weakness on one side) despite the prompt. Changed: `OnboardingSummary` doctors/patients/research fields are now markdown bullet lists (3-5 concrete bullets: what / how much / when, bold topic first); `SUMMARY_PROMPT` has bad/good examples and says to skip emergency steps even with red flags or an emergency-first plan; the summary call now gets full plan lists + `source_claims` from each winner's evidence (`_summary_facts`) instead of the trimmed `_compact`; max_tokens 1200 → 2000. Frontend `SummaryMessage` renders each section with `Markdown dark`. Replayed on the user's migraine session (d1ccddf9…): concrete bullets (headache diary, 30-60 min exercise, caffeine, low-GI diet trial), no emergency wording. Note: the chat now shows no stroke/red-flag warning anywhere (the full report still has it).
+### M7 — Workspace, sandbox, processes
+- `workspace/paths.py`, `sandbox.py`, `processes.py`, `project_runtimes` table, `generated_projects/` in `.gitignore`, orphan cleanup at startup.
+- **Verify:** pytest (traversal, symlink escape, env scrub, timeout kill, output cap, allowlist) + `scripts/verify_m7.py`: creates a workspace, runs `npm init -y`, starts a tiny static server, health-checks, stops.
+- **Commit:** `M7: session workspace and sandbox`
 
-- 2026-10-22: Summary round 2: user's BP chat (68e6038e…) still showed paragraphs because their backend (no `--reload`) started before the change → restart needed. Prompt now: 3-7 bullets per section; group bullets get 2-4 indented example sub-bullets (from the input, else common everyday examples of that group, never new medical claims); never write what is missing / not covered (empty field if a lane has no plan; the UI hides empty sections). Replayed on 68e6038e…: sub-bullets for processed foods and potassium foods, no "not covered" lines.
+### M8 — Implementer (coding agent, one task per step)
+- **Spike first (≤ 1 h):** Claude Agent SDK (`claude-agent-sdk` 0.2.x on PyPI, needs the installed Claude Code CLI) with `cwd=app/`, `model="claude-sonnet-5-5"`, built-in Read/Write/Edit/Bash/Glob/Grep, a `PreToolUse` hook enforcing section 6, `max_turns`, no settings sources loaded. Fallback if the spike fails any of: cwd/hook enforcement, API-key auth from `.env`, usage/cost reporting, independence from the user's Claude Code config → own loop with `stream_with_tools` + 5 tools (`read_file`, `write_file`, `edit_file`, `list_files`, `run_command`).
+- `implementer` node: picks the next ready task, runs the agent with task + plan/brief excerpts + file list, then Python runs `verify_commands`; status/attempts; self-loop edge; `max_task_attempts`; budget caps; progress lines; `.builder/tasks.json`.
+- **Verify:** pytest with a fake agent (task bookkeeping, attempts, caps) + `scripts/verify_m8.py`: trivial plan (static page + one test) implemented end to end; verify commands pass for real.
+- **Commit:** `M8: implementer coding agent`
 
-- 2026-10-22: Bug: after starting a chat, clicking "New chat" showed the example buttons disabled until a hard reload. Cause: Next 16 `cacheComponents` keeps visited pages alive in React `<Activity>` (hidden, state preserved; see `node_modules/next/dist/docs/01-app/02-guides/preserving-ui-state.md`), and `NewChat` never reset `sending` after a successful send. Fix: `useLayoutEffect` cleanup in `NewChat` resets `sending` / `error` when the page is hidden (the docs' pattern). Rule for later: any "busy" state that isn't reset after navigation needs the same treatment.
+### M9 — Build check, preview, change requests, completion
+- `build_check` (install/test/build from `plan.commands`), `preview` (processes.py), `await_change_request`, routing, `GET /api/decisions/{id}/preview` (+ `restart`, `stop`), `GET /implementation` (tasks + log tail), completion persists brief/plan/runtime, `types.ts`.
+- **Verify:** pytest (routes, fix-round cap, preview ready only after health check) + `scripts/verify_m9.py`: full pipeline `--auto` on a tiny idea; `curl` of the preview URL returns HTTP 200.
+- **Commit:** `M9: build check, preview and change requests`
 
-- 2026-10-22: **Off-topic first message + chat examples.** (1) A first message intake rejects ("can i do fun", too short) used to show the raw intake error and "This chat ended". Now `ChatView` shows a static friendly reply (health support companion: doctors' advice, other patients' experiences, diet/exercise from research, example openers) and keeps the composer active: the next message starts a fresh chat via `router.replace` (shared `hooks/useStartChat.ts`, also used by `NewChat`, holds the Activity reset). `list_sessions(mode="quick")` hides failed sessions with no condition_name, so these chats leave Recents. (2) Examples are collected ONLY during onboarding research: quick plan adds a story-style patient query (`PATIENT_STORY_QUERIES[0]`); new settings `patient_lane_extra` (quick: +2 → patient lane 6 hits / 6 evidence, `lane_extra()` in the extractor) and `min_patient_stories` (quick: 2 → if fewer patient stories after the first pass, `_top_up_patient_stories` runs `PATIENT_STORY_QUERIES[1]` and extracts the patient lane only). Chat: new `<examples>` block from `state["evidence"]` (`_examples` in chat.py: patient stories with what helped / situation / one person vs several, doctor advice, research findings with strength, each with source) + prompt rules (an example in most replies, honest about one person vs many, never invent, never say nothing was found, off-topic → gentle health-companion redirect). Verified: chat replay on 68e6038e… (breakfast → DASH ideas + BHF patient story; "tired, nothing changes" → empathy + doctors' 3-6 month note + running story; "can we play a game" → companion redirect with health games); new quick migraine run 2eadeee1… = 4 patient stories (was 1 before), 46 s after answers; forced top-up → extra query ran, 6 stories, ids unique, research 36 s; screenshot of the off-topic chat. Next 16 refuses a second `next dev` in the same folder (scratch :3001 no longer works; frontend-only checks can use the user's :3000).
+### M10 — Lovable UI
+- `/` and `/c/[id]`: left = chat (prompt → questions → stage chips → brief card with Approve / Request changes + target → plan card → task progress → change composer), right = `PreviewPane` (iframe, state chip, errors, refresh/restart). `/admin` keeps the detailed view with new stages. Remove health wording, update `pipeline.ts`, `chatStages.ts`, `format.ts`, layout metadata.
+- **Verify:** `npm run lint`, `tsc --noEmit`, `next build`; manual checklist in the progress log (new idea → answer → approve brief → approve plan → preview visible → one change request applied).
+- **Commit:** `M10: Lovable UI with live preview`
 
-- 2026-10-23: **Phase 11 built** (agent anatomy, all 16 parts; table in `docs/agent-anatomy.md`). New modules: `memory.py`,
-  `knowledge.py`, `skills.py`, `tools.py`, `researcher.py`, `triggers.py`, `api/memories.py`, `api/triggers.py`; `backend/knowledge/*.md`
-  (4 curated docs), `backend/skills/*/SKILL.md` (4 skills), `scripts/load_knowledge.py`, `backend/Dockerfile`, `backend/.dockerignore`,
-  `docker-compose.yml`. Changed: Judge `reasoning` field first (CoT), planner few-shot examples, `user_case_block` adds remembered facts,
-  clarification skips remembered facts, completion saves memories + evidence → KB, chat = tool loop, `X-Patient-Id` header in
-  `client.ts`, check-in settings in `config.py`. 3 migrations (patient_memories + decision_sessions.patient_id, knowledge_docs,
-  chat_messages.kind), already applied on the local DB by Claude; KB loaded (4 curated + earlier evidence). Checked by Claude:
-  chat turn saved a memory by itself + used meal-planning format; `ask_researcher` sub-agent returned a cited answer
-  (Mayo, NCCIH, review, Reddit); check-in dry run; API endpoints on :8001. Not checked: Docker (daemon was not running).
-  The check-in scheduler is ON by default: one check-in (Sonnet call) per finished chat quiet for 24 h, max 5 per hour
-  (`CHECK_INS_ENABLED=false` to turn off).
+### M11 — Platform hardening (prompts, evals, cost, knowledge, memory, triggers, skills)
+- `prompts/` registry + versions in state/DB; `backend/evals/` cases + `scripts/run_evals.py`; `token_usage`/USD per node + session budget + `/metrics`; `tool_calls` log; curated builder knowledge docs + builder skills (replace health ones); `user_memories`; idle-preview trigger (replaces check-ins); `chat.py` re-pointed as "ask about this project" (optional).
+- **Verify:** pytest + `scripts/run_evals.py` (fake-LLM cases offline; real cases behind `--live`).
+- **Commit:** `M11: platform hardening`
 
-- 2026-10-24: **Red-flag pause removed** (user decision: "remove functionality of this node await_red_flag_ack from backend and frontend"). Deleted `nodes/red_flag_ack.py` + `RedFlagDecision.tsx`; intake → clarification always; clarification → await_clarification | research. Gone: `RedFlagResponse`, `RedFlagResume` / pause type `red_flag`, statuses `awaiting_red_flag_ack` / `stopped_by_user`, state keys `red_flags_acknowledged` / `red_flag_action` / `red_flag_resume_to`, CLI prompts in run_graph.py / api_flow.py. Kept: red flag detection, withdrawal, banner, report section, Proposer EMERGENCY RULE, Judge no-loops rule. Full mode now behaves like quick mode on red flags. Supersedes the 5.6 / 2026-10-20 RED-FLAG PAUSE decisions.
+### M12 — Optional: Docker runtime per session, session list/resume polish, cleanup CLI
+- **Verify:** `scripts/verify_m12.py` runs one session's dev server in a container (requires the Docker daemon).
+- **Commit:** `M12: Docker runtime per session`
 
-- 2026-10-24: `scripts/draw_graph.py` → `backend/arena_graph.png` + `.mmd`: readable graph picture built from the REAL edges of `build_graph()`; error_recovery edges hidden (one note), every edge labelled with its condition, loops dashed, nodes coloured (agent / pause / Python) and grouped into 5 phases. New node or edge → add it to PHASES / LABELS / LOOPS (the script stops with a message if a node is missing).
+---
 
-- 2026-10-24: **error_recovery node removed; model fallback instead** (user decision: fallback, then show the API error, session ends). `llm.call_structured`: main model (SDK retries + self-correction) → once more on `fallback_model` (full: Haiku 5.5, quick: `quick_fallback_model` Sonnet 5.5; empty = off) → `LLMUnavailableError` with each model's API error (`describe_llm_error`, e.g. "529 overloaded_error: Overloaded"). `nodes/node_wrapper.py` (`wrap_node`, was `recoverable`): session mode + active time; on an exception stores `error` (category llm_unavailable / invalid_input / unknown) + status failed; guarded edges go straight to completion (saves as failed). No node-level retries. Removed: `max_node_retries`, `error_backoff_base_seconds`, state `failed_node` / `error_retry_counts` / `error_history` / `recovery_action`, `ErrorRecord.retry_count/recoverable`, API `counters.errors` + live `errors`, UI "Recovered errors" + error_recovery stage. Checked by Claude with faked 529s: fallback tried, run ends `failed` with both errors. NOT covered: chat replies / researcher sub-agent / check-ins (own tool loop in chat.py).
+## 9. Tests and validation checkpoints per phase
 
-- 2026-10-24: **human_review node removed** (user decision: "we don't need human review node, it automatically shows all 3 (doctor, patient, research)"). evidence_checker → final_report always (or one research loop on a material gap); the only pause left is clarification. Deleted `nodes/human_review.py` + `HumanReviewPanel.tsx`. Gone with it: `HumanAction`, `HumanReviewInput` / `HumanReviewResume`, pause type `human_review`, status `awaiting_human_review`, state `human_action` / `user_feedback` / `human_review_round_count` / `human_review_next` / `human_selected_plan_id`, report `human_action` / `human_selected_plan_id` / `is_user_choice` (⭐ your choice), proposer `<human_feedback>`, API `review` view + `counters.human_reviews`, UI stage "Your review" (stepper now 6 stages), HowItWorks "You stay in control" card, CLI review menu (`ask_human_review`). Old stored reports still load (extra fields are ignored).
+| Phase | Offline tests (pytest, fake LLM) | Live check (script, real API) |
+|---|---|---|
+| Clarification (M1) | non-app rejection, round cap, no repeated questions, merged facts | questions for 2 prompts look specific |
+| Research (M2) | classifier, required topics, URL de-dupe, no evidence without hits | URLs ⊆ Tavily hits; 3 domains covered |
+| Proposal / evaluation (M3) | citation filtering, winner selection, all 4 judge decisions, loop caps | debate on cached state ends with a winner |
+| Brief + validation (M4–M5) | unknown ids rejected, unlabelled claims rejected, revision cap, clarify route, API 409/422 paths | brief ≈ 1 page, references all resolvable |
+| Planning (M6) | DAG/ids/commands checks, approval guard | Opus plan parses and passes checks |
+| Workspace (M7) | traversal, symlink, env scrub, timeout, allowlist | server starts, health OK, stops |
+| Implementation (M8) | task state machine, attempts, budget | trivial plan implemented, verify commands pass |
+| Preview (M9) | ready only after health check, fix-round cap | HTTP 200 from preview URL |
+| UI (M10) | lint, tsc, build | manual E2E checklist |
+| Platform (M11) | prompt registry, cost math, eval runner | eval cases pass |
+
+---
+
+## 10. Preserving existing functionality and integrating safely
+
+- The original health app keeps running untouched in `/Users/dev/pro/ai-lab` (own repo, DB `ai_decision_arena`, ports 8000/3000). ai-lab-2 replaces the health concept **by design**; what we preserve is the platform mechanics (section 2.4), checked by pytest after every milestone.
+- One milestone per commit; `uv run pytest` and the frontend `lint` + `tsc` must be green before the user commits.
+- State/DB renames happen once (M1) with an Alembic migration (downgrade provided) and a verify script; no further renames later.
+- API paths stay `/api/decisions/...` (renaming to `/api/projects` is cosmetic; only if we ever want it, last).
+- Every API model change is mirrored in `types.ts` in the same milestone; `pending.type` stays a discriminated union so the UI can only render what the backend sends.
+- New nodes are added after the judge; existing routing names (`proceed`, `request_more_research`, `request_clarification`, `insufficient_evidence`) are kept.
+- Python keeps the final say on loops, approvals, file paths, commands, and "did it build" facts.
+
+---
+
+## 11. How to run (ai-lab-2 on 8001/3001, side by side with ai-lab)
+```bash
+# backend (terminal 1)
+cd backend
+uv sync                                   # first time
+uv run alembic upgrade head               # after new migrations
+FRONTEND_URL=http://localhost:3001 uv run uvicorn ai_decision_arena.api.main:app --reload --port 8001
+
+# frontend (terminal 2)
+cd frontend
+npm install                               # first time
+NEXT_PUBLIC_API_URL=http://localhost:8001 npx next dev -p 3001     # http://localhost:3001
+
+# checks
+cd backend && uv run pytest -q            # from M0
+uv run python scripts/check_env.py        # keys work
+```
+Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decision_sessions`, `evidence_records`, `decision_reports`,
+`user_feedback`, `chat_messages`, `patient_memories` (→ `user_memories` in M1), `knowledge_docs`, LangGraph `checkpoint*`.
+Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
+
+---
+
+## 12. Decisions log
+- 2026-10-24: Copied from ai-lab into ai-lab-2; new GitHub repo `github.com/fahadtariqaziz/any-web`.
+- 2026-10-24: Root `.gitignore`; `__pycache__`, `backend/.cache/`, generated graph images untracked.
+- 2026-10-24: Separate local database `ai_decision_arena_2`; `docker-compose.yml` default DB updated to match.
+- 2026-10-24: **Concept decided: Lovable-style AI app builder** (this plan). Health app history kept in `docs/`.
+- 2026-10-24: Reuse `intake, clarification, await_clarification, research, proposer, critic, judge, evidence_checker, completion`; replace `final_report` with `brief_writer`; add `brief_validator, await_brief_review, planner, await_plan_review, implementer, build_check, preview, await_change_request`.
+- 2026-10-24: Proposals are **not per lane** anymore: one proposer call → 2–3 proposals over all evidence; critic per proposal; one winner.
+- 2026-10-24: Risk flags are informational (no emergency routing).
+- 2026-10-24: Models: planner `claude-opus-5-5`, implementer `claude-sonnet-5-5`, other agents `ANTHROPIC_MODEL` (Sonnet 5.5), fallback Haiku 5.5. Availability verified; a startup check keeps it honest.
+- 2026-10-24: Package name `ai_decision_arena`, API prefix `/api/decisions`, `ArenaState` name kept (no churn).
+- 2026-10-24: Quick-mode node skipping removed (builder always runs critic + checker); quick settings may stay as a speed profile.
+- 2026-10-24: Generated projects in `generated_projects/<thread_id>/app` (git-ignored); v1 host subprocess sandbox, v2 Docker.
+- 2026-10-24: Workflow: Claude builds + verifies with a script per milestone; the **user commits/pushes**.
+
+## 13. Open questions (for the user; none blocks M0–M4)
+1. **Coding agent (M8):** OK to spike the Claude Agent SDK first (uses the installed Claude Code CLI, Sonnet 5.5, our hooks) with the own-tool-loop as fallback?
+2. **Preview runtime:** start the Docker daemon for v2 later, or stay on host subprocesses for now? (v1 works without Docker.)
+3. **Chat after preview:** keep the tool-using chat (`chat.py`) as "ask about this project", or retire it?
+4. **Quick mode / patient chat UI:** retire the "quick" profile entirely in M10?
+5. Rename LangSmith project from `ai-decision-arena` (shared with ai-lab) to `ai-app-builder`? (one `.env` line)
+
+## 14. Progress log
+- 2026-10-24: Project set up as ai-lab-2. `.gitignore` + first push. New DB `ai_decision_arena_2` created, migrated, knowledge docs loaded. `backend/.venv` rebuilt.
+- 2026-10-24: Codebase + graph analysed; environment and model availability verified; this plan written (the old health-app handoff lives in git history).
+- 2026-10-24: **M0 done.** `pytest` + `httpx` dev deps; `backend/tests/` with a fake `call_structured` (builds valid schema instances from the prompt text) and a fake Tavily search; 48 tests: graph shape + routing, loop limits, URL/source classifier, schema validators, intake/clarification/proposer/judge nodes, full pipeline pause→resume→report on InMemorySaver (full + quick mode + failure path), API start/poll/resume/report/409/422/404 with TestClient on an in-memory graph. `scripts/verify_m0.sh` = pytest + eslint + tsc, all green. README rewritten for the new concept and ports 8001/3001.
 
 ## ▶ Next step
-**[YOU] 11.10** Test Phase 11 (commands in Claude's message of 2026-10-23), then commit:
-`Agent anatomy: few-shot + CoT, long-term memory, knowledge base, skills, chat tools, research sub-agent, check-in trigger, Docker runtime`.
-Still open before that: **9.7** (patient chat test + commit), then **9.5** and **Phase 10**.
+**User commits M0** as `M0: test harness and verify script`. Then **M1**: rename the health vocabulary to the app-builder vocabulary (section 3.2–3.6), new intake + clarification prompts (2–3 rounds), Alembic migration for the renamed columns/table, `X-User-Id`, frontend types; verify with pytest + `scripts/verify_m1.py` (two real intake + first-round clarification runs).
