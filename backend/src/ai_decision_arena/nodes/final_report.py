@@ -1,4 +1,4 @@
-"""Node 9 — Final Report (interim, M3), and Node 11 — Completion.
+"""Node 9 — Final Report (the debate's outcome, the data step before the brief), and the terminal Completion node.
 
 Final Report: Python assembles everything that is already known (the winning proposal and the alternatives with
 their scores, cited evidence with verification status, Critic objections, unsupported claims, unresolved questions,
@@ -169,7 +169,7 @@ def final_report_node(state: ArenaState) -> dict:
     return {
         "final_report": final.model_dump(mode="json"),
         "unresolved_questions": unresolved,
-        "status": "reporting",
+        "status": "writing_brief",
         "current_node": "final_report",
     }
 
@@ -181,7 +181,8 @@ def completion_node(state: ArenaState, config: RunnableConfig) -> dict:
     if state.get("status") == "failed" or not final:
         status = "failed"                                    # never "completed" without a report
     else:
-        status = "completed_with_uncertainty" if final.get("is_conditional") else "completed"
+        open_issues = (state.get("brief_validation") or {}).get("open_issues")
+        status = "completed_with_uncertainty" if final.get("is_conditional") or open_issues else "completed"
     metrics = {
         "active_seconds": state.get("active_seconds", 0.0),
         "debate_rounds": state.get("debate_round", 0),

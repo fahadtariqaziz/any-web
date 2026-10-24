@@ -18,11 +18,11 @@
 |---|---|
 | **Spec** | `docs/app-builder-spec.md` — the user's original brief, verbatim (clarification §1, research §2, proposals §3, brief §4.1–4.10, validation §5, review §6, planning §7, implementation §8, preview + isolation §9, platform §10.1–10.11, constraints §12, outcome §13). The milestone blocks below quote the parts each one needs. |
 | **Concept (decided 2026-10-24)** | An AI application builder like Lovable: the user describes an app or website; the system clarifies, researches, proposes, critiques, judges, writes a validated problem statement + solution brief, gets approval, plans (Opus 5.5), implements (Sonnet 5.5) in an isolated session folder, and shows a live preview beside the chat. |
-| **Where we are** | **M3 done** (2026-10-24): one proposer call → 2–3 `SolutionProposal`s, critic per proposal, one judge call with the new rubric and a single winner, checker on the winner, interim report (winner + alternatives). No health prompts remain on the main path. |
-| **Next milestone** | **M4 — problem brief writer and validator** (section 8). |
+| **Where we are** | **M4 done** (2026-10-25): after the report, `brief_writer` (3 structured calls → `ProblemBrief`, Python references + label fixes + markdown) and `brief_validator` (6 deterministic checks + 1 LLM review on the 9 spec criteria; Python verdict approve / revise ≤ 2 / clarify). `GET /brief`, admin `BriefView`. M3: proposer → critic → judge → checker → report. |
+| **Next milestone** | **M5 — brief review pause + API + admin UI** (section 8). |
 | **Models (verified 2026-10-24 via `client.models.list()`)** | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` are all available to the key in `backend/.env`. Configured default: `ANTHROPIC_MODEL=claude-sonnet-5-5`. |
 | **Environment (verified 2026-10-24)** | uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head · Claude Code CLI 2.1.310 installed · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are taken by the original ai-lab servers** → run ai-lab-2 on **8001/3001** (section 11). |
-| **Tests** | `backend/tests/` (78 pytest tests, no network / no DB: fake LLM + fake search, see `tests/conftest.py`). Run `bash backend/scripts/verify_m0.sh` (pytest + eslint + tsc). No frontend unit tests yet. |
+| **Tests** | `backend/tests/` (99 pytest tests, no network / no DB: fake LLM + fake search, see `tests/conftest.py`). Run `bash backend/scripts/verify_m0.sh` (pytest + eslint + tsc). No frontend unit tests yet. |
 
 ---
 
@@ -41,9 +41,9 @@ done. Every generated project lives in `generated_projects/<session_id>/`, isola
 
 ## 2. Current architecture (copied from ai-lab, health app)
 
-### 2.1 Graph today (`backend/src/ai_decision_arena/graph.py`, 10 nodes + completion)
+### 2.1 Graph today (`backend/src/ai_decision_arena/graph.py`, 11 nodes + completion)
 ```
-START → intake → clarification ──(need answers, ≤2 rounds)──► await_clarification ──► clarification
+START → intake → clarification ──(need answers, ≤3 rounds)──► await_clarification ──► clarification
                      │ enough info
                      ▼
                  research (3 domains: apps / papers / tech, parallel) ◄──────────────────┐
@@ -53,7 +53,9 @@ START → intake → clarification ──(need answers, ≤2 rounds)──► aw
                                                            ▼                                │
                                                      evidence_checker ──(material gap)──────┘
                                                            ▼
-                                                     final_report → completion → END
+                                                     final_report → brief_writer → brief_validator ──(revise ≤2)──► brief_writer
+                                                                                       ├──(clarify, loop allowed)──► clarification
+                                                                                       └──(approve)──► completion → END
 Any node that raises → error stored (nodes/node_wrapper.py) → completion (status failed).
 ```
 
@@ -339,7 +341,7 @@ Each milestone ends with its **Commit:** line, the short commit message the user
 - **Verify:** pytest routing with fakes (proceed / more research / clarification / insufficient, caps) + `scripts/verify_m3.py` runs the debate on the cached M2 state.
 - **Commit:** `M3: solution proposals, critic and judge`
 
-### M4 — Brief writer + validator
+### M4 — Brief writer + validator ✅ done 2026-10-25
 Spec: `docs/app-builder-spec.md` §4 (the document) and §5 (validation). Inputs: the clarified requirements, the evidence, the
 winning proposal + alternatives, the Critic / Judge / Checker outputs (all in state after `final_report`). Cached test state:
 `backend/.cache/debate_calculator.json` (written by `verify_m3.py`).
@@ -521,6 +523,7 @@ Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
 - 2026-10-24: Standard test idea for every live verify and the first end-to-end builds: **"A simple calculator web app"** (user's call: if the smallest project builds, bigger ones follow).
 - 2026-10-24 (M1): risk flags are informational only; `limits.loops_allowed` no longer blocks on them. `max_clarification_rounds` = 3.
 - 2026-10-24 (M3): one Proposer call makes 2–3 proposals over ALL evidence; one Critic call per proposal (parallel); one Judge call scores all and Python picks the winner; the checker verifies the winner only. Material contradictions found by the Judge become clarification questions when a round is available. Quick mode runs every node (one proposal, quick settings). The interim `FinalReport` = winner + alternatives (M4 replaces the user-facing document). The chat's first summary is built from the report in Python (no LLM call). Health demo scripts (`run_debate`, `run_report`, `demo_data`, `schemas_demo`) deleted; health report components replaced by `ProposalDetails`.
+- 2026-10-25 (M4): the brief writer makes **three** strict structured calls (sections 1–4, then 5–6 and 7–9 in parallel with sections 1–4 as context): the whole brief schema exceeds the API's grammar limit. Python owns: references (from cited ids only), the `verified` label (needs a checker-verified source, else downgraded to `research_backed`), `required_by_user` technology (only with label `user_provided`), the one-page budget (900 words over sections 1–9, labels/citations/URLs not counted): the renderer moves list items beyond per-list caps to the appendix and, while the page is over budget, shrinks the caps level by level (`CAP_LEVELS` 1.0/0.75/0.5/0; floors keep the MVP, scope, user journey, 3 functional requirements, 2 success criteria and 2 risks in the main part); only a brief too long at the smallest caps fails `det_word_budget`. Reason: in the first live run the LLM needed two full rewrites (1561 → 1080 → 1012 words) for length alone. Validator: deterministic checks first; if one fails and a revision is left, revise **without** the LLM call; revise also on any high-severity LLM criterion; clarify only when the reviewer says the brief cannot go forward without the user AND `loops_allowed` permits (bumps `research_retry_count`, resets `brief_revision_count`); otherwise approve, listing remaining medium/high failures as open issues (appendix C + `unresolved_questions`, status `completed_with_uncertainty`). Approve currently routes to `completion` (M5 inserts `await_brief_review`). `GET /brief` returns only a draft whose validation verdict is approve and whose `brief_generated_at` matches the brief (no unvalidated draft is ever shown). The brief lives in the checkpoint only; `project_artifacts` (DB) comes with M5.
 - 2026-10-24 (M2): the word is **domain** everywhere (code, state, API, DB columns, UI), keys `apps / papers / tech`. Tavily steering is "prefer" for all three (never exclusive); the apps domain searches with `advanced` depth. `SearchQuery` validates that a topic belongs to its domain; each domain's key topic (`user_complaints`, `established_approaches`, `feasibility_and_risks`) is always searched on the first pass (`planner.ensure_key_topics`). Patient-story top-up removed.
 
 ## 13. Open questions (for the user; none blocks M0–M4)
@@ -611,6 +614,15 @@ Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
 - **BSD `sed` has no `\b`**: `sed -i '' 's/\bcare_plans\b/x/'` silently changes nothing on macOS. Use Python `re.sub(r"\bname\b", ...)` (or `[[:<:]]name[[:>:]]`) for word-boundary renames, and always re-grep afterwards.
 - The shared-cwd race (above) also hits read-only commands: a `grep` with relative paths in a parallel call printed "No such file or directory". Use absolute paths in every parallel call, reads included.
 
+**Structured output size limit (M4)**
+- Strict structured output (`method="json_schema"`) compiles the schema into a grammar, and the API refuses big schemas:
+  `400 invalid_request_error: The compiled grammar is too large ... Simplify your tool schemas`. It fails on BOTH models
+  instantly (no tokens spent). The limit grows with the number of **object occurrences** (`$ref`s are inlined): 15 fields of
+  `list[BriefItem]` compiled, 30 did not, even with the enum removed. The full `ProblemBrief` (≈ 25 nested objects) failed;
+  sections 1–4 / 5–6 / 7–9 each compile. Fix used: split the output into parts (`BriefPartOne/Two/Three`), several calls.
+  **Before adding a large LLM schema (planner M6!), probe it** with a tiny prompt and `max_tokens=50`: the grammar error
+  comes back before any generation (`uv run python scripts/probe_schema.py ai_decision_arena.schemas:MyModel`).
+
 **LangGraph**
 - An interrupted node is re-run **from its first line** on resume: never put an LLM call in an `await_*` node (M5/M6/M9 pauses must
   copy the `clarification` / `await_clarification` split). Resume with `Command(resume=<reply>)`; the reply is exactly what
@@ -630,6 +642,12 @@ Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
 - Calculator idea, M3: the Judge ended with `request_clarification` (not `proceed`) because the proposals contradicted the
   "simple calculator" assumption. That is the intended behaviour: in the graph it goes back to clarification with the two
   contradiction questions. `verify_m3.py` still runs the checker and the report afterwards to exercise them.
+- Calculator idea, M4 (reviewer's medium points, left as open issues): the writer labelled the *assumed* scope ("basic
+  arithmetic, browser, no accounts" from the verify script's assumptions) as `user_provided`; it repeats settled points
+  as open questions (it is told to cover every `unresolved_questions` item, and the cached state still carries the
+  Judge's unanswered contradictions); every success criterion has `target = null` (correct per spec without a baseline,
+  but the reviewer wants pass/fail definitions: acceptance criteria cover that). `verified` stays when ANY cited source
+  is verified, even if another cited one is only partial. Candidates for M11 eval cases, not hard rules.
 - Clarification sometimes packs "budget, launch date, or existing assets" into one question; the "one question per item" rule
   is in the prompt, a stricter check (count of "or" clauses) would be an M11 eval, not a hard filter.
 
@@ -639,5 +657,15 @@ Planned tables: `project_artifacts`, `project_runtimes`, `tool_calls`.
   parts they implement (brief sections 4.1–4.10, the nine validation checks, review rules, planning, implementation, preview
   and isolation, platform requirements). Requested after a new session noticed the spec was missing from the repo.
 
+- 2026-10-25: **M4 done.** New `brief.py` (pure Python: `cited_objects`, `normalize`, `assemble_references`, `render_brief_markdown` with fit-to-page caps, `count_words`, `deterministic_checks`), schemas `BriefItem` / section models / `BriefPartOne|Two|Three` / `BriefContent` / `ProblemBrief` / `BriefReference` / `BriefReview` / `ValidationCheck` / `BriefValidation`, nodes `brief_writer` (3 calls: 1–4, then 5–6 ∥ 7–9) and `brief_validator`, `route_after_brief_validator`, statuses `writing_brief` / `validating_brief`, settings `max_brief_revisions=2` (quick 0) and `brief_word_budget=900`, clarification reads `<brief_questions>`, evidence block shows `checked="..."` after verification, completion → `completed_with_uncertainty` when the brief has open issues. API `GET /api/decisions/{id}/brief` + `has_brief`; frontend types, `getBrief`/`useBrief`, `BriefView` (markdown + validation checks) above the report, stepper stage "Brief", node texts, labels. `scripts/probe_schema.py` (grammar-limit probe), `run_graph.py` prints/saves `brief.md`. Verify: 99 pytest (20 new in `test_brief.py`: references from ids only, label normalisation, rendering + appendix overflow, fit-to-page floors, word count, all six deterministic checks, revise-without-LLM, revision prompt, cap → approve with open issues, high-severity revise, clarify route + loop limits, full pipeline incl. the clarify loop) + eslint + tsc green; `scripts/verify_m4.py` on the cached calculator debate PASS: draft 0 = 955 words (over budget at the smallest caps → one rewrite), draft 1 = 890 words, approve; 18 references all from evidence, no foreign URL, no numeric target, 9 LLM criteria reviewed, 4 medium open issues. First live attempt failed with the grammar-size error (→ 3-part writer); second run needed two rewrites for length alone (→ fit-to-page renderer).
+
 ## ▶ Next step
-**User commits M3** as `M3: solution proposals, critic and judge` (include `docs/app-builder-spec.md` and this file). Then **M4**: `ProblemBrief` schema (sections 4.1–4.10, every item labelled verified / research_backed / user_provided / recommendation / assumption with evidence ids; references assembled by Python from cited ids), `brief_writer` node (Python facts → one LLM call → `render_brief_markdown`, ~1 page + appendix), `brief_validator` (deterministic checks: unknown ids, unlabelled claims, invented targets, word count, required sections + one LLM call on the 9 criteria), routing with `max_brief_revisions` and a `clarify` route; `final_report` stays as the data step before the brief; verify with pytest + `scripts/verify_m4.py` on `backend/.cache/debate_calculator.json`.
+**User commits M4** as `M4: problem brief writer and validator`. Then **M5** (section 8): `await_brief_review` pause
+(no LLM in the node; copy the clarification split), payload `brief_markdown` + `brief` + validation summary + round,
+resume union `{action: approve | request_changes, feedback, target: auto | requirements | research | proposal | wording}`,
+`FeedbackRouting` LLM call (in a separate node or inside `brief_writer`'s predecessor, never in the await node) for
+`auto`, `route_after_brief_review` (approve → planner placeholder / completion until M6; wording → brief_writer;
+requirements → clarification; research → research with `research_focus`; proposal → proposer with the feedback as a
+criticism), `brief_approved_at` + hash of the approved markdown, `max_review_rounds`, `project_artifacts` table
+(Alembic), API 409/422 paths, `BriefReviewPanel` (approve button + feedback textarea + target select) in `DecisionView`,
+`api_flow.py --auto` approves the brief. Cached state for M5/M6: `backend/.cache/brief_calculator.json`.

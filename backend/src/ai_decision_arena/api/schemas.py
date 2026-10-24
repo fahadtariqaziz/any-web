@@ -16,7 +16,9 @@ from ai_decision_arena.schemas import (
     ClaimVerification,
     Criticism,
     Evidence,
+    BriefValidation,
     FinalReport,
+    ProblemBrief,
     ProposalScore,
     SolutionProposal,
     Verdict,
@@ -109,6 +111,7 @@ class DecisionStatus(BaseModel):
                                          description="Live progress of THIS server process (lost on restart).")
     error: ErrorInfo | None = Field(default=None, description="The graph's stored error, or a crash of the background run.")
     has_report: bool = False
+    has_brief: bool = Field(default=False, description="True once a validated brief exists (GET /brief).")
     # Pipeline view (9.3): where the graph is, independent of the in-memory progress lines.
     current_node: str | None = Field(default=None, description="Last node that finished (written by the node itself).")
     next_nodes: list[str] = Field(default_factory=list,
@@ -122,6 +125,16 @@ class ReportResponse(BaseModel):
     thread_id: str
     workflow_status: str
     report: FinalReport
+
+
+class BriefResponse(BaseModel):
+    """The validated problem statement + solution brief (spec §4-5)."""
+
+    thread_id: str
+    workflow_status: str | None = None
+    brief: ProblemBrief
+    markdown: str = Field(description="Rendered brief: main part (about one page), references, appendix.")
+    validation: BriefValidation
 
 
 class EvidenceResponse(BaseModel):

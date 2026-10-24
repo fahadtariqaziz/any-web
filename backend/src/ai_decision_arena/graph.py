@@ -6,7 +6,10 @@
            ├─(request_clarification)──► clarification
            └─(proceed / insufficient_evidence)──► evidence_checker ─┬─(material gap, loop allowed)─► research
                                                                     └──────────────────────────────► final_report
-    final_report → completion → END        (M4 inserts brief_writer / brief_validator / await_brief_review here)
+    final_report → brief_writer → brief_validator ─┬─(revise, ≤ max_brief_revisions)──► brief_writer
+                                                   ├─(clarify, loop allowed)──────────► clarification
+                                                   └─(approve)────────────────────────► completion → END
+                                                     (M5 inserts await_brief_review before completion)
     Any node that raises → its error is stored (nodes/node_wrapper.py) → completion (status failed).
 
 Every edge is "guarded": if the state carries an error, the graph goes straight to completion. Nodes are not
@@ -21,6 +24,8 @@ from typing import Callable, Literal
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
+from ai_decision_arena.nodes.brief_validator import brief_validator_node
+from ai_decision_arena.nodes.brief_writer import brief_writer_node
 from ai_decision_arena.nodes.clarification import await_clarification_node, clarification_node
 from ai_decision_arena.nodes.critic import critic_node
 from ai_decision_arena.nodes.evidence_checker import evidence_checker_node
@@ -43,6 +48,8 @@ NODES = {
     "judge": judge_node,
     "evidence_checker": evidence_checker_node,
     "final_report": final_report_node,
+    "brief_writer": brief_writer_node,
+    "brief_validator": brief_validator_node,
 }
 
 
@@ -67,6 +74,16 @@ def route_after_evidence_checker(state: ArenaState) -> Literal["research", "fina
     if decision == "request_more_research":
         return "research"
     return "final_report"
+
+
+def route_after_brief_validator(state: ArenaState) -> Literal["brief_writer", "clarification", "completion"]:
+    # The validator already applied the revision cap and the loop limits; here we only read its verdict.
+    verdict = (state.get("brief_validation") or {}).get("verdict")
+    if verdict == "revise":
+        return "brief_writer"
+    if verdict == "clarify":
+        return "clarification"
+    return "completion"                 # approve (M5: await_brief_review)
 
 
 def guarded(route: Callable[[ArenaState], str] | str):
@@ -100,7 +117,9 @@ def build_graph(checkpointer: BaseCheckpointSaver | None = None):
     connect("critic", "judge", ["judge"])
     connect("judge", route_after_judge, ["research", "clarification", "evidence_checker"])
     connect("evidence_checker", route_after_evidence_checker, ["research", "final_report"])
-    connect("final_report", "completion", ["completion"])
+    connect("final_report", "brief_writer", ["brief_writer"])
+    connect("brief_writer", "brief_validator", ["brief_validator"])
+    connect("brief_validator", route_after_brief_validator, ["brief_writer", "clarification"])
     builder.add_edge("completion", END)
 
     return builder.compile(checkpointer=checkpointer)

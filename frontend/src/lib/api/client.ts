@@ -5,6 +5,7 @@
 
 import type {
   Accepted,
+  BriefResponse,
   ChatTranscript,
   CreateDecisionRequest,
   DecisionStatus,
@@ -90,6 +91,11 @@ export function resumeDecision(threadId: string, body: ResumeRequest): Promise<A
 /** The final report. 409 "not_finished" until the session is finished. */
 export function getReport(threadId: string): Promise<ReportResponse> {
   return request(`${BASE}/${encodeURIComponent(threadId)}/report`);
+}
+
+/** The validated problem statement + solution brief. 409 "no_brief" until the validator approved a draft. */
+export function getBrief(threadId: string): Promise<BriefResponse> {
+  return request(`${BASE}/${encodeURIComponent(threadId)}/brief`);
 }
 
 /** Evidence kept so far, with verification status. */

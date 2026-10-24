@@ -107,6 +107,8 @@ export const WORKFLOW_STATUS_LABEL: Record<string, string> = {
   debating: "Debating solutions",
   verifying: "Verifying evidence",
   reporting: "Writing the summary",
+  writing_brief: "Writing the brief",
+  validating_brief: "Validating the brief",
   completed: "Completed",
   completed_with_uncertainty: "Completed with uncertainty",
   failed: "Failed",

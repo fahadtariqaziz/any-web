@@ -5,7 +5,8 @@
 //
 // Layout: header → pipeline stepper → [main column | activity rail]. The main column shows exactly one
 // thing for the current state: the live "now" panel, the clarification questions,
-// the interrupted or failed panel, or the final report. Below it, tabs expose the agents' work so far.
+// the interrupted or failed panel, or the validated brief followed by the research report. Below it, tabs expose
+// the agents' work so far.
 
 import { AlertTriangle, FileText, Scale, Search, UserRound, WifiOff } from "lucide-react";
 import Link from "next/link";
@@ -14,6 +15,7 @@ import { useMemo, useState } from "react";
 
 import { DebateView } from "@/components/debate/DebateView";
 import { EvidencePanel } from "@/components/evidence/EvidencePanel";
+import { BriefView } from "@/components/report/BriefView";
 import { ReportView } from "@/components/report/ReportView";
 import { ActivityFeed } from "@/components/session/ActivityFeed";
 import { CaseCard } from "@/components/session/CaseCard";
@@ -29,7 +31,7 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
 import { Tabs } from "@/components/ui/Tabs";
 import { useDecision } from "@/hooks/useDecision";
-import { useEvidence, useLive, useReport } from "@/hooks/useLive";
+import { useBrief, useEvidence, useLive, useReport } from "@/hooks/useLive";
 import { useNow } from "@/hooks/useNow";
 import { deriveActivity, stageStates } from "@/lib/pipeline";
 
@@ -53,6 +55,7 @@ export function DecisionView() {
   const { data: live } = useLive(threadId, version, !!status);
   const finishedWithReport = status?.run_state === "finished" && status.has_report;
   const { data: reportData, error: reportError } = useReport(threadId, !!finishedWithReport);
+  const { data: briefData, error: briefError } = useBrief(threadId, !!finishedWithReport && !!status?.has_brief);
   const { data: evidence, loading: evidenceLoading, error: evidenceError } = useEvidence(threadId, version, !!status && tab === "evidence");
 
   function onSubmitted() {
@@ -104,8 +107,20 @@ export function DecisionView() {
   } else if (status.run_state === "interrupted") {
     main = <InterruptedPanel threadId={threadId} status={status} onSubmitted={onSubmitted} />;
   } else if (finishedWithReport) {
+    const brief = !status.has_brief ? null : briefData ? (
+      <BriefView data={briefData} />
+    ) : briefError ? (
+      <Callout tone="danger" title="Could not load the brief">
+        <p>{briefError.message}</p>
+      </Callout>
+    ) : (
+      <LoadingLine text="Loading the brief…" />
+    );
     main = reportData ? (
-      <ReportView report={reportData.report} workflowStatus={reportData.workflow_status} live={live} />
+      <div className="space-y-6">
+        {brief}
+        <ReportView report={reportData.report} workflowStatus={reportData.workflow_status} live={live} />
+      </div>
     ) : reportError ? (
       <Callout tone="danger" title="Could not load the report">
         <p>{reportError.message}</p>

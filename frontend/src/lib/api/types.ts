@@ -51,6 +51,7 @@ export interface DecisionStatus {
   progress: ProgressLine[]; // lost when the server restarts
   error: ErrorInfo | null;
   has_report: boolean;
+  has_brief: boolean; // a validated problem brief exists (GET /brief)
   current_node: string | null; // last node that finished
   next_nodes: string[]; // while running, [0] is the node in progress
   started_at: string | null;
@@ -334,6 +335,133 @@ export interface FinalReport {
   risk_flags: string[];
   withdrawn_risk_flags: string[];
   disclaimer: string;
+}
+
+// --- problem statement + solution brief (GET /api/decisions/{id}/brief) ----------------------------
+
+/** Where a statement comes from. verified = checked against its source by the Evidence Checker. */
+export type ClaimLabel = "verified" | "research_backed" | "user_provided" | "recommendation" | "assumption";
+
+export interface BriefItem {
+  text: string;
+  label: ClaimLabel;
+  evidence_ids: string[];
+}
+
+export interface NonFunctionalRequirement extends BriefItem {
+  category: string; // performance | security | privacy | reliability | accessibility | scalability | ...
+}
+
+export interface TechnologyChoice {
+  name: string;
+  purpose: string;
+  label: ClaimLabel;
+  evidence_ids: string[];
+  required_by_user: boolean;
+}
+
+export interface SuccessCriterion {
+  metric: string;
+  target: string | null; // null = no baseline to justify a number
+  basis: "user_requirement" | "evidence" | "none";
+  evaluation_method: string;
+  evidence_ids: string[];
+}
+
+export interface BriefRisk {
+  risk: string;
+  category: string;
+  mitigation: string;
+  evidence_ids: string[];
+}
+
+export interface BriefReference {
+  number: number;
+  evidence_id: string;
+  title: string;
+  url: string;
+  domain: Domain;
+  source_type: string;
+  verification_status: VerificationStatus;
+  cited_in: string[];
+}
+
+export interface ProblemBrief {
+  project_name: string;
+  revision: number;
+  generated_at: string;
+  project_overview: { proposed_name: string; description: string; audience: BriefItem[]; context: BriefItem };
+  problem_statement: {
+    statement: BriefItem;
+    who_and_context: BriefItem;
+    current_alternatives: BriefItem[];
+    gap: BriefItem;
+    consequences: BriefItem[];
+    indicators: BriefItem[];
+  };
+  research_findings: {
+    apps_and_feedback: BriefItem[];
+    papers_and_literature: BriefItem[];
+    feasibility_and_implementations: BriefItem[];
+    limitations_and_opportunity: BriefItem[];
+    evidence_gaps: string[];
+  };
+  proposed_solution: {
+    how_it_addresses_problem: BriefItem;
+    mvp_features: string[];
+    future_enhancements: string[];
+    user_journey: string[];
+    why_this_approach: BriefItem[];
+  };
+  requirements: {
+    functional: BriefItem[];
+    non_functional: NonFunctionalRequirement[];
+    integrations_and_data: string[];
+    user_roles: string[];
+    acceptance_criteria: string[];
+  };
+  architecture: {
+    overview: BriefItem;
+    components: { name: string; responsibility: string }[];
+    data_flow: string;
+    technologies: TechnologyChoice[];
+    key_decisions: BriefItem[];
+  };
+  scope: { in_scope: string[]; out_of_scope: string[]; deliverables: string[]; dependencies: BriefItem[] };
+  success_criteria: SuccessCriterion[];
+  constraints_and_risks: { constraints: BriefItem[]; assumptions: string[]; unresolved_questions: string[]; risks: BriefRisk[] };
+  references: BriefReference[]; // assembled by the backend from the cited evidence ids
+}
+
+export interface ValidationCheck {
+  check_id: string;
+  source: "deterministic" | "llm";
+  passed: boolean;
+  severity: Level;
+  issue: string;
+  fix_instruction: string;
+}
+
+export interface BriefValidation {
+  verdict: "approve" | "revise" | "clarify";
+  reason: string;
+  revision: number;
+  brief_generated_at: string | null;
+  checks: ValidationCheck[];
+  word_count: number;
+  word_budget: number;
+  clarification_questions: string[];
+  open_issues: string[];
+  llm_summary: string;
+  validated_at: string;
+}
+
+export interface BriefResponse {
+  thread_id: string;
+  workflow_status: string | null;
+  brief: ProblemBrief;
+  markdown: string; // main part (~1 page), references, appendix
+  validation: BriefValidation;
 }
 
 export interface ReportResponse {

@@ -35,6 +35,8 @@ LLM_USERS = [
     "ai_decision_arena.nodes.judge",
     "ai_decision_arena.nodes.evidence_checker",
     "ai_decision_arena.nodes.final_report",
+    "ai_decision_arena.nodes.brief_writer",
+    "ai_decision_arena.nodes.brief_validator",
     "ai_decision_arena.research.planner",
     "ai_decision_arena.research.extractor",
 ]
@@ -191,6 +193,63 @@ def build_narrative(system: str, user: str) -> S.ReportNarrative:
                              next_steps=["Confirm the platform."])
 
 
+def _item(text: str, label: str = "recommendation", ids: list[str] | None = None) -> S.BriefItem:
+    return S.BriefItem(text=text, label=label, evidence_ids=ids or [])
+
+
+def build_brief(system: str, user: str) -> S.BriefContent:
+    """A complete, valid brief citing the first evidence ids of the prompt (labelled research_backed)."""
+    ids = EVIDENCE_ID_RE.findall(user)
+    cited = ids[:1]
+    rb = "research_backed" if cited else "assumption"
+    return S.BriefContent(
+        project_overview=S.ProjectOverview(proposed_name="", description="A habit tracker for students.",
+                                           audience=[_item("University students", "user_provided")],
+                                           context=_item("Self-organisation during term time.", "assumption")),
+        problem_statement=S.ProblemStatement(
+            statement=_item("Students lose track of daily habits.", rb, cited),
+            who_and_context=_item("Students with irregular schedules.", "user_provided"),
+            current_alternatives=[_item("Generic habit apps with sync problems.", rb, cited)],
+            gap=_item("No simple offline option.", rb, cited),
+            consequences=[_item("Habits are abandoned.", "assumption")], indicators=[]),
+        research_findings=S.ResearchFindings(
+            apps_and_feedback=[_item("Users complain about sync.", rb, cited)], papers_and_literature=[],
+            feasibility_and_implementations=[_item("Static web apps can work offline.", rb, cited)],
+            limitations_and_opportunity=[_item("Offline-first is underserved.", rb, cited)], evidence_gaps=["pricing"]),
+        proposed_solution=S.ProposedSolutionSection(
+            how_it_addresses_problem=_item("An offline-first tracker removes the sync failure.", "recommendation"),
+            mvp_features=["track habits", "daily reminder", "streaks"], future_enhancements=["sharing"],
+            user_journey=["open the app", "tick a habit", "see the streak"],
+            why_this_approach=[_item("Simpler than the alternatives.", "recommendation")]),
+        requirements=S.Requirements(
+            functional=[_item("Users can add and tick habits.", "user_provided")],
+            non_functional=[S.NonFunctionalRequirement(text="Works offline.", label="recommendation", evidence_ids=[],
+                                                       category="reliability")],
+            integrations_and_data=[], user_roles=[], acceptance_criteria=["Ticking a habit updates the streak."]),
+        architecture=S.ArchitectureSection(
+            overview=_item("A static single-page app storing data in the browser.", "recommendation"),
+            components=[S.Component(name="Frontend", responsibility="UI and storage.")],
+            data_flow="Everything stays in the browser.",
+            technologies=[S.TechnologyChoice(name="Next.js", purpose="UI framework.", label="recommendation",
+                                             evidence_ids=[], required_by_user=False)],
+            key_decisions=[_item("No backend in the first version.", "recommendation")]),
+        scope=S.ScopeSection(in_scope=["habit tracking"], out_of_scope=["accounts"], deliverables=["web app"], dependencies=[]),
+        success_criteria=[S.SuccessCriterion(metric="Habits ticked per week", target=None, basis="none",
+                                             evaluation_method="Local usage counter.", evidence_ids=[])],
+        constraints_and_risks=S.ConstraintsAndRisks(
+            constraints=[], assumptions=["No accounts."], unresolved_questions=["Is mobile needed?"],
+            risks=[S.Risk(risk="Data loss when the browser is cleared.", category="operational",
+                          mitigation="Export button.", evidence_ids=[])]),
+    )
+
+
+def build_brief_review(system: str, user: str) -> S.BriefReview:
+    return S.BriefReview(
+        checks=[S.BriefCheck(check_id=c, passed=True, severity="low", issue="", fix_instruction="") for c in S.BRIEF_CHECK_IDS],
+        needs_user_input=False, clarification_questions=[], summary="Good brief.",
+    )
+
+
 DEFAULT_BUILDERS = {
     S.IntakeResult: build_intake,
     S.ClarificationResult: build_clarification,
@@ -201,6 +260,10 @@ DEFAULT_BUILDERS = {
     S.ProposalJudgement: build_judgement,
     S.ProposalVerification: build_verification,
     S.ReportNarrative: build_narrative,
+    S.BriefPartOne: lambda system, user: S.BriefPartOne(**build_brief(system, user).model_dump(include=set(S.BriefPartOne.model_fields))),
+    S.BriefPartTwo: lambda system, user: S.BriefPartTwo(**build_brief(system, user).model_dump(include=set(S.BriefPartTwo.model_fields))),
+    S.BriefPartThree: lambda system, user: S.BriefPartThree(**build_brief(system, user).model_dump(include=set(S.BriefPartThree.model_fields))),
+    S.BriefReview: build_brief_review,
 }
 
 

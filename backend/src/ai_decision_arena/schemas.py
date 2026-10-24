@@ -32,6 +32,8 @@ WorkflowStatus = Literal[
     "debating",
     "verifying",
     "reporting",
+    "writing_brief",
+    "validating_brief",
     "completed",
     "completed_with_uncertainty",
     "failed",
@@ -684,6 +686,291 @@ class FinalReport(BaseModel):
     risk_flags: list[str]
     withdrawn_risk_flags: list[str] = Field(default_factory=list, description='"flag (reason)" for flags later answers contradicted.')
     disclaimer: str
+
+
+# ---------------------------------------------------------------------------
+# Problem statement + solution brief (spec §4) and its validation (spec §5)
+# ---------------------------------------------------------------------------
+
+# Every statement in the brief says where it comes from. Python downgrades "verified" when none of the cited
+# evidence was verified by the Evidence Checker; "verified" / "research_backed" must cite evidence.
+ClaimLabel = Literal[
+    "verified",          # backed by evidence the Evidence Checker verified
+    "research_backed",   # backed by retrieved evidence (not individually verified)
+    "user_provided",     # the user said it (question, answers, constraints)
+    "recommendation",    # the agents' recommendation
+    "assumption",        # assumed because it is unknown
+]
+CITED_LABELS = ("verified", "research_backed")
+
+
+class BriefItem(BaseModel):
+    """One labelled statement of the brief."""
+
+    text: str = Field(description="One sentence, at most ~25 words. No URLs, no evidence ids in the text.")
+    label: ClaimLabel
+    evidence_ids: list[str] = Field(description="Ids from <evidence> that support it; REQUIRED for verified / research_backed. "
+                                                "Empty list if none.")
+
+
+class ProjectOverview(BaseModel):
+    """§4.1"""
+
+    proposed_name: str = Field(description="A name only if the user gave one or a plain descriptive one fits; empty string otherwise. "
+                                           "Never invent a brand.")
+    description: str = Field(description="What the project is, 1-2 sentences.")
+    audience: list[BriefItem] = Field(description="Intended users, stakeholders and target audience, 1-3 items.")
+    context: BriefItem = Field(description="The domain and context in which the problem occurs.")
+
+
+class ProblemStatement(BaseModel):
+    """§4.2: specific, concise and SOLUTION-NEUTRAL (no feature or technology named as the answer)."""
+
+    statement: BriefItem = Field(description="The specific problem or unmet need, 1-2 sentences, solution-neutral.")
+    who_and_context: BriefItem = Field(description="Who experiences it and in what situation.")
+    current_alternatives: list[BriefItem] = Field(description="How users handle it today / existing alternatives, 1-3 items.")
+    gap: BriefItem = Field(description="The gap between the current situation and the desired outcome.")
+    consequences: list[BriefItem] = Field(description="Practical consequences of leaving it unresolved, 1-2 items.")
+    indicators: list[BriefItem] = Field(description="Supporting evidence or measurable indicators, only from the evidence. Empty list if none.")
+
+
+class ResearchFindings(BaseModel):
+    """§4.3"""
+
+    apps_and_feedback: list[BriefItem] = Field(description="Findings from existing apps and user feedback, 1-3 items.")
+    papers_and_literature: list[BriefItem] = Field(description="Findings from papers and technical literature, 0-3 items "
+                                                               "(empty list if the evidence has none).")
+    feasibility_and_implementations: list[BriefItem] = Field(description="Findings from feasibility, open-source and docs, 1-3 items.")
+    limitations_and_opportunity: list[BriefItem] = Field(description="Limitations of existing solutions and the opportunity, 1-3 items.")
+    evidence_gaps: list[str] = Field(description="What the research could NOT establish, short phrases. Empty list if none.")
+
+
+class ProposedSolutionSection(BaseModel):
+    """§4.4"""
+
+    how_it_addresses_problem: BriefItem = Field(description="How the recommended app addresses the problem, 1-2 sentences.")
+    mvp_features: list[str] = Field(description="Essential first-version features (main user-facing capabilities), 3-8 short items.")
+    future_enhancements: list[str] = Field(description="Features that can wait. Empty list if none.")
+    user_journey: list[str] = Field(description="Key steps of the main workflow, 3-6 short steps.")
+    why_this_approach: list[BriefItem] = Field(description="Why it beats the alternatives considered (name them), 1-3 items.")
+
+
+class NonFunctionalRequirement(BriefItem):
+    category: Literal["performance", "security", "privacy", "reliability", "accessibility", "scalability", "usability",
+                      "maintainability", "compliance", "other"]
+
+
+class Requirements(BaseModel):
+    """§4.5"""
+
+    functional: list[BriefItem] = Field(description="What the system must do, 3-8 items.")
+    non_functional: list[NonFunctionalRequirement] = Field(description="Relevant quality requirements, 2-6 items.")
+    integrations_and_data: list[str] = Field(description="Integrations, data inputs and outputs. Empty list if none.")
+    user_roles: list[str] = Field(description="User roles where applicable. Empty list if a single anonymous role.")
+    acceptance_criteria: list[str] = Field(description="Testable acceptance criteria for the critical requirements "
+                                                       "(Given/When/Then or a checkable statement), 0-5 items.")
+
+
+class Component(BaseModel):
+    name: str = Field(description='E.g. "Frontend", "Backend API", "Database", "Payments (Stripe)".')
+    responsibility: str = Field(description="What it is responsible for, one sentence.")
+
+
+class TechnologyChoice(BaseModel):
+    name: str
+    purpose: str = Field(description="What it is used for and why, one short sentence.")
+    label: ClaimLabel = Field(description="user_provided ONLY if the user asked for it; otherwise research_backed / "
+                                          "verified (with evidence) or recommendation.")
+    evidence_ids: list[str] = Field(description="Ids that support the choice. Empty list if none.")
+    required_by_user: bool = Field(description="True ONLY if the user required this technology. Everything else is a "
+                                               "recommendation, never mandatory.")
+
+
+class ArchitectureSection(BaseModel):
+    """§4.6"""
+
+    overview: BriefItem = Field(description="The recommended high-level architecture, 1-2 sentences.")
+    components: list[Component] = Field(description="Major components (frontend, backend, database, external services, "
+                                                    "AI components) that this project needs, 2-6 items.")
+    data_flow: str = Field(description="How components communicate and data flows, 1-2 sentences.")
+    technologies: list[TechnologyChoice] = Field(description="Recommended technologies, 2-6 items.")
+    key_decisions: list[BriefItem] = Field(description="Important architectural decisions and trade-offs, 1-3 items.")
+
+
+class ScopeSection(BaseModel):
+    """§4.7"""
+
+    in_scope: list[str] = Field(description="What the initial implementation includes, 2-6 items.")
+    out_of_scope: list[str] = Field(description="Important exclusions, 1-5 items.")
+    deliverables: list[str] = Field(description="Expected deliverables (application, services, documentation...), 1-5 items.")
+    dependencies: list[BriefItem] = Field(description="External services, datasets, APIs or infrastructure needed. Empty list if none.")
+
+
+class SuccessCriterion(BaseModel):
+    """§4.8: never invent numerical targets without a baseline."""
+
+    metric: str = Field(description="What is measured, e.g. 'share of test calculations that return the correct result'.")
+    target: str | None = Field(description="Target value ONLY when the user's requirements or the evidence justify it; "
+                                           "null otherwise.")
+    basis: Literal["user_requirement", "evidence", "none"] = Field(
+        description="Where the target comes from. 'none' when target is null."
+    )
+    evaluation_method: str = Field(description="How it will be measured, one short sentence.")
+    evidence_ids: list[str] = Field(description="Required when basis is 'evidence'. Empty list otherwise.")
+
+
+class Risk(BaseModel):
+    risk: str
+    category: Literal["implementation", "security", "privacy", "operational", "legal", "adoption", "other"]
+    mitigation: str
+    evidence_ids: list[str] = Field(description="Ids that support the risk. Empty list if none.")
+
+
+class ConstraintsAndRisks(BaseModel):
+    """§4.9"""
+
+    constraints: list[BriefItem] = Field(description="Technical, financial, regulatory, resource and timeline constraints. "
+                                                     "Confirmed ones are user_provided. Empty list if none known.")
+    assumptions: list[str] = Field(description="Assumptions made because information is missing (kept apart from the "
+                                               "confirmed requirements). Empty list if none.")
+    unresolved_questions: list[str] = Field(description="Open questions and dependencies to settle. Empty list if none.")
+    risks: list[Risk] = Field(description="Main implementation, security, privacy and operational risks with mitigations, 2-5 items.")
+
+
+# The writer fills the brief in THREE structured calls: the whole schema in one call exceeds the API's size limit
+# for strict structured output ("compiled grammar is too large"; the limit grows with the number of objects).
+class BriefPartOne(BaseModel):
+    """LLM output, brief call 1: sections 4.1-4.4."""
+
+    project_overview: ProjectOverview
+    problem_statement: ProblemStatement
+    research_findings: ResearchFindings
+    proposed_solution: ProposedSolutionSection
+
+
+class BriefPartTwo(BaseModel):
+    """LLM output, brief call 2: sections 4.5-4.6."""
+
+    requirements: Requirements
+    architecture: ArchitectureSection
+
+
+class BriefPartThree(BaseModel):
+    """LLM output, brief call 3: sections 4.7-4.9."""
+
+    scope: ScopeSection
+    success_criteria: list[SuccessCriterion] = Field(description="2-5 measurable outcomes that show the problem is solved.")
+    constraints_and_risks: ConstraintsAndRisks
+
+    @model_validator(mode="after")
+    def targets_need_a_basis(self) -> "BriefPartThree":
+        for c in self.success_criteria:
+            if c.target and c.target.strip() and c.basis == "none":
+                raise ValueError(f"success criterion {c.metric!r} has target {c.target!r} but basis 'none': "
+                                 "set target to null, or give the basis (user_requirement / evidence).")
+        return self
+
+
+BRIEF_PARTS: tuple[type[BaseModel], ...] = (BriefPartOne, BriefPartTwo, BriefPartThree)
+
+
+class BriefContent(BriefPartOne, BriefPartTwo, BriefPartThree):
+    """Sections 4.1-4.9 (the three writer calls combined). Section 4.10 (references) is assembled by Python from the
+    evidence ids cited here, so the writer cannot invent a source."""
+
+
+class BriefReference(BaseModel):
+    """§4.10: one source, assembled by Python from an evidence record."""
+
+    number: int = Field(ge=1)
+    evidence_id: str
+    title: str
+    url: HttpUrl
+    domain: Domain
+    source_type: SourceType
+    verification_status: VerificationStatus
+    cited_in: list[str] = Field(default_factory=list, description="Section keys that cite it.")
+
+
+class ProblemBrief(BriefContent):
+    """The brief as stored in state: the writer's sections + Python-assembled references and identity."""
+
+    project_name: str
+    revision: int = Field(ge=0, description="0 = first draft; +1 per revision.")
+    references: list[BriefReference] = Field(default_factory=list)
+    generated_at: datetime = Field(default_factory=utc_now)
+
+
+BriefCheckId = Literal[
+    "problem_clear_and_consistent",         # 1. clearly stated, consistent with the clarified requirements
+    "solution_not_a_copy",                  # 2. addresses the problem rather than copying existing apps
+    "recommendations_supported",            # 3. supported by research or labelled as assumptions
+    "technically_plausible",                # 4. features and architecture plausible within the constraints
+    "scope_separates_mvp",                  # 5. essential vs optional
+    "success_criteria_measurable",          # 6. measurable, no fabricated targets
+    "risks_and_questions_disclosed",        # 7. risks, dependencies, unresolved questions
+    "claims_have_sources",                  # 8. research claims have sources
+    "concise_consistent_readable",          # 9. concise, consistent, understandable
+]
+BRIEF_CHECK_IDS: tuple[str, ...] = BriefCheckId.__args__
+
+
+class BriefCheck(BaseModel):
+    check_id: BriefCheckId
+    passed: bool
+    severity: Level = Field(description="How much a failure matters: high = the brief misleads or cannot be planned from; "
+                                        "low = polish. Use 'low' when passed.")
+    issue: str = Field(description="What is wrong, citing the section. Empty string when passed.")
+    fix_instruction: str = Field(description="Concrete instruction for the writer. Empty string when passed.")
+
+
+class BriefReview(BaseModel):
+    """LLM output of the Brief Validator: the nine checks of spec §5."""
+
+    checks: list[BriefCheck] = Field(description="Exactly one entry per check id, in the given order.")
+    needs_user_input: bool = Field(
+        description="True ONLY if critical information is missing or the requirements contradict each other so that "
+                    "no rewrite can fix it without asking the user."
+    )
+    clarification_questions: list[str] = Field(description="When needs_user_input: at most 2 questions for the user. Empty list otherwise.")
+    summary: str = Field(description="Two sentences: overall quality and the most important fix, if any.")
+
+    @model_validator(mode="after")
+    def one_entry_per_check(self) -> "BriefReview":
+        got = [c.check_id for c in self.checks]
+        if sorted(got) != sorted(BRIEF_CHECK_IDS):
+            raise ValueError(f"checks must contain each of these ids exactly once: {list(BRIEF_CHECK_IDS)}; got {got}")
+        if self.needs_user_input and not [q for q in self.clarification_questions if q.strip()]:
+            raise ValueError("needs_user_input is true but clarification_questions is empty.")
+        return self
+
+
+class ValidationCheck(BaseModel):
+    """One check result as stored: deterministic (Python) or LLM."""
+
+    check_id: str
+    source: Literal["deterministic", "llm"]
+    passed: bool
+    severity: Level
+    issue: str = ""
+    fix_instruction: str = ""
+
+
+class BriefValidation(BaseModel):
+    """Validator result, assembled in Python. Drives the edge after brief_validator."""
+
+    verdict: Literal["approve", "revise", "clarify"]
+    reason: str
+    revision: int = Field(ge=0, description="The brief revision that was validated.")
+    brief_generated_at: datetime | None = Field(default=None, description="generated_at of the validated draft: a "
+                                                "validation applies to exactly that draft.")
+    checks: list[ValidationCheck] = Field(default_factory=list)
+    word_count: int = 0
+    word_budget: int = 0
+    clarification_questions: list[str] = Field(default_factory=list)
+    open_issues: list[str] = Field(default_factory=list, description="Failed checks the brief goes forward with (no revision left).")
+    llm_summary: str = ""
+    validated_at: datetime = Field(default_factory=utc_now)
 
 
 class ErrorRecord(BaseModel):

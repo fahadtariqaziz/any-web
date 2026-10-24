@@ -70,6 +70,7 @@ QUICK_OVERRIDES = {
     "tavily_search_depth": "basic",         # (the apps domain keeps "advanced": basic review / forum snippets are too short)
     "tavily_timeout_seconds": 6,            # a hanging search is retried once quickly instead of waiting
     "search_max_retries": 1,
+    "max_brief_revisions": 0,               # the brief goes out with its open issues listed
 }
 
 
@@ -99,6 +100,9 @@ class Settings(BaseSettings):
     max_clarification_rounds: int = Field(default=3, ge=0, le=5)
     max_research_retries: int = Field(default=2, ge=0, le=5)
     max_debate_rounds: int = Field(default=2, ge=1, le=5)
+    max_brief_revisions: int = Field(default=2, ge=0, le=5, description="Rewrites of the brief the validator may ask for.")
+    brief_word_budget: int = Field(default=900, ge=300, le=3000, description="Words of brief sections 1-9 before the "
+                                   "appendix (about one page); overflow items move to the appendix.")
 
     # --- session budget ---
     session_time_budget_seconds: float = Field(default=900, gt=0, description="Active (non-paused) seconds after which no new loops start.")

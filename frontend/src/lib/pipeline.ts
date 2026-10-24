@@ -1,10 +1,10 @@
-// The pipeline as the USER sees it: 7 stages built from the graph's 13 nodes, plus what each node is
+// The pipeline as the USER sees it: 7 stages built from the graph's 12 nodes, plus what each node is
 // doing in plain words and how long it usually takes (timings observed in the handoff's test runs).
 // Everything here is derived from DecisionStatus; nothing is guessed when the backend knows better.
 
 import type { DecisionStatus, Domain, ProgressLine } from "@/lib/api/types";
 
-export type StageId = "intake" | "clarify" | "research" | "debate" | "verify" | "report";
+export type StageId = "intake" | "clarify" | "research" | "debate" | "verify" | "report" | "brief";
 
 export interface Stage {
   id: StageId;
@@ -19,6 +19,7 @@ export const STAGES: Stage[] = [
   { id: "debate", label: "Debate", blurb: "Propose, critique, judge" },
   { id: "verify", label: "Verification", blurb: "Winner's claims checked at source" },
   { id: "report", label: "Report", blurb: "Winner, alternatives, open questions" },
+  { id: "brief", label: "Brief", blurb: "Problem statement and solution, validated" },
 ];
 
 export interface NodeInfo {
@@ -95,12 +96,26 @@ export const NODE_INFO: Record<string, NodeInfo> = {
     expectedSeconds: 15,
     stage: "report",
   },
+  brief_writer: {
+    label: "Brief writer",
+    headline: "Writing the problem statement and solution brief",
+    doing: "Writing a one-page brief from your requirements and the research: the problem, the evidence, the proposed solution, requirements, architecture, scope, success criteria and risks. Every statement says whether it is verified, research-backed, from you, a recommendation or an assumption; the references are added from the cited evidence.",
+    expectedSeconds: 60,
+    stage: "brief",
+  },
+  brief_validator: {
+    label: "Brief validator",
+    headline: "Checking the brief before you see it",
+    doing: "Checking that every cited source exists, numbers have a basis, every section is filled and the brief fits about one page, then reviewing it on nine criteria (clear problem, no copy of existing apps, supported recommendations, feasibility, MVP scope, measurable success, disclosed risks, sourced claims, readability). It may ask the writer to revise or ask you a question.",
+    expectedSeconds: 20,
+    stage: "brief",
+  },
   completion: {
     label: "Saving",
     headline: "Saving your session",
     doing: "Storing the session, the evidence and the report in the database.",
     expectedSeconds: 2,
-    stage: "report",
+    stage: "brief",
   },
 };
 
@@ -175,7 +190,7 @@ export function stageStates(status: DecisionStatus, activity: Activity): Record<
     for (const s of STAGES) result[s.id] = "done";
     return result;
   }
-  const current = activity.activeStage ?? (finished ? "report" : "intake");
+  const current = activity.activeStage ?? (finished ? "brief" : "intake");
   const currentIndex = STAGE_INDEX[current];
   for (const s of STAGES) {
     const i = STAGE_INDEX[s.id];

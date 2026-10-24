@@ -9,7 +9,8 @@ If the Claude call lived in the same node as interrupt(), it would run again on 
 extra cost, and possibly DIFFERENT questions than the ones the user just answered.
 
 Loop: clarification → await_clarification → clarification → ... → research   (up to max_clarification_rounds)
-The Judge can also send the graph back here with its own questions (verdict.clarification_questions).
+The Judge can also send the graph back here with its own questions (verdict.clarification_questions), and so can
+the brief validator (brief_validation.clarification_questions).
 
 Writes (owner): need_clarification, clarification_questions, clarification_answers, assumptions,
 clarification_round_count, withdrawn_risk_flags; also merges new project facts / features / constraints / risk flags,
@@ -45,7 +46,8 @@ changes the research or the solution (a different audience, a regulated domain, 
 between answers, a must-have feature that is still unclear). Otherwise set need_clarification to false.
 
 If <judge_questions> is non-empty, the Judge needs those answers to rank the proposals: ask them (reworded if
-helpful) plus anything else essential, within the limit.
+helpful) plus anything else essential, within the limit. If <brief_questions> is non-empty, the brief validator
+found critical information missing or contradictory in the solution brief: ask those the same way.
 
 Rules:
 - At most {max_questions} questions per round, in plain language. ONE question = ONE answer: never pack several
@@ -72,9 +74,12 @@ Rules:
 
 def _build_user_content(state: ArenaState, can_ask_more: bool) -> str:
     judge_questions = (state.get("verdict") or {}).get("clarification_questions", [])
+    validation = state.get("brief_validation") or {}
+    brief_questions = validation.get("clarification_questions", []) if validation.get("verdict") == "clarify" else []
     return f"""{user_case_block(state)}
 <missing_information>{json.dumps(state.get("missing_information", []), indent=2)}</missing_information>
 <judge_questions>{json.dumps(judge_questions, indent=2)}</judge_questions>
+<brief_questions>{json.dumps(brief_questions, indent=2)}</brief_questions>
 <rounds_used>{state.get("clarification_round_count", 0)}</rounds_used>
 <can_ask_more>{str(can_ask_more).lower()}</can_ask_more>"""
 

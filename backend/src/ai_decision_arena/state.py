@@ -74,8 +74,16 @@ class ArenaState(TypedDict, total=False):
     # (evidence[].verification_status is also written here)
 
     # --- output ------------------------------------------- (final_report/completion)
-    final_report: dict                   # FinalReport (interim; the problem brief replaces it in M4)
-    unresolved_questions: list[str]      # appended by evidence_checker, finalized by final_report
+    final_report: dict                   # FinalReport: the debate's outcome (data step before the brief)
+    unresolved_questions: list[str]      # appended by evidence_checker / final_report / brief_validator
+
+    # --- problem brief -------------------------------------------- (brief_writer / brief_validator)
+    brief: dict                          # ProblemBrief (sections 4.1-4.9 + Python-assembled references)  (brief_writer)
+    brief_markdown: str                  # rendered brief: main part (~1 page) + appendix                  (brief_writer;
+                                         #   brief_validator re-renders it when open issues remain)
+    brief_revision_count: int            # rewrites asked by the validator for the current brief             (brief_validator;
+                                         #   reset to 0 when it sends the graph back to clarification)
+    brief_validation: dict               # BriefValidation of the latest draft                                (brief_validator)
     completed_at: str
     metrics: dict                        # durations, rounds, counts (completion)
 

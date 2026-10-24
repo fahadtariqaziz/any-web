@@ -1,7 +1,7 @@
 "use client";
 
 // The interim report: the recommended solution, why it won, the alternatives, what is uncertain, and what to
-// decide before planning the build. (M4 adds the problem statement + solution brief the user approves.)
+// decide before planning the build. The problem statement + solution brief (BriefView) is shown above it.
 
 import { FileText, Printer, Trophy } from "lucide-react";
 import { useState } from "react";

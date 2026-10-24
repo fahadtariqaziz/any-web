@@ -95,7 +95,10 @@ def print_outcome(result):
     cache_dir.mkdir(exist_ok=True)
     (cache_dir / "final_state.json").write_text(json.dumps(result, indent=2, default=str))
     (cache_dir / "final_report.json").write_text(json.dumps(result.get("final_report"), indent=2, default=str))
-    print(f"\n💾 Full state and report saved to {cache_dir}/final_state.json and final_report.json "
+    if result.get("brief_markdown"):
+        print("\n" + "=" * 80 + "\n" + result["brief_markdown"] + "=" * 80)
+        (cache_dir / "brief.md").write_text(result["brief_markdown"])
+    print(f"\n💾 Full state, report and brief saved to {cache_dir}/final_state.json, final_report.json and brief.md "
           "(evidence, plans, criticisms and scores are all in there)")
 
 

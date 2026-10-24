@@ -66,6 +66,8 @@ def test_start_pause_resume_report(client):
 
     # not finished yet → 409
     assert client.get(f"/api/decisions/{thread_id}/report").status_code == 409
+    no_brief = client.get(f"/api/decisions/{thread_id}/brief")
+    assert no_brief.status_code == 409 and no_brief.json()["error"]["code"] == "no_brief"
     # wrong pause type → 409
     wrong = client.post(f"/api/decisions/{thread_id}/resume", json={"type": "continue"})
     assert wrong.status_code == 409 and wrong.json()["error"]["code"] == "not_interrupted"
@@ -87,6 +89,15 @@ def test_start_pause_resume_report(client):
     body = report.json()["report"]
     assert body["winner"]["proposal"]["proposal_id"] == "proposal_a"
     assert [a["proposal"]["proposal_id"] for a in body["alternatives"]] == ["proposal_b"]
+
+    assert status["has_brief"] is True
+    brief = client.get(f"/api/decisions/{thread_id}/brief")
+    assert brief.status_code == 200
+    brief = brief.json()
+    assert brief["validation"]["verdict"] == "approve"
+    assert brief["markdown"].startswith("# ") and "## 10. References" in brief["markdown"]
+    known_urls = {e["source_url"] for e in client.get(f"/api/decisions/{thread_id}/evidence").json()["evidence"]}
+    assert brief["brief"]["references"] and {r["url"] for r in brief["brief"]["references"]} <= known_urls
 
     evidence = client.get(f"/api/decisions/{thread_id}/evidence").json()
     assert evidence["count"] == status["counters"]["evidence"]

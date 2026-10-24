@@ -23,7 +23,7 @@ OUT_DIR = Path(__file__).resolve().parent.parent
 
 # Why the graph takes each edge (source, target) → label. An edge missing here is drawn without a label.
 LABELS = {
-    ("clarification", "await_clarification"): "needs answers (max 2 rounds)",
+    ("clarification", "await_clarification"): "needs answers (max 3 rounds)",
     ("await_clarification", "clarification"): "user answered",
     ("clarification", "research"): "enough info",
     ("proposer", "critic"): "2-3 proposals",
@@ -32,6 +32,9 @@ LABELS = {
     ("judge", "evidence_checker"): "proceed",
     ("evidence_checker", "research"): "material evidence gap",
     ("evidence_checker", "final_report"): "claims checked",
+    ("brief_validator", "brief_writer"): "revise (max 2)",
+    ("brief_validator", "clarification"): "critical info missing",
+    ("brief_validator", "completion"): "approved",
 }
 
 # Phases, top to bottom. Every node of the graph must be in one of them.
@@ -40,7 +43,8 @@ PHASES = {
     "2 · Research (3 domains)": ["research"],
     "3 · Debate": ["proposer", "critic", "judge"],
     "4 · Verify": ["evidence_checker"],
-    "5 · Report": ["final_report", "completion"],
+    "5 · Report": ["final_report"],
+    "6 · Brief": ["brief_writer", "brief_validator", "completion"],
 }
 
 # Edges that go back to an earlier step (drawn dashed).
@@ -49,6 +53,8 @@ LOOPS = {
     ("judge", "research"),
     ("judge", "clarification"),
     ("evidence_checker", "research"),
+    ("brief_validator", "brief_writer"),
+    ("brief_validator", "clarification"),
 }
 
 PAUSES = {"await_clarification"}   # interrupt(): the graph stops until the user replies
@@ -61,8 +67,8 @@ def node_class(name: str) -> str:
 
 def build_mermaid() -> str:
     graph = build_graph(InMemorySaver()).get_graph()
-    # X → completion is the "failed" edge for every X except final_report (its normal next step).
-    edges = [e for e in graph.edges if e.target != "completion" or e.source == "final_report"]
+    # X → completion is the "failed" edge for every X except brief_validator (its normal next step).
+    edges = [e for e in graph.edges if e.target != "completion" or e.source == "brief_validator"]
     names = {e.source for e in edges} | {e.target for e in edges}
     placed = {n for nodes in PHASES.values() for n in nodes}
     missing = names - placed - {"__start__", "__end__"}

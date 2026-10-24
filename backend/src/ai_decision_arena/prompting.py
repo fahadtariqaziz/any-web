@@ -52,7 +52,9 @@ def evidence_block(evidence: list[dict], max_excerpt_chars: int = 350) -> str:
                      f'recurring="{feedback.get("is_recurring")}">{feedback.get("experience_described", "")}</feedback>')
         items.append(
             f'<item id="{e["evidence_id"]}" domain="{e["domain"]}" type="{e["source_type"]}" '
-            f'strength="{e.get("evidence_strength", "unknown")}" relevance="{e["relevance_score"]:.2f}">\n'
+            f'strength="{e.get("evidence_strength", "unknown")}" relevance="{e["relevance_score"]:.2f}"'
+            + (f' checked="{e["verification_status"]}"' if e.get("verification_status", "pending") != "pending" else "")
+            + '>\n'
             f'  <title>{e["source_title"][:120]}</title>\n'
             f'  <excerpt quote="{e["is_direct_quote"]}">{e["relevant_excerpt"][:max_excerpt_chars]}</excerpt>\n'
             f'  <claims>{json.dumps(e.get("claims_supported", []))}</claims>\n'

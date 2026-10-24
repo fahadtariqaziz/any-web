@@ -9,6 +9,7 @@ Flow:
     GET  /api/decisions/{id}              → poll every ~2 s: run_state, progress lines, pending pause
     POST /api/decisions/{id}/resume       → answer the pending pause (or "continue" an interrupted run)
     GET  /api/decisions/{id}/report       → the final report, once finished
+    GET  /api/decisions/{id}/brief        → the validated problem statement + solution brief
     GET  /api/decisions/{id}/evidence     → kept evidence with verification status
     GET  /api/decisions/{id}/live         → everything produced so far (case, evidence counts, plans, scores, verdicts)
     GET  /api/decisions                   → recent sessions (from the app tables); ?mode=quick for the chat list
@@ -56,6 +57,7 @@ from ai_decision_arena.api.schemas import (
     LiveSnapshot,
     PendingPause,
     ReportResponse,
+    BriefResponse,
     ResearchView,
     ResumeRequest,
     SessionList,
@@ -256,6 +258,7 @@ def get_decision(thread_id: str, request: Request):
         progress=runner.progress(thread_id),
         error=error,
         has_report=bool(values.get("final_report")),
+        has_brief=_validated_brief(values) is not None,
         current_node=values.get("current_node"),
         next_nodes=list(snapshot.next or ()),
         started_at=values.get("started_at"),
@@ -308,6 +311,29 @@ def get_report(thread_id: str, request: Request):
     if not values.get("final_report"):
         raise ApiError(409, "no_report", f"This session ended without a report (status {values.get('status')}).")
     return ReportResponse(thread_id=thread_id, workflow_status=values.get("status"), report=values["final_report"])
+
+
+def _validated_brief(values: dict) -> tuple[dict, dict] | None:
+    """(brief, validation) when the current draft passed the validator (approve), else None."""
+    brief, validation = values.get("brief"), values.get("brief_validation")
+    if not brief or not validation or validation.get("verdict") != "approve":
+        return None
+    if validation.get("brief_generated_at") != brief.get("generated_at"):
+        return None                               # the validation belongs to an earlier draft
+    return brief, validation
+
+
+@app.get("/api/decisions/{thread_id}/brief", response_model=BriefResponse, tags=["decisions"])
+def get_brief(thread_id: str, request: Request):
+    """The problem statement + solution brief, once the validator approved the current draft (also while the graph
+    is paused or still running later steps). 409 "no_brief" before that: an unvalidated draft is never shown."""
+    values = _snapshot(request, thread_id).values or {}
+    found = _validated_brief(values)
+    if not found:
+        raise ApiError(409, "no_brief", f"No validated brief yet (status {values.get('status')}).")
+    brief, validation = found
+    return BriefResponse(thread_id=thread_id, workflow_status=values.get("status"), brief=brief,
+                         markdown=values.get("brief_markdown", ""), validation=validation)
 
 
 @app.get("/api/decisions/{thread_id}/evidence", response_model=EvidenceResponse, tags=["decisions"])
