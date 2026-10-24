@@ -6,7 +6,7 @@
            ├─(request_clarification)──► clarification
            └─(proceed / insufficient_evidence)──► evidence_checker ─┬─(material gap, loop allowed)─► research
                                                                     └──────────────────────────────► final_report
-    final_report → completion → END        (the report always shows the best plan of all three perspectives)
+    final_report → completion → END        (the report always shows the best plan of all three domains)
     Any node that raises → its error is stored (nodes/node_wrapper.py) → completion (status failed).
 
 Every edge is "guarded": if the state carries an error, the graph goes straight to completion. Nodes are not

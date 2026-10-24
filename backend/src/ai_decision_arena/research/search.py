@@ -1,6 +1,7 @@
 """Tavily web search wrapper: bounded, de-duplicated, traced, never crashes the graph.
 
-- Each query belongs to a perspective lane; the lane decides which domains to steer to.
+- Each query belongs to a research domain (apps / papers / tech); the domain decides which sites to prefer and
+  the search depth.
 - Transient errors (timeout, network, 5xx) → retry with exponential backoff.
 - Permanent errors (bad key, quota used up, bad request) → no retry; recorded as a failure.
 - A failed query becomes a SearchFailure (an evidence gap), never invented results.
@@ -17,13 +18,7 @@ from tavily import TavilyClient
 
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.progress import report
-from ai_decision_arena.research.sources import (
-    DOCTOR_DOMAINS,
-    PATIENT_DOMAINS,
-    RESEARCH_DOMAINS,
-    classify_source,
-    normalize_url,
-)
+from ai_decision_arena.research.sources import SITES_BY_DOMAIN, classify_source, normalize_url
 from ai_decision_arena.schemas import SearchFailure, SearchHit, SearchQuery
 
 PERMANENT_ERRORS = (
@@ -44,21 +39,16 @@ def _client() -> TavilyClient:
     return TavilyClient(api_key=get_settings().tavily_api_key.get_secret_value())
 
 
-def _lane_kwargs(q: SearchQuery) -> dict:
-    """Domain steering per perspective. Planner-suggested domains are added to the prefer lists."""
+def _domain_kwargs(q: SearchQuery) -> dict:
+    """Site steering per research domain ("prefer": boosted, never exclusive). Planner-suggested sites are added.
+    The apps domain uses the deeper search: review and forum snippets are too short with "basic"."""
     settings = get_settings()
-    extra = [d for d in q.preferred_domains if d][:MAX_PLANNER_DOMAINS]
-    if q.perspective == "patient":
-        return {
-            "include_domains": PATIENT_DOMAINS,
-            "include_domains_mode": "restrict",
-            "search_depth": settings.tavily_patient_search_depth,
-        }
-    base = RESEARCH_DOMAINS if q.perspective == "research" else DOCTOR_DOMAINS
+    base = SITES_BY_DOMAIN[q.domain]
+    extra = [d for d in q.preferred_domains if d and d not in base][:MAX_PLANNER_DOMAINS]
     return {
-        "include_domains": base + [d for d in extra if d not in base],
+        "include_domains": base + extra,
         "include_domains_mode": "prefer",
-        "search_depth": settings.tavily_search_depth,
+        "search_depth": settings.tavily_apps_search_depth if q.domain == "apps" else settings.tavily_search_depth,
     }
 
 
@@ -69,7 +59,7 @@ def search_one(q: SearchQuery) -> list[SearchHit]:
     kwargs = {
         "max_results": settings.max_results_per_query,
         "timeout": settings.tavily_timeout_seconds,
-    } | _lane_kwargs(q)
+    } | _domain_kwargs(q)
 
     for attempt in range(settings.search_max_retries + 1):
         try:
@@ -91,7 +81,7 @@ def search_one(q: SearchQuery) -> list[SearchHit]:
             published_at=r.get("published_date"),   # Tavily only sometimes has this; never guessed
             source_type=classify_source(r["url"]),
             query=q.query,
-            perspective=q.perspective,
+            domain=q.domain,
             topic=q.topic,
         )
         for r in response.get("results", [])
@@ -103,13 +93,13 @@ def _safe_search(q: SearchQuery) -> list[SearchHit] | SearchFailure:
     """Never raises: a failure is returned as a value, so one bad query can't stop the others."""
     try:
         hits = search_one(q)
-        report("research", f"[{q.perspective}] {len(hits)} results: {q.query[:70]}")
+        report("research", f"[{q.domain}] {len(hits)} results: {q.query[:70]}")
         return hits
     except Exception as exc:
-        report("research", f"[{q.perspective}] search failed ({type(exc).__name__}): {q.query[:70]}")
+        report("research", f"[{q.domain}] search failed ({type(exc).__name__}): {q.query[:70]}")
         return SearchFailure(
             query=q.query,
-            perspective=q.perspective,
+            domain=q.domain,
             error_type=type(exc).__name__,
             message=str(exc)[:300],                 # Tavily errors don't include the key
             retryable=not isinstance(exc, PERMANENT_ERRORS),
@@ -117,8 +107,8 @@ def _safe_search(q: SearchQuery) -> list[SearchHit] | SearchFailure:
 
 
 def run_searches(queries: list[SearchQuery]) -> tuple[list[SearchHit], list[SearchFailure]]:
-    """Run the queries in parallel. Returns (unique hits, failures). A URL found by two lanes
-    is kept once, under the lane whose query came first (research → doctor → patient)."""
+    """Run the queries in parallel. Returns (unique hits, failures). A URL found by two domains is kept once,
+    under the domain whose query came first (apps → papers → tech)."""
     hits: list[SearchHit] = []
     failures: list[SearchFailure] = []
     seen: set[str] = set()
@@ -136,7 +126,7 @@ def run_searches(queries: list[SearchQuery]) -> tuple[list[SearchHit], list[Sear
             continue
         for hit in outcome:
             key = normalize_url(hit.url)
-            if key not in seen:                     # de-duplicate across queries and lanes
+            if key not in seen:                     # de-duplicate across queries and domains
                 seen.add(key)
                 hits.append(hit)
 

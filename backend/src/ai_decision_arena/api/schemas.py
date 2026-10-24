@@ -159,11 +159,11 @@ class CaseView(BaseModel):
 class ResearchView(BaseModel):
     passes: int = 0
     queries: list[str] = Field(default_factory=list)
-    evidence_by_perspective: dict[str, int] = Field(default_factory=dict)
+    evidence_by_domain: dict[str, int] = Field(default_factory=dict)
     evidence_gaps: list[str] = Field(default_factory=list)
     conflicting_claims: list[dict[str, Any]] = Field(default_factory=list)
     rejected_count: int = 0
-    perspective_summaries: dict[str, str] = Field(default_factory=dict)
+    domain_summaries: dict[str, str] = Field(default_factory=dict)
     research_focus: list[str] = Field(default_factory=list, description="What the next (follow-up) pass must look for.")
 
 
@@ -173,7 +173,7 @@ class DebateView(BaseModel):
     criticisms: list[Criticism] = Field(default_factory=list)
     scores: list[PlanScore] = Field(default_factory=list)
     verdict: Verdict | None = None
-    lane_status: dict[str, str] = Field(default_factory=dict, description="perspective -> ok | thin | declined | no_evidence")
+    lane_status: dict[str, str] = Field(default_factory=dict, description="domain -> ok | thin | declined | no_evidence")
     proposer_notes: dict[str, str] = Field(default_factory=dict)
 
 

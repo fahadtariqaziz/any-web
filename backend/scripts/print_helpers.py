@@ -2,7 +2,7 @@
 
 import time
 
-from ai_decision_arena.schemas import PERSPECTIVE_LABELS, PERSPECTIVES
+from ai_decision_arena.schemas import DOMAIN_LABELS, DOMAINS
 
 
 def stream_graph(graph, graph_input, config, shown_red_flags: set | None = None) -> tuple[dict, dict | None]:
@@ -82,9 +82,9 @@ def print_research(state: dict) -> None:
         print(f"   - {q}")
 
     print(f"\n📚 Evidence kept: {len(evidence)}")
-    for p in PERSPECTIVES:
-        lane = [e for e in evidence if e["perspective"] == p]
-        print(f"\n  ── {PERSPECTIVE_LABELS[p]} — {len(lane)} item(s)")
+    for p in DOMAINS:
+        lane = [e for e in evidence if e["domain"] == p]
+        print(f"\n  ── {DOMAIN_LABELS[p]} — {len(lane)} item(s)")
         for e in lane:
             quote = "quote" if e["is_direct_quote"] else "paraphrase"
             print(f"\n  {e['evidence_id']}  [{e['source_type']} | {e.get('evidence_strength', 'unknown')}]  "
@@ -94,15 +94,15 @@ def print_research(state: dict) -> None:
             print(f"     \"{e['relevant_excerpt'][:200]}\"")
             if e.get("claims_supported"):
                 print(f"     claims: {e['claims_supported'][:2]}")
-            if e.get("patient_context"):
-                c = e["patient_context"]
+            if e.get("feedback_context"):
+                c = e["feedback_context"]
                 print(f"     patient: recurring={c['is_recurring']} | {c['experience_described'][:100]}")
             print(f"     notes: {e['reliability_notes'][:160]}")
 
     rejected = state.get("rejected_sources", [])
     print(f"\n🗑  Rejected sources: {len(rejected)}")
     for r in rejected:
-        print(f"   - [{r.get('perspective', '?'):<8}] {r['title'][:50]:<50}  → {r['reason'][:70]}")
+        print(f"   - [{r.get('domain', '?'):<8}] {r['title'][:50]:<50}  → {r['reason'][:70]}")
 
     print("\n🕳  Evidence gaps:")
     for g in state.get("evidence_gaps", []) or ["(none)"]:
@@ -133,10 +133,10 @@ def print_debate(state: dict) -> None:
           f"research retries {state.get('research_retry_count')})")
     print(f"   {verdict.get('reason', '').replace(chr(10), chr(10) + '   ')}")
 
-    for p in PERSPECTIVES:
-        lane = sorted((x for x in plans if x["perspective"] == p),
+    for p in DOMAINS:
+        lane = sorted((x for x in plans if x["domain"] == p),
                       key=lambda x: (scores.get(x["plan_id"], {}).get("weighted_total") or 0), reverse=True)
-        print(f"\n{'═' * 100}\n  {PERSPECTIVE_LABELS[p]}   status={verdict.get('perspective_status', {}).get(p)}")
+        print(f"\n{'═' * 100}\n  {DOMAIN_LABELS[p]}   status={verdict.get('domain_status', {}).get(p)}")
         if state.get("proposer_notes", {}).get(p):
             print(f"  note: {state['proposer_notes'][p]}")
         for plan in lane:
@@ -195,8 +195,8 @@ def print_report(state: dict) -> None:
     print(f"\n{r['overview']}\n")
     print(f"Method: {r['research_methodology']}")
 
-    for item in r["perspectives"]:
-        print(f"\n{'─' * 100}\n  {PERSPECTIVE_LABELS[item['perspective']]}")
+    for item in r["domains"]:
+        print(f"\n{'─' * 100}\n  {DOMAIN_LABELS[item['domain']]}")
         plan = item.get("plan")
         if not plan:
             print(f"  (no plan) {item.get('unavailable_reason', '')[:300]}")
@@ -226,7 +226,7 @@ def print_report(state: dict) -> None:
         for x in items or ["(none)"]:
             print(f"   - {x}")
 
-    section("🤝 Where the perspectives agree:", r["where_perspectives_agree"])
+    section("🤝 Where the domains agree:", r["where_perspectives_agree"])
     section("↔️  Where they differ:", r["where_perspectives_differ"])
     section("❓ Uncertainties:", r["uncertainties"])
     section("⛔ Claims not supported by their evidence:", r["unsupported_claims"])

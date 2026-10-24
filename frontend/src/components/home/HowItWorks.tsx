@@ -8,7 +8,7 @@ const STEPS = [
   },
   {
     icon: Search,
-    title: "Three lanes of research",
+    title: "Three domains of research",
     text: "Research papers, clinical guidance and patient communities are searched separately. Every kept source becomes a short, cited evidence record. Sources are rejected with a stated reason.",
   },
   {
@@ -24,7 +24,7 @@ const STEPS = [
   {
     icon: FileText,
     title: "A report to bring to your doctor",
-    text: "One best plan per perspective, where they agree and differ, what remains uncertain, and the questions to ask next.",
+    text: "One best plan per domain, where they agree and differ, what remains uncertain, and the questions to ask next.",
   },
 ];
 

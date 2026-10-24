@@ -84,7 +84,7 @@ def test_start_pause_resume_report(client):
 
     report = client.get(f"/api/decisions/{thread_id}/report")
     assert report.status_code == 200
-    assert [p["perspective"] for p in report.json()["report"]["perspectives"]] == ["research", "doctor", "patient"]
+    assert [p["domain"] for p in report.json()["report"]["domains"]] == ["apps", "papers", "tech"]
 
     evidence = client.get(f"/api/decisions/{thread_id}/evidence").json()
     assert evidence["count"] == status["counters"]["evidence"]

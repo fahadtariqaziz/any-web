@@ -26,7 +26,7 @@ talking to the patient) asks you one research question. Find the answer and repo
 
 How to work:
 - First search_knowledge (fast, already collected). Then web_search only for what is still missing, one lane
-  at a time: "doctor" for guidelines, "research" for studies, "patient" for real experiences.
+  at a time: "apps" for products and user feedback, "papers" for studies, "tech" for libraries, APIs and docs.
 - Compare what the lanes say. Prefer guidelines and systematic reviews over single studies, and studies over
   single patient stories; say how strong the evidence is.
 - Answer in at most 8 short bullet points, each ending with its source as [title](url) or [kb_id title].

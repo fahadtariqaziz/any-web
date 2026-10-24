@@ -58,7 +58,7 @@ class EvidenceRecord(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("decision_sessions.id", ondelete="CASCADE"), index=True)
     evidence_id: Mapped[str] = mapped_column(String(20))
-    perspective: Mapped[str] = mapped_column(String(20))           # research / doctor / patient
+    domain: Mapped[str] = mapped_column(String(20))           # research / doctor / patient
     source_url: Mapped[str] = mapped_column(Text)
     source_title: Mapped[str] = mapped_column(Text)
     source_type: Mapped[str] = mapped_column(String(40))
@@ -152,7 +152,7 @@ class KnowledgeDoc(Base):
     key: Mapped[str] = mapped_column(String(200))
     title: Mapped[str] = mapped_column(Text)
     url: Mapped[str | None] = mapped_column(Text)
-    perspective: Mapped[str | None] = mapped_column(String(20))      # research / doctor / patient (evidence only)
+    domain: Mapped[str | None] = mapped_column(String(20))      # research / doctor / patient (evidence only)
     condition: Mapped[str | None] = mapped_column(String(200))
     content: Mapped[str] = mapped_column(Text)
     thread_id: Mapped[str | None] = mapped_column(String(64), index=True)

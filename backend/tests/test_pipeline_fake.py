@@ -30,18 +30,18 @@ def test_full_pipeline_pauses_for_clarification_then_completes(graph, fake_llm, 
     assert result["evidence"], "no evidence extracted"
     assert [e["evidence_id"] for e in result["evidence"]] == [f"ev_{i:03d}" for i in range(1, len(result["evidence"]) + 1)]
     assert all(e["source_url"].startswith("https://example.org/") for e in result["evidence"])
-    assert {e["perspective"] for e in result["evidence"]} == {"research", "doctor", "patient"}
+    assert {e["domain"] for e in result["evidence"]} == {"apps", "papers", "tech"}
 
     # debate: one winner per lane, scores computed, verdict proceed
-    assert set(result["verdict"]["winning_plan_ids"]) == {"research", "doctor", "patient"}
+    assert set(result["verdict"]["winning_plan_ids"]) == {"apps", "papers", "tech"}
     assert result["verdict"]["decision"] == "proceed"
     assert result["debate_round"] == 1
 
     # verification + report
     assert result["checker_verdict"]["decision"] == "proceed"
     report = result["final_report"]
-    assert [p["perspective"] for p in report["perspectives"]] == ["research", "doctor", "patient"]
-    assert all(p["plan"] for p in report["perspectives"])
+    assert [p["domain"] for p in report["domains"]] == ["apps", "papers", "tech"]
+    assert all(p["plan"] for p in report["domains"])
     assert report["is_conditional"] is False
     assert result["metrics"]["evidence_count"] == len(result["evidence"])
     assert "onboarding_summary" not in result                 # full mode: no chat summary

@@ -1,14 +1,14 @@
 "use client";
 
-// One perspective's winning plan at a glance: score, confidence, verification counts, top objections.
+// One domain's winning plan at a glance: score, confidence, verification counts, top objections.
 // Used in the final report.
 
 import { ChevronDown } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Markdown } from "@/components/ui/Markdown";
-import type { Level, Perspective, VerificationStatus } from "@/lib/api/types";
-import { CONFIDENCE_TONE, LEVEL_TONE, PERSPECTIVE_META, VERIFICATION_META, titleCase } from "@/lib/format";
+import type { Level, Domain, VerificationStatus } from "@/lib/api/types";
+import { CONFIDENCE_TONE, LEVEL_TONE, DOMAIN_META, VERIFICATION_META, titleCase } from "@/lib/format";
 
 const VERIFICATION_ORDER: VerificationStatus[] = ["verified", "partially_supported", "unsupported", "contradicted", "unavailable", "irrelevant", "pending"];
 
@@ -40,7 +40,7 @@ function asLevel(v: string | null | undefined): Level | null {
 }
 
 export function PerspectiveCard({
-  perspective,
+  domain,
   planId,
   name,
   summary,
@@ -53,7 +53,7 @@ export function PerspectiveCard({
   expanded,
   onToggle,
 }: {
-  perspective: Perspective;
+  domain: Domain;
   planId: string | null;
   name: string | null;
   summary: string | null;
@@ -66,7 +66,7 @@ export function PerspectiveCard({
   expanded?: boolean;
   onToggle?: () => void;
 }) {
-  const meta = PERSPECTIVE_META[perspective];
+  const meta = DOMAIN_META[domain];
   const conf = asLevel(confidence);
   const diff = asLevel(difficulty);
   return (
@@ -126,7 +126,7 @@ export function PerspectiveCard({
           </>
         ) : (
           <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
-            <p className="font-medium text-slate-800">No plan from this perspective</p>
+            <p className="font-medium text-slate-800">No plan from this domain</p>
             <p>{unavailableReason ?? "The evidence did not support a defensible plan."}</p>
           </div>
         )}

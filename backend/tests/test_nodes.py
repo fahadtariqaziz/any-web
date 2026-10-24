@@ -73,14 +73,14 @@ def test_clarification_drops_questions_already_answered(fake_llm, base_state):
     assert out["clarification_questions"] == ["Which features must the first version have?"]
 
 
-def _evidence(eid: str, perspective: str) -> dict:
-    return S.Evidence(evidence_id=eid, perspective=perspective, source_title="t", source_url="https://e.org/x",
+def _evidence(eid: str, domain: str) -> dict:
+    return S.Evidence(evidence_id=eid, domain=domain, source_title="t", source_url="https://e.org/x",
                       source_type="research_paper", relevant_excerpt="e", is_direct_quote=False,
                       relevance_score=0.9).model_dump(mode="json")
 
 
 def test_proposer_builds_plans_per_lane_and_drops_unknown_citations(fake_llm, base_state):
-    state = dict(base_state, evidence=[_evidence("ev_001", "research"), _evidence("ev_002", "doctor")])
+    state = dict(base_state, evidence=[_evidence("ev_001", "apps"), _evidence("ev_002", "papers")])
 
     def cites_unknown(system, user):
         from tests.conftest import build_proposer
@@ -92,8 +92,8 @@ def test_proposer_builds_plans_per_lane_and_drops_unknown_citations(fake_llm, ba
 
     out = proposer_node(state)
     ids = sorted(p["plan_id"] for p in out["care_plans"])
-    assert ids == ["doctor_a", "doctor_b", "research_a", "research_b"]      # no patient evidence → no patient plan
-    assert out["proposer_lane_status"] == {"research": "ok", "doctor": "ok", "patient": "no_evidence"}
+    assert ids == ["apps_a", "apps_b", "papers_a", "papers_b"]      # no tech evidence → no tech plan
+    assert out["proposer_lane_status"] == {"apps": "ok", "papers": "ok", "tech": "no_evidence"}
     for p in out["care_plans"]:
         assert "ev_999" not in p["supporting_evidence_ids"]
         assert any("not found" in g for g in p["evidence_gaps"])
@@ -104,15 +104,15 @@ def _plans(*ids: str) -> list[dict]:
     return [S.CarePlan(name=i, summary="s", daily_routine=[], diet=[], medications_treatments=[], expected_timeline="",
                        prevalence_and_outlook="", benefits=[], drawbacks_risks=[], assumptions=[], difficulty="low",
                        safety_notes="", supporting_evidence_ids=[], evidence_gaps=[], plan_id=i,
-                       perspective=i.split("_")[0], round=1).model_dump(mode="json") for i in ids]
+                       domain=i.split("_")[0], round=1).model_dump(mode="json") for i in ids]
 
 
 def test_judge_computes_totals_in_python_and_picks_a_winner_per_lane(fake_llm, base_state):
-    state = dict(base_state, debate_round=1, care_plans=_plans("research_a", "research_b", "doctor_a", "patient_a"),
-                 proposer_lane_status={"research": "ok", "doctor": "ok", "patient": "ok"})
+    state = dict(base_state, debate_round=1, care_plans=_plans("apps_a", "apps_b", "papers_a", "tech_a"),
+                 proposer_lane_status={"apps": "ok", "papers": "ok", "tech": "ok"})
     out = judge_node(state)
     assert out["verdict"]["decision"] == "proceed"
-    assert out["verdict"]["winning_plan_ids"] == {"research": "research_a", "doctor": "doctor_a", "patient": "patient_a"}
+    assert out["verdict"]["winning_plan_ids"] == {"apps": "apps_a", "papers": "papers_a", "tech": "tech_a"}
     weights = get_settings().rubric_weights
     for s in out["scores"]:
         assert s["weighted_total"] == weighted_total(S.PlanScore.model_validate(s), weights)
@@ -124,9 +124,9 @@ def test_judge_requests_research_when_a_lane_is_insufficient(fake_llm, base_stat
         j = build_judgement(system, user)
         return j.model_copy(update={"evidence_sufficient": False, "insufficiency_reason": "thin",
                                     "required_evidence": ["prevalence data"]})
-    fake_llm.overrides[S.PerspectiveJudgement] = insufficient
-    state = dict(base_state, debate_round=1, care_plans=_plans("research_a", "doctor_a", "patient_a"),
-                 proposer_lane_status={"research": "ok", "doctor": "ok", "patient": "ok"})
+    fake_llm.overrides[S.DomainJudgement] = insufficient
+    state = dict(base_state, debate_round=1, care_plans=_plans("apps_a", "papers_a", "tech_a"),
+                 proposer_lane_status={"apps": "ok", "papers": "ok", "tech": "ok"})
     out = judge_node(state)
     assert out["verdict"]["decision"] == "request_more_research"
     assert out["research_retry_count"] == 1
@@ -136,10 +136,10 @@ def test_judge_requests_research_when_a_lane_is_insufficient(fake_llm, base_stat
 def test_judge_stops_looping_at_the_caps(fake_llm, base_state):
     def insufficient(system, user):
         return build_judgement(system, user).model_copy(update={"evidence_sufficient": False, "insufficiency_reason": "thin"})
-    fake_llm.overrides[S.PerspectiveJudgement] = insufficient
+    fake_llm.overrides[S.DomainJudgement] = insufficient
     s = get_settings()
     state = dict(base_state, debate_round=s.max_debate_rounds, research_retry_count=s.max_research_retries,
-                 care_plans=_plans("research_a", "doctor_a", "patient_a"))
+                 care_plans=_plans("apps_a", "papers_a", "tech_a"))
     out = judge_node(state)
     assert out["verdict"]["decision"] == "insufficient_evidence"
     assert "research_retry_count" not in out

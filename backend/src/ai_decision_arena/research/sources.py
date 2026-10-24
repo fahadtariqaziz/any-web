@@ -1,8 +1,8 @@
-"""Pure-Python helpers for URLs: normalize for de-duplication, guess the source type,
-and the per-perspective domain lists used to steer Tavily.
+"""Pure-Python helpers for URLs: normalize for de-duplication, guess the source type, and the per-domain site
+lists used to steer Tavily.
 
-The source type here is a cheap first guess from the domain. Being a "medical reference"
-does NOT make a source reliable for a claim; that is the extractor's and Evidence Checker's job.
+The source type here is a cheap first guess from the host and path. A research-paper host does NOT make a claim
+reliable: that is the extractor's and the Evidence Checker's job.
 """
 
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -11,45 +11,46 @@ from ai_decision_arena.schemas import SourceType
 
 TRACKING_PARAMS = {"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "ref", "fbclid", "gclid"}
 
-# --- Domain lists per perspective (Python-owned, so a wrong LLM guess can't break a lane) ---
-# research lane → "prefer" (boost, never empty the results)
-RESEARCH_DOMAINS = [
-    "pubmed.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov", "cochranelibrary.com", "cochrane.org",
-    "nature.com", "thelancet.com", "bmj.com", "nejm.org", "jamanetwork.com",
-    "sciencedirect.com", "frontiersin.org", "plos.org", "mdpi.com", "springer.com", "wiley.com",
+# --- Site lists per research domain (Python-owned, so a wrong LLM guess can't break a domain) ---
+# Tavily gets them as include_domains in "prefer" mode: boosted, never exclusive, so a domain never comes back empty.
+APPS_SITES = [
+    "g2.com", "capterra.com", "getapp.com", "producthunt.com", "trustpilot.com", "alternativeto.net",
+    "apps.apple.com", "play.google.com", "reddit.com", "news.ycombinator.com",
 ]
-# doctor lane → "prefer"
-DOCTOR_DOMAINS = [
-    "mayoclinic.org", "clevelandclinic.org", "nhs.uk", "medlineplus.gov", "cdc.gov", "who.int",
-    "nice.org.uk", "hopkinsmedicine.org", "health.harvard.edu", "msdmanuals.com", "aafp.org",
-    "uptodate.com", "webmd.com", "healthline.com", "medicalnewstoday.com",
+PAPERS_SITES = [
+    "arxiv.org", "dl.acm.org", "ieeexplore.ieee.org", "link.springer.com", "sciencedirect.com",
+    "semanticscholar.org", "aclanthology.org", "nature.com", "researchgate.net", "openreview.net",
 ]
-# patient lane → "restrict" (tested earlier: "prefer" returned no forum results at all)
-# (patient.info and quora.com removed 2026-10-20: they mostly returned professional articles / opinion,
-#  which the extractor re-labelled as "doctor" and which used up the patient lane's hit budget.)
-PATIENT_DOMAINS = [
-    "reddit.com", "healthunlocked.com", "inspire.com", "patientslikeme.com", "drugs.com", "mumsnet.com",
+TECH_SITES = [
+    "github.com", "stackoverflow.com", "developer.mozilla.org", "npmjs.com", "pypi.org", "react.dev", "nextjs.org",
+    "fastapi.tiangolo.com", "supabase.com", "vercel.com", "web.dev", "docs.python.org",
 ]
+SITES_BY_DOMAIN: dict[str, list[str]] = {"apps": APPS_SITES, "papers": PAPERS_SITES, "tech": TECH_SITES}
 
-RESEARCH_HOST_HINTS = (
-    "pubmed", "ncbi.nlm.nih.gov", "cochrane", "nature.com", "thelancet", "bmj.com", "nejm.org",
-    "jamanetwork", "sciencedirect", "frontiersin", "plos.org", "mdpi.com", "springer", "wiley.com",
-    "biomedcentral", "elsevier", "oup.com", "academic.", "journals.", "medrxiv", "biorxiv", "diabetesjournals",
-)
-GUIDELINE_HOST_HINTS = (
-    "who.int", "cdc.gov", "nice.org.uk", "nih.gov", "diabetes.org", "heart.org", "cancer.org", "cancer.gov",
-    "aafp.org", "acc.org", "idf.org", "ada.", "escardio", "guideline", "sign.ac.uk", "rcog", "nhs.uk",
-)
-REFERENCE_HOST_HINTS = (
-    "mayoclinic", "clevelandclinic", "medlineplus", "msdmanuals", "merckmanuals", "hopkinsmedicine",
-    "health.harvard.edu", "uptodate", "webmd", "healthline", "medicalnewstoday", "verywellhealth",
-    "drugs.com", "medscape", "patient.info", "everydayhealth", "healthdirect", "betterhealth",
-)
-COMMUNITY_HOST_HINTS = (
-    "reddit.com", "healthunlocked", "inspire.com", "patientslikeme", "mumsnet", "quora.com",
-    "stackexchange", "community.", "forum.", "forums.", "discuss.",
-)
-COMMUNITY_PATHS = ("/forums/", "/forum/", "/community/", "/comments/", "/reviews", "/discussions/", "/questions/", "/r/")
+# --- Source-type hints (host substrings and path fragments), checked in the order used by classify_source ---
+COMMUNITY_HOSTS = ("reddit.com", "news.ycombinator.com", "stackoverflow.com", "stackexchange.com", "quora.com",
+                   "community.", "forum.", "forums.", "discuss.")
+COMMUNITY_PATHS = ("/forums/", "/forum/", "/community/", "/comments/", "/discussions/", "/questions/", "/r/")
+APP_STORE_HOSTS = ("apps.apple.com", "play.google.com", "chromewebstore.google.com", "apps.microsoft.com",
+                   "addons.mozilla.org", "marketplace.visualstudio.com")
+REVIEW_HOSTS = ("g2.com", "capterra.com", "getapp.com", "trustpilot.com", "producthunt.com", "alternativeto.net",
+                "softwareadvice.com", "trustradius.com", "slant.co")
+PAPER_HOSTS = ("arxiv.org", "dl.acm.org", "ieee.org", "springer.com", "sciencedirect.com", "semanticscholar.org",
+               "aclanthology.org", "nature.com", "researchgate.net", "openreview.net", "biorxiv.org", "jstor.org",
+               "wiley.com", "mdpi.com", "plos.org", "frontiersin.org", "ssrn.com")
+REPO_HOSTS = ("github.com", "gitlab.com", "bitbucket.org", "npmjs.com", "pypi.org", "huggingface.co", "crates.io",
+              "pkg.go.dev", "rubygems.org", "packagist.org")
+TECH_DOC_HOSTS = ("developer.mozilla.org", "learn.microsoft.com", "developer.apple.com", "developer.android.com",
+                  "cloud.google.com", "docs.aws.amazon.com", "developers.google.com", "web.dev", "w3.org", "react.dev",
+                  "nextjs.org", "vuejs.org", "angular.dev", "svelte.dev", "fastapi.tiangolo.com", "docs.python.org",
+                  "nodejs.org", "supabase.com", "vercel.com", "stripe.com", "firebase.google.com", "readthedocs.io",
+                  "tailwindcss.com", "postgresql.org", "expo.dev", "flutter.dev", "docs.")
+TECH_DOC_PATHS = ("/docs/", "/documentation/", "/reference/", "/guide/", "/guides/")
+PRODUCT_DOC_HOSTS = ("help.", "support.", "faq.", "zendesk.com", "intercom.help", "helpscoutdocs.com")
+PRODUCT_DOC_PATHS = ("/help/", "/support/", "/faq", "/pricing", "/features", "/changelog", "/release-notes")
+BLOG_HOSTS = ("medium.com", "dev.to", "substack.com", "hashnode.dev", "techcrunch.com", "theverge.com", "wired.com",
+              "hackernoon.com", "smashingmagazine.com", "css-tricks.com", "infoq.com")
+BLOG_PATHS = ("/blog/", "/blogs/", "/news/", "/articles/", "/posts/")
 
 
 def normalize_url(url: str) -> str:
@@ -63,13 +64,28 @@ def normalize_url(url: str) -> str:
 def classify_source(url: str) -> SourceType:
     parts = urlsplit(url.lower())
     host, path = parts.netloc.removeprefix("www."), parts.path
-    # Patient voices first: a forum thread on a reference site is still a patient source.
-    if any(h in host for h in COMMUNITY_HOST_HINTS) or any(p in path for p in COMMUNITY_PATHS):
-        return "patient_community"
-    if any(h in host for h in RESEARCH_HOST_HINTS):
+
+    def host_in(hints: tuple[str, ...]) -> bool:
+        return any(h in host for h in hints)
+
+    def path_in(hints: tuple[str, ...]) -> bool:
+        return any(p in path for p in hints)
+
+    # People talking first: a discussion thread on GitHub or on a product site is still a discussion.
+    if host_in(COMMUNITY_HOSTS) or path_in(COMMUNITY_PATHS):
+        return "community_discussion"
+    if host_in(APP_STORE_HOSTS):
+        return "app_store"
+    if host_in(REVIEW_HOSTS):
+        return "review_site"
+    if host_in(PAPER_HOSTS):
         return "research_paper"
-    if any(h in host for h in GUIDELINE_HOST_HINTS):
-        return "clinical_guideline"
-    if any(h in host for h in REFERENCE_HOST_HINTS):
-        return "medical_reference"
-    return "health_article"
+    if host_in(REPO_HOSTS):
+        return "source_repository"
+    if host_in(TECH_DOC_HOSTS) or path_in(TECH_DOC_PATHS):
+        return "technical_docs"
+    if host_in(PRODUCT_DOC_HOSTS) or path_in(PRODUCT_DOC_PATHS):
+        return "product_docs"
+    if host_in(BLOG_HOSTS) or path_in(BLOG_PATHS):
+        return "article_or_blog"
+    return "other"

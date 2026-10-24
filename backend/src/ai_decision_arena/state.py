@@ -49,20 +49,20 @@ class ArenaState(TypedDict, total=False):
 
     # --- research ----------------------------------------------------- (research)
     research_queries: list[str]
-    evidence: list[dict]                 # Evidence (each has a perspective)
-    perspective_summaries: dict[str, str]  # perspective -> summary + prevalence note
-    research_summary: str                # all perspectives, for quick printing
+    evidence: list[dict]                 # Evidence (each has a domain)
+    domain_summaries: dict[str, str]  # domain -> summary + prevalence note
+    research_summary: str                # all domains, for quick printing
     evidence_gaps: list[str]
     conflicting_claims: list[dict]       # ConflictingClaim
-    rejected_sources: list[dict]         # {url, title, perspective, reason}: kept for transparency
+    rejected_sources: list[dict]         # {url, title, domain, reason}: kept for transparency
     research_retry_count: int            # +1 only when going BACK to research (first pass = 0)
     research_focus: list[str]            # what the next research pass must look for; written by the node that
                                          # sends the graph back (judge / evidence_checker), cleared by research
 
     # --- debate ------------------------------------------- (proposer/critic/judge)
-    care_plans: list[dict]               # CarePlan, 2-3 per perspective      (proposer)
-    proposer_notes: dict[str, str]       # perspective -> why fewer than 2 plans (proposer)
-    proposer_lane_status: dict[str, str]  # perspective -> ok | thin | declined | no_evidence (proposer)
+    care_plans: list[dict]               # CarePlan, 2-3 per domain      (proposer)
+    proposer_notes: dict[str, str]       # domain -> why fewer than 2 plans (proposer)
+    proposer_lane_status: dict[str, str]  # domain -> ok | thin | declined | no_evidence (proposer)
     criticisms: list[dict]               # Criticism, one per plan            (critic)
     scores: list[dict]                   # PlanScore, one per plan            (judge)
     verdict: dict                        # Verdict                            (judge)

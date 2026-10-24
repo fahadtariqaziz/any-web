@@ -1,15 +1,15 @@
 "use client";
 
 // The three winning plans side by side, one row per topic (routine, diet, medications...). On large
-// screens it is a real grid so rows line up; on small screens one perspective is shown at a time.
+// screens it is a real grid so rows line up; on small screens one domain is shown at a time.
 
 import { useState } from "react";
 
 import { BulletList } from "@/components/ui/BulletList";
 import { Markdown } from "@/components/ui/Markdown";
 import { Tabs } from "@/components/ui/Tabs";
-import type { CarePlan, Perspective, PerspectiveResult } from "@/lib/api/types";
-import { PERSPECTIVE_META } from "@/lib/format";
+import type { CarePlan, Domain, DomainResult } from "@/lib/api/types";
+import { DOMAIN_META } from "@/lib/format";
 
 interface Row {
   label: string;
@@ -27,16 +27,16 @@ const ROWS: Row[] = [
   { label: "Safety notes", render: (p) => <Markdown compact>{p.safety_notes}</Markdown> },
 ];
 
-export function ComparisonGrid({ perspectives }: { perspectives: PerspectiveResult[] }) {
-  const [selected, setSelected] = useState<Perspective>(perspectives[0]?.perspective ?? "research");
-  const visible = perspectives.find((p) => p.perspective === selected) ?? perspectives[0];
+export function ComparisonGrid({ domains }: { domains: DomainResult[] }) {
+  const [selected, setSelected] = useState<Domain>(domains[0]?.domain ?? "research");
+  const visible = domains.find((p) => p.domain === selected) ?? domains[0];
 
   return (
     <div>
-      {/* Small screens: one perspective at a time */}
+      {/* Small screens: one domain at a time */}
       <div className="space-y-4 lg:hidden">
         <Tabs
-          items={perspectives.map((p) => ({ key: p.perspective, label: PERSPECTIVE_META[p.perspective].short }))}
+          items={domains.map((p) => ({ key: p.domain, label: DOMAIN_META[p.domain].short }))}
           value={selected}
           onChange={setSelected}
         />
@@ -45,7 +45,7 @@ export function ComparisonGrid({ perspectives }: { perspectives: PerspectiveResu
             {ROWS.map((row) => (
               <div key={row.label} className="space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{row.label}</p>
-                {visible.plan ? row.render(visible.plan) : <p className="text-sm text-slate-500">No plan from this perspective.</p>}
+                {visible.plan ? row.render(visible.plan) : <p className="text-sm text-slate-500">No plan from this domain.</p>}
               </div>
             ))}
           </div>
@@ -55,10 +55,10 @@ export function ComparisonGrid({ perspectives }: { perspectives: PerspectiveResu
       {/* Large screens: aligned grid */}
       <div className="hidden lg:grid lg:grid-cols-[160px_repeat(3,minmax(0,1fr))] lg:gap-x-4">
         <div />
-        {perspectives.map((p) => {
-          const meta = PERSPECTIVE_META[p.perspective];
+        {domains.map((p) => {
+          const meta = DOMAIN_META[p.domain];
           return (
-            <div key={p.perspective} className={`rounded-t-lg border-b-2 px-3 py-2 ${meta.bg} ${meta.border}`}>
+            <div key={p.domain} className={`rounded-t-lg border-b-2 px-3 py-2 ${meta.bg} ${meta.border}`}>
               <p className={`text-sm font-semibold ${meta.text}`}>{meta.short}</p>
               <p className="truncate text-xs text-slate-600">{p.plan?.name ?? "No plan"}</p>
             </div>
@@ -67,8 +67,8 @@ export function ComparisonGrid({ perspectives }: { perspectives: PerspectiveResu
         {ROWS.map((row) => (
           <div key={row.label} className="contents">
             <div className="border-b border-slate-100 py-3 pr-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{row.label}</div>
-            {perspectives.map((p) => (
-              <div key={p.perspective} className="border-b border-slate-100 px-3 py-3 text-sm">
+            {domains.map((p) => (
+              <div key={p.domain} className="border-b border-slate-100 px-3 py-3 text-sm">
                 {p.plan ? row.render(p.plan) : <span className="text-slate-400">—</span>}
               </div>
             ))}

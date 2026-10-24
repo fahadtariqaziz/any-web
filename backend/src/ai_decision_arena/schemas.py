@@ -37,32 +37,35 @@ WorkflowStatus = Literal[
     "failed",
 ]
 
-# The three lenses every answer is built from. Research, debate and the final report are
-# organised per perspective, and the user always gets one best plan per perspective.
-Perspective = Literal["research", "doctor", "patient"]
-PERSPECTIVES: tuple[Perspective, ...] = ("research", "doctor", "patient")
-PERSPECTIVE_LABELS: dict[str, str] = {
-    "research": "Research perspective (papers, studies, systematic reviews)",
-    "doctor": "Doctor perspective (clinical guidelines, hospital and medical-reference sites)",
-    "patient": "Patient perspective (real-world experiences from forums, Reddit, reviews)",
+# The three research domains every solution is built from. Research runs one lane per domain in parallel; the
+# proposals, the critique and the brief may cite evidence from any domain.
+Domain = Literal["apps", "papers", "tech"]
+DOMAINS: tuple[Domain, ...] = ("apps", "papers", "tech")
+DOMAIN_LABELS: dict[str, str] = {
+    "apps": "Existing apps and user feedback (reviews, app stores, forums, product documentation)",
+    "papers": "Research papers and technical literature (arXiv, ACM, IEEE, journals, authoritative reports)",
+    "tech": "Technical feasibility and implementations (repositories, libraries, frameworks, APIs, official docs)",
 }
 
 SourceType = Literal[
-    "research_paper",        # journals, PubMed, Cochrane, preprints
-    "clinical_guideline",    # WHO, CDC, NICE, NHS, professional societies (ADA, AHA, ...)
-    "medical_reference",     # Mayo Clinic, Cleveland Clinic, MedlinePlus, MSD Manuals, doctor-reviewed sites
-    "patient_community",     # Reddit, patient forums, drug reviews written by patients
-    "health_article",        # health news, blogs, general articles
+    "review_site",           # G2, Capterra, Trustpilot, Product Hunt, AlternativeTo
+    "app_store",             # Apple App Store, Google Play, extension stores
+    "community_discussion",  # Reddit, Hacker News, Stack Overflow, forums, GitHub discussions
+    "product_docs",          # a product's own help centre, pricing or feature pages
+    "research_paper",        # arXiv, ACM, IEEE, Springer, journals, preprints
+    "technical_docs",        # MDN, framework / library / API documentation, cloud docs
+    "source_repository",     # GitHub, GitLab, npm, PyPI, Hugging Face
+    "article_or_blog",       # Medium, dev.to, company blogs, tech news
     "other",
 ]
 
 EvidenceStrength = Literal[
-    "systematic_review_or_meta_analysis",
-    "randomized_trial",
-    "observational_study",
-    "clinical_guideline",
-    "expert_or_reference",   # textbook-style reference, doctor-reviewed article
-    "anecdotal",             # one or a few personal reports
+    "peer_reviewed",            # published paper, survey, conference proceedings
+    "official_documentation",   # vendor / maintainer documentation, standards
+    "maintained_repository",    # active open-source project with real usage
+    "aggregated_reviews",       # many user reviews or ratings summarised
+    "expert_article",           # practitioner write-up with checkable detail
+    "anecdotal",                # one or a few individual reports
     "unknown",
 ]
 
@@ -98,7 +101,7 @@ ProjectCategory = Literal[
 ]
 
 EVIDENCE_ID_PATTERN = r"^ev_\d{3,}$"                       # ev_001, ev_002, ...
-PLAN_ID_PATTERN = r"^(research|doctor|patient)_[a-c]$"     # research_a, doctor_b, patient_c
+PLAN_ID_PATTERN = r"^(apps|papers|tech)_[a-c]$"     # apps_a, papers_b, tech_c (per-domain plans until M3)
 
 
 def utc_now() -> datetime:
@@ -224,32 +227,48 @@ class ClarificationAnswers(BaseModel):
 # Research evidence
 # ---------------------------------------------------------------------------
 
-# What each search is trying to learn. Every perspective covers the same topics.
+# What each search is trying to learn. Every topic belongs to ONE domain (TOPICS_BY_DOMAIN); the key topic of a
+# domain is always searched on the first pass.
 ResearchTopic = Literal[
-    "overview_prevalence",      # what the condition is, how common or rare, typical course
-    "routine_lifestyle",        # daily routine, exercise, sleep, monitoring habits
-    "diet",                     # what to eat / avoid
-    "medications_treatment",    # medicines, therapies, procedures people use
-    "progress_timeline",        # how long until improvement is typically seen
-    "risks_warning_signs",      # complications, side effects, when to seek care
+    # apps: existing applications and user feedback
+    "existing_solutions",        # which products solve this today, for whom
+    "user_complaints",           # what users dislike, missing features, limitations
+    "must_have_features",        # what users expect any solution to have
+    "pricing_and_adoption",      # business models, pricing, who uses it
+    # papers: research papers and technical literature
+    "problem_background",        # the underlying problem, its causes and measurements
+    "established_approaches",    # methods and designs shown to work
+    "known_limitations",         # where approaches fail, open questions
+    # tech: feasibility and existing implementations
+    "libraries_and_frameworks",  # reusable components, SDKs, starter kits
+    "apis_and_integrations",     # third-party services, data sources, auth, payments
+    "architecture_patterns",     # reference architectures and trade-offs
+    "feasibility_and_risks",     # technical limits, costs, dependencies, security
 ]
+TOPICS_BY_DOMAIN: dict[str, tuple[str, ...]] = {
+    "apps": ("existing_solutions", "user_complaints", "must_have_features", "pricing_and_adoption"),
+    "papers": ("problem_background", "established_approaches", "known_limitations"),
+    "tech": ("libraries_and_frameworks", "apis_and_integrations", "architecture_patterns", "feasibility_and_risks"),
+}
+KEY_TOPIC: dict[str, str] = {"apps": "user_complaints", "papers": "established_approaches", "tech": "feasibility_and_risks"}
 
 
-class PatientContext(BaseModel):
-    """Extra detail for patient-community sources (Reddit, forums, reviews)."""
+class FeedbackContext(BaseModel):
+    """Extra detail for review, app-store and community sources: what a user of an existing product reported."""
 
+    product: str = Field(description="The product or app the feedback is about, as named in the source; empty if unnamed.")
+    feedback_type: Literal["complaint", "praise", "feature_request", "workaround", "mixed"]
     experience_described: str = Field(description="The specific experience being reported.")
     is_recurring: bool = Field(description="True only if several independent people report it; False for one anecdote.")
-    context: str = Field(description="Situation it happened in (age, how long diagnosed, treatments), if stated.")
-    what_helped: list[str] = Field(default_factory=list)
-    relevant_to_user: bool
+    context: str = Field(description="Situation it happened in (platform, plan, use case), if stated.")
+    relevant_to_idea: bool
 
 
 class Evidence(BaseModel):
     """One structured piece of research. Never fabricated: every field comes from a retrieved source."""
 
     evidence_id: str = Field(pattern=EVIDENCE_ID_PATTERN)
-    perspective: Perspective
+    domain: Domain
     source_title: str
     source_url: HttpUrl
     source_type: SourceType
@@ -260,7 +279,7 @@ class Evidence(BaseModel):
     is_direct_quote: bool = Field(description="True if relevant_excerpt is copied verbatim, False if paraphrased.")
     claims_supported: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
-    patient_context: PatientContext | None = None
+    feedback_context: FeedbackContext | None = None
     sentiment: Literal["positive", "negative", "mixed", "neutral"] | None = None
     relevance_score: float = Field(ge=0.0, le=1.0)
     reliability_notes: str = ""
@@ -269,27 +288,34 @@ class Evidence(BaseModel):
 
 class SearchQuery(BaseModel):
     query: str = Field(description="Short web search query (keywords, not a full sentence), under 300 characters.")
-    perspective: Perspective = Field(description="Which perspective this search serves.")
-    topic: ResearchTopic
+    domain: Domain = Field(description="Which research domain this search serves.")
+    topic: ResearchTopic = Field(description="Must be one of the topics of that domain.")
     preferred_domains: list[str] = Field(
-        description='Condition-specific official domains to prefer, e.g. ["diabetes.org"]. At most 3, only '
-                    'well-known organisations you are confident about; empty list if unsure. '
-                    'General medical sites are added automatically.',
+        description='Well-known websites specific to this idea worth preferring, e.g. ["producthunt.com"]. At most 3, '
+                    'only sites you are confident about; empty list if unsure. The standard sites of each domain are '
+                    'added automatically.',
     )
+
+    @model_validator(mode="after")
+    def topic_belongs_to_domain(self) -> "SearchQuery":
+        allowed = TOPICS_BY_DOMAIN[self.domain]
+        if self.topic not in allowed:
+            raise ValueError(f"topic {self.topic!r} is not a {self.domain!r} topic; use one of {list(allowed)}")
+        return self
 
 
 class ResearchPlan(BaseModel):
-    """Output of query planning (LLM): searches for all three perspectives."""
+    """Output of query planning (LLM): searches for all three domains."""
 
     search_term: str = Field(description='The condition as a search term, e.g. "type 2 diabetes".')
-    queries: list[SearchQuery] = Field(min_length=3, description="Grouped by perspective, most important topic first.")
+    queries: list[SearchQuery] = Field(min_length=3, description="Grouped by domain, most important topic first.")
 
     @model_validator(mode="after")
     def every_perspective_covered(self) -> "ResearchPlan":
-        present = {q.perspective for q in self.queries}
-        missing = [p for p in PERSPECTIVES if p not in present]
+        present = {q.domain for q in self.queries}
+        missing = [p for p in DOMAINS if p not in present]
         if missing:
-            raise ValueError(f"queries must cover every perspective; missing: {missing}")
+            raise ValueError(f"queries must cover every domain; missing: {missing}")
         return self
 
 
@@ -303,13 +329,13 @@ class SearchHit(BaseModel):
     published_at: str | None = None    # only if Tavily returned one
     source_type: SourceType            # from the domain heuristic; may be corrected later
     query: str
-    perspective: Perspective
+    domain: Domain
     topic: ResearchTopic
 
 
 class SearchFailure(BaseModel):
     query: str
-    perspective: Perspective
+    domain: Domain
     error_type: str
     message: str = Field(max_length=300)
     retryable: bool
@@ -320,9 +346,9 @@ class ExtractedEvidence(BaseModel):
     the real search hit via source_index, so Claude cannot invent or alter a source."""
 
     source_index: int = Field(ge=0, description="Index of the <source> this evidence comes from.")
-    perspective: Perspective = Field(
-        description="Normally the perspective given. Change it only if the source clearly belongs elsewhere "
-                    "(e.g. a forum thread found by a clinical search is 'patient')."
+    domain: Domain = Field(
+        description="Normally the domain given. Change it only if the source clearly belongs elsewhere "
+                    "(e.g. a GitHub repository found by an apps search is 'tech'; a forum thread about a product is 'apps')."
     )
     source_type: SourceType = Field(description="Correct the given type if it is wrong.")
     evidence_strength: EvidenceStrength = Field(description="Best guess from the snippet; 'unknown' if unclear.")
@@ -330,9 +356,10 @@ class ExtractedEvidence(BaseModel):
     is_direct_quote: bool = Field(description="True only if relevant_excerpt is copied word-for-word from the snippet.")
     claims_supported: list[str] = Field(description="At most 3 short claims THIS snippet itself supports. No outside knowledge.")
     limitations: list[str] = Field(description="At most 3 short limitations stated in the snippet. Empty list if none.")
-    patient_context: PatientContext | None = Field(description="Required for patient_community sources; null otherwise.")
+    feedback_context: FeedbackContext | None = Field(description="Required for review_site, app_store and community_discussion "
+                                                                 "sources that report a user's experience; null otherwise.")
     sentiment: Literal["positive", "negative", "mixed", "neutral"] | None = Field(
-        description="Tone toward the approach discussed, for patient sources; null otherwise."
+        description="Tone of the feedback, for review / app-store / community sources; null otherwise."
     )
     relevance_score: float = Field(ge=0.0, le=1.0, description="How useful for THIS user's situation.")
     reliability_notes: str = Field(description="ONE short sentence: study type, sample size, vendor bias, age, anecdote...")
@@ -350,19 +377,19 @@ class ExtractedConflict(BaseModel):
 
 
 class ExtractionResult(BaseModel):
-    """LLM output of evidence extraction over the search hits of ONE perspective."""
+    """LLM output of evidence extraction over the search hits of ONE domain."""
 
     evidence: list[ExtractedEvidence] = Field(description="Kept sources only.")
     rejected: list[RejectedSource] = Field(description="Every source not kept, with a reason.")
     summary: str = Field(
-        description="Neutral summary of what the kept sources say about routine, diet, medications, "
-                    "timeline and outlook, at most ~150 words."
+        description="Neutral summary of what the kept sources say about the problem, existing solutions and their "
+                    "limitations, established approaches and technical feasibility, at most ~150 words."
     )
-    prevalence_note: str = Field(
-        description="How common or rare the condition is according to the kept sources, one sentence. "
-                    "'Not covered by these sources' if none say."
+    opportunity_note: str = Field(
+        description="One sentence: the clearest opportunity to do better than existing alternatives according to "
+                    "the kept sources. 'Not covered by these sources' if none say."
     )
-    evidence_gaps: list[str] = Field(description="Topics (routine, diet, medications, timeline, prevalence) no kept source covers. Empty list if none.")
+    evidence_gaps: list[str] = Field(description="Topics of this domain (see the topic list) that no kept source covers. Empty list if none.")
     conflicting_claims: list[ExtractedConflict] = Field(description="Where kept sources disagree. Empty list if none.")
 
 
@@ -375,12 +402,12 @@ class ConflictingClaim(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Debate: Proposer → Critic → Judge (each works per perspective)
+# Debate: Proposer → Critic → Judge (each works per domain)
 # ---------------------------------------------------------------------------
 
 class ProposedPlan(BaseModel):
-    """LLM output: one way of managing the condition, built from ONE perspective's evidence.
-    plan_id and perspective are assigned by Python afterwards (see CarePlan)."""
+    """LLM output: one way of managing the condition, built from ONE domain's evidence.
+    plan_id and domain are assigned by Python afterwards (see CarePlan)."""
 
     name: str = Field(description='Short descriptive name, e.g. "Low-carb diet with daily walking and metformin".')
     summary: str = Field(description="What this approach is and how it addresses the user's situation, 2-3 sentences.")
@@ -391,7 +418,7 @@ class ProposedPlan(BaseModel):
                     "patients', etc. Never invent doses. Empty list if the evidence names none."
     )
     expected_timeline: str = Field(description="How long until progress is typically seen, per the evidence; 'not covered by evidence' if unknown.")
-    prevalence_and_outlook: str = Field(description="Is the condition common or rare, and the general outlook, per this perspective's evidence.")
+    prevalence_and_outlook: str = Field(description="Is the condition common or rare, and the general outlook, per this domain's evidence.")
     benefits: list[str]
     drawbacks_risks: list[str]
     assumptions: list[str] = Field(description="Things assumed about the user because they were not stated.")
@@ -402,7 +429,7 @@ class ProposedPlan(BaseModel):
 
 
 class ProposerOutput(BaseModel):
-    """LLM output of the Proposer for ONE perspective."""
+    """LLM output of the Proposer for ONE domain."""
 
     plans: list[ProposedPlan] = Field(
         description="2-3 meaningfully different plans. Only 1 if the evidence genuinely supports a single approach. "
@@ -420,7 +447,7 @@ class CarePlan(ProposedPlan):
     """A proposal as stored in state: ProposedPlan + identity assigned by Python."""
 
     plan_id: str = Field(pattern=PLAN_ID_PATTERN)
-    perspective: Perspective
+    domain: Domain
     round: int = Field(ge=1, description="Debate round that produced this plan.")
 
 
@@ -459,7 +486,7 @@ class Criticism(BaseModel):
 
 
 class CriticOutput(BaseModel):
-    """LLM output of the Critic for ONE perspective (all its plans)."""
+    """LLM output of the Critic for ONE domain (all its plans)."""
 
     criticisms: list[Criticism] = Field(description="Exactly one entry per plan given.")
 
@@ -491,9 +518,9 @@ def expected_rubric_criteria() -> set[str]:
     return set(get_settings().rubric_weights)
 
 
-class PerspectiveJudgement(BaseModel):
-    """LLM output of the Judge for ONE perspective. The routing decision is made in Python
-    by combining the three perspectives (see nodes/judge.py).
+class DomainJudgement(BaseModel):
+    """LLM output of the Judge for ONE domain. The routing decision is made in Python
+    by combining the three domains (see nodes/judge.py).
 
     `reasoning` is the FIRST field on purpose (chain of thought): structured output is written in field order,
     so Claude thinks the plans through before it commits to any score."""
@@ -503,7 +530,7 @@ class PerspectiveJudgement(BaseModel):
     scores: list[PlanScore] = Field(description="One entry per plan given.")
     comparison: str = Field(description="Why the plans rank the way they do, 2-4 sentences.")
     evidence_sufficient: bool = Field(
-        description="True if this perspective's evidence supports a defensible best plan for THIS user."
+        description="True if this domain's evidence supports a defensible best plan for THIS user."
     )
     insufficiency_reason: str = Field(description="Why the evidence is insufficient; empty string if sufficient.")
     required_evidence: list[str] = Field(description="What a follow-up search should look for. Empty list if sufficient.")
@@ -512,7 +539,7 @@ class PerspectiveJudgement(BaseModel):
     )
 
     @model_validator(mode="after")
-    def scores_are_complete(self) -> "PerspectiveJudgement":
+    def scores_are_complete(self) -> "DomainJudgement":
         ids = [s.plan_id for s in self.scores]
         if len(ids) != len(set(ids)):
             raise ValueError(f"duplicate plan_id in scores: {ids}")
@@ -536,11 +563,11 @@ class Verdict(BaseModel):
     decision: JudgeDecision
     reason: str
     winning_plan_ids: dict[str, str] = Field(
-        default_factory=dict, description="perspective -> plan_id with the highest weighted_total."
+        default_factory=dict, description="domain -> plan_id with the highest weighted_total."
     )
-    perspective_status: dict[str, str] = Field(
+    domain_status: dict[str, str] = Field(
         default_factory=dict,
-        description="perspective -> 'sufficient' | 'insufficient' | 'no_plans' (nothing to judge, research may help) "
+        description="domain -> 'sufficient' | 'insufficient' | 'no_plans' (nothing to judge, research may help) "
                     "| 'declined' (Proposer deliberately returned no plan, e.g. emergency; research will not help).",
     )
     required_evidence: list[str] = Field(default_factory=list, description="What Research should look for next.")
@@ -588,7 +615,7 @@ class ClaimVerification(BaseModel):
 
     claim: str
     plan_id: str | None = None
-    perspective: str = ""
+    domain: str = ""
     evidence_ids: list[str] = Field(default_factory=list)
     status: VerificationStatus
     notes: str = Field(description="Why this status. For rejected evidence, the reason it was rejected.")
@@ -603,11 +630,11 @@ class EvidenceRef(BaseModel):
     verification_status: VerificationStatus
 
 
-class PerspectiveResult(BaseModel):
-    """One of the three answers the user receives: the best plan of a perspective."""
+class DomainResult(BaseModel):
+    """One of the three answers the user receives: the best plan of a domain."""
 
-    perspective: Perspective
-    plan: CarePlan | None = Field(description="None when the perspective produced no defensible plan.")
+    domain: Domain
+    plan: CarePlan | None = Field(description="None when the domain produced no defensible plan.")
     score: PlanScore | None = None
     key_evidence: list[EvidenceRef] = Field(default_factory=list)
     critic_key_objections: list[str] = Field(default_factory=list)
@@ -619,7 +646,7 @@ class PerspectiveResult(BaseModel):
 class ReportNarrative(BaseModel):
     """LLM output: the human-readable parts of the final report. Everything else is assembled in Python."""
 
-    overview: str = Field(description="4-6 plain-language sentences for the user: what the three perspectives say, "
+    overview: str = Field(description="4-6 plain-language sentences for the user: what the three domains say, "
                                       "where they agree, the main caveat. No new facts.")
     where_perspectives_agree: list[str] = Field(description="Points the research, doctor and patient plans share. Empty list if none.")
     where_perspectives_differ: list[str] = Field(description="Where they differ or disagree, and why. Empty list if none.")
@@ -656,7 +683,7 @@ class FinalReport(BaseModel):
     assumptions: list[str] = Field(default_factory=list)
     research_methodology: str
     overview: str
-    perspectives: list[PerspectiveResult] = Field(description="Research, doctor and patient results, in that order.")
+    domains: list[DomainResult] = Field(description="Research, doctor and patient results, in that order.")
     where_perspectives_agree: list[str]
     where_perspectives_differ: list[str]
     is_conditional: bool = Field(description="True if the guidance depends on unconfirmed assumptions or unverified claims.")

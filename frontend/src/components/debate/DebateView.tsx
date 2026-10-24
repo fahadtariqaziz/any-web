@@ -13,7 +13,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Markdown } from "@/components/ui/Markdown";
 import type { LiveSnapshot } from "@/lib/api/types";
-import { CONFIDENCE_TONE, LEVEL_TONE, PERSPECTIVES, PERSPECTIVE_META, titleCase, type Tone } from "@/lib/format";
+import { CONFIDENCE_TONE, LEVEL_TONE, DOMAINS, DOMAIN_META, titleCase, type Tone } from "@/lib/format";
 
 const DECISION_LABEL: Record<string, { label: string; tone: Tone }> = {
   proceed: { label: "Proceed to verification", tone: "emerald" },
@@ -47,16 +47,16 @@ export function DebateView({ live }: { live: LiveSnapshot }) {
 
   return (
     <div className="space-y-5">
-      {research.perspective_summaries && Object.keys(research.perspective_summaries).length > 0 && (
+      {research.domain_summaries && Object.keys(research.domain_summaries).length > 0 && (
         <Card>
           <CardHeader eyebrow="Research" title={`What each lane found (${research.passes} pass${research.passes === 1 ? "" : "es"})`} />
           <CardBody className="grid gap-4 md:grid-cols-3">
-            {PERSPECTIVES.map((p) => (
-              <div key={p} className={`rounded-lg border p-3 ${PERSPECTIVE_META[p].border}`}>
-                <p className={`mb-1 text-xs font-semibold ${PERSPECTIVE_META[p].text}`}>
-                  {PERSPECTIVE_META[p].short} · {research.evidence_by_perspective[p] ?? 0} sources
+            {DOMAINS.map((p) => (
+              <div key={p} className={`rounded-lg border p-3 ${DOMAIN_META[p].border}`}>
+                <p className={`mb-1 text-xs font-semibold ${DOMAIN_META[p].text}`}>
+                  {DOMAIN_META[p].short} · {research.evidence_by_domain[p] ?? 0} sources
                 </p>
-                <Markdown compact className="text-slate-700">{research.perspective_summaries[p] ?? "Nothing yet."}</Markdown>
+                <Markdown compact className="text-slate-700">{research.domain_summaries[p] ?? "Nothing yet."}</Markdown>
               </div>
             ))}
             {research.evidence_gaps.length > 0 && (
@@ -81,10 +81,10 @@ export function DebateView({ live }: { live: LiveSnapshot }) {
             }
             aside={
               <div className="flex flex-wrap gap-1.5">
-                {PERSPECTIVES.map((p) => {
-                  const s = debate.verdict!.perspective_status[p];
+                {DOMAINS.map((p) => {
+                  const s = debate.verdict!.domain_status[p];
                   const m = s ? LANE_STATUS[s] : null;
-                  return m ? <Badge key={p} tone={m.tone} size="xs">{PERSPECTIVE_META[p].short}: {m.label}</Badge> : null;
+                  return m ? <Badge key={p} tone={m.tone} size="xs">{DOMAIN_META[p].short}: {m.label}</Badge> : null;
                 })}
               </div>
             }
@@ -102,9 +102,9 @@ export function DebateView({ live }: { live: LiveSnapshot }) {
       )}
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {PERSPECTIVES.map((p) => {
-          const meta = PERSPECTIVE_META[p];
-          const plans = debate.care_plans.filter((c) => c.perspective === p).sort((a, b) => b.round - a.round);
+        {DOMAINS.map((p) => {
+          const meta = DOMAIN_META[p];
+          const plans = debate.care_plans.filter((c) => c.domain === p).sort((a, b) => b.round - a.round);
           const lane = debate.lane_status[p];
           return (
             <section key={p} className="space-y-3">
@@ -181,10 +181,10 @@ export function DebateView({ live }: { live: LiveSnapshot }) {
           <CardBody className="space-y-3">
             <p className="text-sm text-slate-700">{verification.verdict.reason}</p>
             <div className="grid gap-3 md:grid-cols-3">
-              {PERSPECTIVES.map((p) =>
+              {DOMAINS.map((p) =>
                 verification.verdict!.summaries[p] ? (
-                  <div key={p} className={`rounded-lg border p-3 text-sm ${PERSPECTIVE_META[p].border}`}>
-                    <p className={`mb-1 text-xs font-semibold ${PERSPECTIVE_META[p].text}`}>{PERSPECTIVE_META[p].short}</p>
+                  <div key={p} className={`rounded-lg border p-3 text-sm ${DOMAIN_META[p].border}`}>
+                    <p className={`mb-1 text-xs font-semibold ${DOMAIN_META[p].text}`}>{DOMAIN_META[p].short}</p>
                     <p className="text-slate-700">{verification.verdict!.summaries[p]}</p>
                     {verification.verdict!.gaps_by_lane[p]?.length > 0 && (
                       <div className="mt-2">

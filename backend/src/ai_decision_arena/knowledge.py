@@ -35,7 +35,7 @@ def _parse(path: Path) -> dict:
             key, _, value = line.partition(":")
             meta[key.strip()] = value.strip()
     return {"kind": "curated", "key": path.name, "title": meta.get("title", path.stem), "url": meta.get("url") or None,
-            "perspective": None, "condition": meta.get("condition") or None, "content": body.strip(), "thread_id": None}
+            "domain": None, "condition": meta.get("condition") or None, "content": body.strip(), "thread_id": None}
 
 
 def load_curated(directory: Path = KNOWLEDGE_DIR) -> int:
@@ -59,7 +59,7 @@ def search(query: str, thread_id: str | None = None, limit: int = MAX_RESULTS) -
                                                               else "an earlier session's research"),
             "title": r["title"],
             "url": r["url"],
-            "perspective": r["perspective"],
+            "domain": r["domain"],
             "excerpt": r["content"][:MAX_EXCERPT_CHARS],
         }
         for r in rows

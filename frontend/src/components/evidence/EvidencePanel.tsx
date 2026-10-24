@@ -1,6 +1,6 @@
 "use client";
 
-// Every kept source, per perspective, with its excerpt, the claims it supports and its verification status.
+// Every kept source, per domain, with its excerpt, the claims it supports and its verification status.
 // Filters are local; the list itself comes from GET /evidence.
 
 import { ExternalLink, Quote, Search } from "lucide-react";
@@ -11,10 +11,10 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
 import { Tabs } from "@/components/ui/Tabs";
 import type { ApiError } from "@/lib/api/client";
-import type { Evidence, EvidenceResponse, Perspective, VerificationStatus } from "@/lib/api/types";
-import { PERSPECTIVES, PERSPECTIVE_META, SOURCE_TYPE_LABEL, STRENGTH_LABEL, VERIFICATION_META, formatDateTime, hostname } from "@/lib/format";
+import type { Evidence, EvidenceResponse, Domain, VerificationStatus } from "@/lib/api/types";
+import { DOMAINS, DOMAIN_META, SOURCE_TYPE_LABEL, STRENGTH_LABEL, VERIFICATION_META, formatDateTime, hostname } from "@/lib/format";
 
-type LaneFilter = "all" | Perspective;
+type LaneFilter = "all" | Domain;
 type StatusFilter = "all" | VerificationStatus;
 
 export function EvidencePanel({ data, loading, error }: { data: EvidenceResponse | null; loading: boolean; error: ApiError | null }) {
@@ -23,10 +23,10 @@ export function EvidencePanel({ data, loading, error }: { data: EvidenceResponse
   const [query, setQuery] = useState("");
 
   const items = useMemo(() => data?.evidence ?? [], [data]);
-  const byLane = useMemo(() => Object.fromEntries(PERSPECTIVES.map((p) => [p, items.filter((e) => e.perspective === p).length])), [items]);
+  const byLane = useMemo(() => Object.fromEntries(DOMAINS.map((p) => [p, items.filter((e) => e.domain === p).length])), [items]);
 
   const filtered = items.filter((e) => {
-    if (lane !== "all" && e.perspective !== lane) return false;
+    if (lane !== "all" && e.domain !== lane) return false;
     if (status !== "all" && e.verification_status !== status) return false;
     if (query) {
       const q = query.toLowerCase();
@@ -58,7 +58,7 @@ export function EvidencePanel({ data, loading, error }: { data: EvidenceResponse
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Tabs<LaneFilter>
-          items={[{ key: "all", label: "All lanes", count: items.length }, ...PERSPECTIVES.map((p) => ({ key: p, label: PERSPECTIVE_META[p].short, count: byLane[p] }))]}
+          items={[{ key: "all", label: "All domains", count: items.length }, ...DOMAINS.map((p) => ({ key: p, label: DOMAIN_META[p].short, count: byLane[p] }))]}
           value={lane}
           onChange={setLane}
           size="sm"
@@ -111,7 +111,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
 }
 
 function EvidenceItem({ e }: { e: Evidence }) {
-  const meta = PERSPECTIVE_META[e.perspective];
+  const meta = DOMAIN_META[e.domain];
   const verification = VERIFICATION_META[e.verification_status];
   return (
     <li className={`rounded-xl border bg-white p-4 ${meta.border}`}>
@@ -165,12 +165,12 @@ function EvidenceItem({ e }: { e: Evidence }) {
             </ul>
           </div>
         )}
-        {e.patient_context && (
+        {e.feedback_context && (
           <div className="sm:col-span-2">
             <p className="font-semibold text-slate-500">Patient context</p>
             <p className="text-slate-700">
-              {e.patient_context.experience_described}
-              <span className="ml-1 text-slate-500">({e.patient_context.is_recurring ? "reported by several people" : "one person's report"})</span>
+              {e.feedback_context.experience_described}
+              <span className="ml-1 text-slate-500">({e.feedback_context.is_recurring ? "reported by several people" : "one person's report"})</span>
             </p>
           </div>
         )}

@@ -39,7 +39,7 @@ LABELS = {
 # Phases, top to bottom. Every node of the graph must be in one of them.
 PHASES = {
     "1 · Understand the case": ["intake", "clarification", "await_clarification"],
-    "2 · Research (3 lanes)": ["research"],
+    "2 · Research (3 domains)": ["research"],
     "3 · Debate": ["proposer", "critic", "judge"],
     "4 · Verify": ["evidence_checker"],
     "5 · Report": ["final_report", "completion"],

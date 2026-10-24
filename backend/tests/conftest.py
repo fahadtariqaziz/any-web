@@ -41,7 +41,7 @@ LLM_USERS = [
 
 PLAN_ID_RE = re.compile(r'<plan id="([a-z]+_[a-c])"')
 EVIDENCE_ID_RE = re.compile(r'<item id="(ev_\d+)"')
-SOURCE_RE = re.compile(r'<source index="(\d+)" type="([a-z_]+)" perspective="([a-z]+)"')
+SOURCE_RE = re.compile(r'<source index="(\d+)" type="([a-z_]+)" domain="([a-z]+)"')
 
 
 def tag(name: str, text: str) -> str:
@@ -90,9 +90,9 @@ def build_research_plan(system: str, user: str) -> S.ResearchPlan:
     return S.ResearchPlan(
         search_term=term,
         queries=[
-            S.SearchQuery(query=f"{term} management guideline", perspective="doctor", topic="routine_lifestyle", preferred_domains=[]),
-            S.SearchQuery(query=f"{term} randomized trial diet", perspective="research", topic="diet", preferred_domains=[]),
-            S.SearchQuery(query=f"{term} what worked experience", perspective="patient", topic="routine_lifestyle", preferred_domains=[]),
+            S.SearchQuery(query=f"{term} reviews complaints", domain="apps", topic="user_complaints", preferred_domains=[]),
+            S.SearchQuery(query=f"{term} study approaches", domain="papers", topic="established_approaches", preferred_domains=[]),
+            S.SearchQuery(query=f"{term} open source implementation", domain="tech", topic="feasibility_and_risks", preferred_domains=[]),
         ],
     )
 
@@ -100,25 +100,26 @@ def build_research_plan(system: str, user: str) -> S.ResearchPlan:
 def build_extraction(system: str, user: str) -> S.ExtractionResult:
     sources = SOURCE_RE.findall(user)
     evidence = []
-    for index, source_type, perspective in sources:
+    for index, source_type, domain in sources:
         evidence.append(S.ExtractedEvidence(
             source_index=int(index),
-            perspective=perspective,
+            domain=domain,
             source_type=source_type,
             evidence_strength="unknown",
             relevant_excerpt=f"Paraphrased finding from source {index}.",
             is_direct_quote=False,
             claims_supported=[f"claim {index}"],
             limitations=[],
-            patient_context=(S.PatientContext(experience_described="walked daily", is_recurring=False, context="",
-                                              what_helped=["walking"], relevant_to_user=True)
-                             if perspective == "patient" else None),
-            sentiment="positive" if perspective == "patient" else None,
+            feedback_context=(S.FeedbackContext(product="SomeApp", feedback_type="complaint",
+                                                experience_described="sync keeps failing", is_recurring=False,
+                                                context="", relevant_to_idea=True)
+                              if domain == "apps" else None),
+            sentiment="negative" if domain == "apps" else None,
             relevance_score=0.8,
             reliability_notes="test source",
         ))
     return S.ExtractionResult(
-        evidence=evidence, rejected=[], summary="What this lane says.", prevalence_note="Common.",
+        evidence=evidence, rejected=[], summary="What this domain says.", opportunity_note="Nobody does offline well.",
         evidence_gaps=[], conflicting_claims=[],
     )
 
@@ -155,18 +156,18 @@ def build_critic(system: str, user: str) -> S.CriticOutput:
     ])
 
 
-def build_judgement(system: str, user: str) -> S.PerspectiveJudgement:
+def build_judgement(system: str, user: str) -> S.DomainJudgement:
     criteria = list(get_settings().rubric_weights)
     scores = []
     for i, pid in enumerate(PLAN_ID_RE.findall(user)):
-        value = 8.0 if i == 0 else 6.0          # the first plan of each lane wins, deterministically
+        value = 8.0 if i == 0 else 6.0          # the first plan of each domain wins, deterministically
         scores.append(S.PlanScore(
             plan_id=pid,
             criterion_scores=[S.CriterionScore(criterion=c, score=value, explanation="test") for c in criteria],
             key_benefits=["simple"], key_drawbacks=["slow"], confidence="medium", confidence_reason="test",
             supporting_evidence_ids=[], remaining_risks=[],
         ))
-    return S.PerspectiveJudgement(
+    return S.DomainJudgement(
         reasoning="Plan A is better supported.", scores=scores, comparison="A over B.",
         evidence_sufficient=True, insufficiency_reason="", required_evidence=[], clarification_questions=[],
     )
@@ -198,7 +199,7 @@ DEFAULT_BUILDERS = {
     S.ExtractionResult: build_extraction,
     S.ProposerOutput: build_proposer,
     S.CriticOutput: build_critic,
-    S.PerspectiveJudgement: build_judgement,
+    S.DomainJudgement: build_judgement,
     S.PlanVerification: build_verification,
     S.ReportNarrative: build_narrative,
     S.OnboardingSummary: build_summary,
@@ -233,19 +234,22 @@ def fake_llm(monkeypatch) -> FakeLLM:
     return fake
 
 
+SOURCE_TYPE_BY_DOMAIN = {"apps": "review_site", "papers": "research_paper", "tech": "source_repository"}
+
+
 def fake_run_searches(queries):
-    """Two canned hits per query, URLs unique per lane and query. Never fails."""
+    """Two canned hits per query, URLs unique per domain and query. Never fails."""
     hits = []
     for n, q in enumerate(queries):
         for i in range(2):
             hits.append(S.SearchHit(
-                url=f"https://example.org/{q.perspective}/{n}/{i}",
-                title=f"{q.perspective} source {n}-{i}",
-                snippet=f"Snippet about {q.query} number {i}. Walking daily helped.",
+                url=f"https://example.org/{q.domain}/{n}/{i}",
+                title=f"{q.domain} source {n}-{i}",
+                snippet=f"Snippet about {q.query} number {i}. Users say offline sync keeps failing.",
                 tavily_score=0.9 - 0.1 * i,
                 published_at=None,
-                source_type={"research": "research_paper", "doctor": "clinical_guideline", "patient": "patient_community"}[q.perspective],
-                query=q.query, perspective=q.perspective, topic=q.topic,
+                source_type=SOURCE_TYPE_BY_DOMAIN[q.domain],
+                query=q.query, domain=q.domain, topic=q.topic,
             ))
     return hits, []
 
@@ -273,5 +277,5 @@ def base_state() -> dict:
         "clarification_answers": {}, "assumptions": [], "clarification_round_count": 0,
         "research_retry_count": 0, "debate_round": 0, "research_focus": [], "unresolved_questions": [],
         "evidence": [], "evidence_gaps": [], "conflicting_claims": [], "research_queries": [],
-        "rejected_sources": [], "perspective_summaries": {}, "active_seconds": 0.0,
+        "rejected_sources": [], "domain_summaries": {}, "active_seconds": 0.0,
     }

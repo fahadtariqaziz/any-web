@@ -3,7 +3,7 @@ doctor-like agent that knows their situation.
 
 The agent's context is built from the session's checkpoint: what the patient told us (first message,
 answers, profile), the onboarding summary they saw, the final report (the best plan from each of the
-three perspectives, where they agree / differ, open questions), and the examples collected during onboarding
+three domains, where they agree / differ, open questions), and the examples collected during onboarding
 research (real patient stories, doctors' advice, research findings: no searching during the chat).
 The last messages of the chat follow.
 
@@ -42,7 +42,7 @@ How you talk:
 - Keep it short: a few sentences, or a short list when it helps (meal ideas, exercises, questions for the
   doctor). Ask one gentle follow-up question when it helps you understand them better.
 - When they share feelings, acknowledge them first, then help. Never lecture.
-- Say which perspective something comes from when it matters ("doctors usually...", "many patients say...",
+- Say which domain something comes from when it matters ("doctors usually...", "many patients say...",
   "studies found..."). Do not invent studies, numbers or sources.
 
 Examples (in most replies):
@@ -85,14 +85,14 @@ Tools (use them when they make the answer better; most replies need none):
 
 def _report_context(report: dict) -> dict:
     """The parts of the FinalReport the chat needs, compact (no evidence excerpts, no methodology)."""
-    perspectives = []
-    for r in report.get("perspectives", []):
+    domains = []
+    for r in report.get("domains", []):
         plan = r.get("plan")
         if not plan:
-            perspectives.append({"perspective": r["perspective"], "plan": None, "why": r.get("unavailable_reason", "")})
+            domains.append({"domain": r["domain"], "plan": None, "why": r.get("unavailable_reason", "")})
             continue
-        perspectives.append({
-            "perspective": r["perspective"],
+        domains.append({
+            "domain": r["domain"],
             "plan": plan["name"],
             "summary": plan["summary"],
             "daily_routine": plan["daily_routine"],
@@ -105,7 +105,7 @@ def _report_context(report: dict) -> dict:
         })
     return {
         "overview": report.get("overview", ""),
-        "perspectives": perspectives,
+        "domains": domains,
         "where_perspectives_agree": report.get("where_perspectives_agree", []),
         "where_perspectives_differ": report.get("where_perspectives_differ", []),
         "uncertainties": report.get("uncertainties", []),
@@ -114,12 +114,12 @@ def _report_context(report: dict) -> dict:
 
 
 def _examples(evidence: list[dict]) -> dict:
-    """Concrete examples from the onboarding research, per perspective, each with its source."""
+    """Concrete examples from the onboarding research, per domain, each with its source."""
     patients, doctors, research = [], [], []
     for e in evidence:
         source = e["source_title"]
-        pc = e.get("patient_context")
-        if e["perspective"] == "patient" and pc:
+        pc = e.get("feedback_context")
+        if e["domain"] == "apps" and pc:
             patients.append({
                 "what_they_did": pc["experience_described"],
                 "what_helped": pc.get("what_helped", []),
@@ -129,9 +129,9 @@ def _examples(evidence: list[dict]) -> dict:
             })
         elif e.get("claims_supported"):
             item = {"points": e["claims_supported"], "source": source}
-            if e["perspective"] == "research":
+            if e["domain"] == "papers":
                 research.append(item | {"strength": e.get("evidence_strength", "unknown")})
-            elif e["perspective"] == "doctor":
+            elif e["domain"] == "tech":
                 doctors.append(item)
             else:
                 patients.append({"what_they_said": e["claims_supported"], "who": "one person", "source": source})

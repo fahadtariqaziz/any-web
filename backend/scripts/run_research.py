@@ -25,7 +25,7 @@ builder.add_edge(START, "research")
 builder.add_edge("research", END)
 graph = builder.compile()
 
-print("🔎 Researching 3 lanes (planner → Tavily → 3 evidence extractors). Usually takes about 1 minute...")
+print("🔎 Researching 3 domains (planner → Tavily → 3 evidence extractors). Usually takes about 1 minute...")
 result, _ = stream_graph(graph, CLARIFIED_STATE, {"run_name": "research_demo", "metadata": {"step": "4.2"}})
 print_research(result)
 

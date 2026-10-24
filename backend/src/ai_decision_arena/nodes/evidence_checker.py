@@ -19,15 +19,15 @@ from langsmith.utils import ContextThreadPoolExecutor
 from ai_decision_arena.limits import loops_allowed
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
-from ai_decision_arena.prompting import BUILDER_RULES, criticisms_block, evidence_block, perspective_label, plans_block, user_case_block
-from ai_decision_arena.schemas import PERSPECTIVES, ClaimVerification, PlanVerification
+from ai_decision_arena.prompting import BUILDER_RULES, criticisms_block, evidence_block, domain_label, plans_block, user_case_block
+from ai_decision_arena.schemas import DOMAINS, ClaimVerification, PlanVerification
 from ai_decision_arena.state import ArenaState
 
 MAX_CLAIMS = 10
 STATUS_RANK = {"contradicted": 0, "unsupported": 1, "irrelevant": 2, "partially_supported": 3, "verified": 4}
 
 SYSTEM_PROMPT = """You are the Evidence Checker of Health Decision Arena. You verify the factual claims of ONE care plan,
-written from the {perspective_label}, against the evidence it cites.
+written from the {domain_label}, against the evidence it cites.
 
 For each checkable factual claim in the plan (effects, numbers, guidance attributed to sources, timelines,
 prevalence, what patients reported) decide:
@@ -50,8 +50,8 @@ Rules:
 """ + BUILDER_RULES
 
 
-def _check_lane(state: ArenaState, perspective: str, plan: dict) -> PlanVerification:
-    lane_evidence = [e for e in state.get("evidence", []) if e["perspective"] == perspective]
+def _check_lane(state: ArenaState, domain: str, plan: dict) -> PlanVerification:
+    lane_evidence = [e for e in state.get("evidence", []) if e["domain"] == domain]
     cited_ids = set(plan.get("supporting_evidence_ids", []))
     cited = [e for e in lane_evidence if e["evidence_id"] in cited_ids]
     others = [e for e in lane_evidence if e["evidence_id"] not in cited_ids]
@@ -67,15 +67,15 @@ def _check_lane(state: ArenaState, perspective: str, plan: dict) -> PlanVerifica
 {criticisms_block(criticisms)}"""
     out = call_structured(
         PlanVerification,
-        SYSTEM_PROMPT.replace("{perspective_label}", perspective_label(perspective)).replace("{max_claims}", str(MAX_CLAIMS)),
+        SYSTEM_PROMPT.replace("{domain_label}", domain_label(domain)).replace("{max_claims}", str(MAX_CLAIMS)),
         user_content,
         max_tokens=5000,
-        run_name=f"evidence_checker_{perspective}_llm",
+        run_name=f"evidence_checker_{domain}_llm",
     )
     counts = {}
     for c in out.claims:
         counts[c.status] = counts.get(c.status, 0) + 1
-    report("evidence_checker", f"{perspective} lane: {len(out.claims)} claim(s) checked "
+    report("evidence_checker", f"{domain} domain: {len(out.claims)} claim(s) checked "
                                + ", ".join(f"{k} {v}" for k, v in counts.items())
                                + (f"; {len(out.material_gaps)} material gap(s)" if out.material_gaps else ""))
     return out
@@ -97,7 +97,7 @@ def _evidence_status(statuses: list[str]) -> str:
 def evidence_checker_node(state: ArenaState) -> dict:
     winners = (state.get("verdict") or {}).get("winning_plan_ids", {})
     plans = {p["plan_id"]: p for p in state.get("care_plans", [])}
-    lanes = [(p, plans[winners[p]]) for p in PERSPECTIVES if p in winners and winners[p] in plans]
+    lanes = [(p, plans[winners[p]]) for p in DOMAINS if p in winners and winners[p] in plans]
     known_ids = {e["evidence_id"] for e in state.get("evidence", [])}
     report("evidence_checker", f"verifying {len(lanes)} winning plan(s) against the evidence they cite (in parallel)")
 
@@ -108,19 +108,19 @@ def evidence_checker_node(state: ArenaState) -> dict:
     gaps_by_lane: dict[str, list[str]] = {}
     summaries: dict[str, str] = {}
     by_evidence: dict[str, list[str]] = {}
-    for (perspective, plan), out in zip(lanes, outputs):
+    for (domain, plan), out in zip(lanes, outputs):
         for c in out.claims[:MAX_CLAIMS]:
             ids = [i for i in c.evidence_ids if i in known_ids]
             status = c.status if (ids or c.status == "unavailable") else "unavailable"   # cites nothing real
             results.append(ClaimVerification(
-                claim=c.claim, plan_id=plan["plan_id"], perspective=perspective, evidence_ids=ids,
+                claim=c.claim, plan_id=plan["plan_id"], domain=domain, evidence_ids=ids,
                 status=status, notes=c.notes, is_anecdotal=c.is_anecdotal, is_material=c.is_material,
             ).model_dump(mode="json"))
             for i in ids:
                 by_evidence.setdefault(i, []).append(status)
         if out.material_gaps:
-            gaps_by_lane[perspective] = out.material_gaps
-        summaries[perspective] = out.overall
+            gaps_by_lane[domain] = out.material_gaps
+        summaries[domain] = out.overall
 
     # Evidence records get a verification status (the Research node set "pending").
     evidence = [

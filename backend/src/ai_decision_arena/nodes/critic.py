@@ -12,14 +12,14 @@ from langsmith.utils import ContextThreadPoolExecutor
 
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
-from ai_decision_arena.prompting import BUILDER_RULES, evidence_block, perspective_label, plans_block, user_case_block
-from ai_decision_arena.schemas import PERSPECTIVES, Criticism, CriticOutput
+from ai_decision_arena.prompting import BUILDER_RULES, evidence_block, domain_label, plans_block, user_case_block
+from ai_decision_arena.schemas import DOMAINS, Criticism, CriticOutput
 from ai_decision_arena.state import ArenaState
 
 MAX_POINTS_PER_PLAN = 6
 
 SYSTEM_PROMPT = """You are the Critic agent of Health Decision Arena. You review the plans written for the
-{perspective_label}, and you may use evidence from ALL perspectives to challenge them.
+{domain_label}, and you may use evidence from ALL domains to challenge them.
 
 For each plan, find the meaningful weaknesses:
 - safety risks, interactions or contraindications given this user's profile and medications,
@@ -42,8 +42,8 @@ Rules:
 """ + BUILDER_RULES
 
 
-def _critique_lane(state: ArenaState, perspective: str) -> list[dict]:
-    plans = [p for p in state.get("care_plans", []) if p["perspective"] == perspective]
+def _critique_lane(state: ArenaState, domain: str) -> list[dict]:
+    plans = [p for p in state.get("care_plans", []) if p["domain"] == domain]
     if not plans:
         return []
 
@@ -55,11 +55,11 @@ def _critique_lane(state: ArenaState, perspective: str) -> list[dict]:
 
     out = call_structured(
         CriticOutput,
-        SYSTEM_PROMPT.replace("{perspective_label}", perspective_label(perspective))
+        SYSTEM_PROMPT.replace("{domain_label}", domain_label(domain))
                      .replace("{max_points}", str(MAX_POINTS_PER_PLAN)),
         user_content,
         max_tokens=6000,
-        run_name=f"critic_{perspective}_llm",
+        run_name=f"critic_{domain}_llm",
     )
 
     known_evidence = {e["evidence_id"] for e in state.get("evidence", [])}
@@ -75,14 +75,14 @@ def _critique_lane(state: ArenaState, perspective: str) -> list[dict]:
                 point.basis = "clinical_reasoning"   # a claim without surviving evidence ids is reasoning
         c.points = c.points[:MAX_POINTS_PER_PLAN]
         criticisms.append(c.model_dump(mode="json"))
-    report("critic", f"{perspective} lane: reviewed {len(plans)} plan(s), {sum(len(c['points']) for c in criticisms)} point(s) raised")
+    report("critic", f"{domain} domain: reviewed {len(plans)} plan(s), {sum(len(c['points']) for c in criticisms)} point(s) raised")
     return criticisms
 
 
 def critic_node(state: ArenaState) -> dict:
-    report("critic", "reviewing every plan against all evidence (3 lanes in parallel)")
-    with ContextThreadPoolExecutor(max_workers=len(PERSPECTIVES)) as pool:
-        results = list(pool.map(lambda p: _critique_lane(state, p), PERSPECTIVES))
+    report("critic", "reviewing every plan against all evidence (3 domains in parallel)")
+    with ContextThreadPoolExecutor(max_workers=len(DOMAINS)) as pool:
+        results = list(pool.map(lambda p: _critique_lane(state, p), DOMAINS))
     return {
         "criticisms": [c for lane in results for c in lane],
         "status": "debating",

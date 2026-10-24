@@ -15,27 +15,27 @@ def test_clarification_needs_questions_when_asking():
 
 
 def test_research_plan_must_cover_every_perspective():
-    q = S.SearchQuery(query="x", perspective="doctor", topic="diet", preferred_domains=[])
+    q = S.SearchQuery(query="x", domain="apps", topic="user_complaints", preferred_domains=[])
     with pytest.raises(ValidationError, match="missing"):
         S.ResearchPlan(search_term="x", queries=[q, q, q])
 
 
 def test_judgement_scores_must_match_the_rubric():
     criteria = list(get_settings().rubric_weights)
-    good = S.PlanScore(plan_id="doctor_a", criterion_scores=[S.CriterionScore(criterion=c, score=5, explanation="") for c in criteria],
+    good = S.PlanScore(plan_id="apps_a", criterion_scores=[S.CriterionScore(criterion=c, score=5, explanation="") for c in criteria],
                        key_benefits=[], key_drawbacks=[], confidence="low", confidence_reason="", supporting_evidence_ids=[],
                        remaining_risks=[])
-    S.PerspectiveJudgement(reasoning="r", scores=[good], comparison="c", evidence_sufficient=True, insufficiency_reason="",
+    S.DomainJudgement(reasoning="r", scores=[good], comparison="c", evidence_sufficient=True, insufficiency_reason="",
                            required_evidence=[], clarification_questions=[])
     bad = good.model_copy(update={"criterion_scores": good.criterion_scores[:-1]})
     with pytest.raises(ValidationError, match="exactly these criteria"):
-        S.PerspectiveJudgement(reasoning="r", scores=[bad], comparison="c", evidence_sufficient=True, insufficiency_reason="",
+        S.DomainJudgement(reasoning="r", scores=[bad], comparison="c", evidence_sufficient=True, insufficiency_reason="",
                                required_evidence=[], clarification_questions=[])
 
 
 def test_judgement_insufficient_needs_a_reason():
     with pytest.raises(ValidationError, match="insufficiency_reason"):
-        S.PerspectiveJudgement(reasoning="r", scores=[], comparison="c", evidence_sufficient=False, insufficiency_reason="",
+        S.DomainJudgement(reasoning="r", scores=[], comparison="c", evidence_sufficient=False, insufficiency_reason="",
                                required_evidence=[], clarification_questions=[])
 
 
@@ -49,9 +49,9 @@ def test_plan_and_evidence_id_patterns():
     with pytest.raises(ValidationError):
         S.Criticism(plan_id="plan_1", points=[], overall_assessment="")
     with pytest.raises(ValidationError):
-        S.Evidence(evidence_id="x", perspective="doctor", source_title="t", source_url="https://e.org", source_type="other",
+        S.Evidence(evidence_id="x", domain="apps", source_title="t", source_url="https://e.org", source_type="other",
                    relevant_excerpt="e", is_direct_quote=False, relevance_score=0.5)
-    S.Evidence(evidence_id="ev_001", perspective="doctor", source_title="t", source_url="https://e.org", source_type="other",
+    S.Evidence(evidence_id="ev_001", domain="apps", source_title="t", source_url="https://e.org", source_type="other",
                relevant_excerpt="e", is_direct_quote=False, relevance_score=0.5)
 
 

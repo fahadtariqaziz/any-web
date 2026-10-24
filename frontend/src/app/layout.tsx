@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Health Companion",
-  description: "Research, doctor and patient perspectives on a health condition. Information only, not medical advice.",
+  description: "Research, doctor and patient domains on a health condition. Information only, not medical advice.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

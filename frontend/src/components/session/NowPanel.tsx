@@ -8,8 +8,8 @@ import { Clock } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardBody } from "@/components/ui/Card";
-import type { DecisionStatus, Perspective } from "@/lib/api/types";
-import { PERSPECTIVES, PERSPECTIVE_META, formatDuration, secondsSince } from "@/lib/format";
+import type { DecisionStatus, Domain } from "@/lib/api/types";
+import { DOMAINS, DOMAIN_META, formatDuration, secondsSince } from "@/lib/format";
 import { type Activity, NODE_INFO, STAGES, type LaneState, subProgress } from "@/lib/pipeline";
 
 export function NowPanel({
@@ -79,8 +79,8 @@ export function NowPanel({
             {sub.summary && <span className="text-sm font-medium text-slate-800">{sub.summary}</span>}
             {sub.lanes && (
               <ul className="flex flex-wrap gap-1.5" aria-label="Lanes">
-                {PERSPECTIVES.map((p) => (
-                  <LaneChip key={p} perspective={p} state={sub.lanes![p]} />
+                {DOMAINS.map((p) => (
+                  <LaneChip key={p} domain={p} state={sub.lanes![p]} />
                 ))}
               </ul>
             )}
@@ -109,8 +109,8 @@ export function NowPanel({
   );
 }
 
-function LaneChip({ perspective, state }: { perspective: Perspective; state: LaneState }) {
-  const meta = PERSPECTIVE_META[perspective];
+function LaneChip({ domain, state }: { domain: Domain; state: LaneState }) {
+  const meta = DOMAIN_META[domain];
   const style =
     state === "done" ? `${meta.bg} ${meta.text} ${meta.border}` : state === "working" ? "border-slate-300 bg-white text-slate-700" : "border-slate-200 bg-slate-50 text-slate-400";
   return (

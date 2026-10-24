@@ -78,11 +78,11 @@ export interface CaseView {
 export interface ResearchView {
   passes: number;
   queries: string[];
-  evidence_by_perspective: Record<string, number>;
+  evidence_by_domain: Record<string, number>;
   evidence_gaps: string[];
   conflicting_claims: { topic: string; evidence_ids: string[]; description: string }[];
   rejected_count: number;
-  perspective_summaries: Record<string, string>;
+  domain_summaries: Record<string, string>;
   research_focus: string[];
 }
 
@@ -108,7 +108,7 @@ export interface Verdict {
   decision: "proceed" | "request_more_research" | "request_clarification" | "insufficient_evidence";
   reason: string;
   winning_plan_ids: Record<string, string>;
-  perspective_status: Record<string, string>; // sufficient | insufficient | no_plans | declined
+  domain_status: Record<string, string>; // sufficient | insufficient | no_plans | declined
   required_evidence: string[];
   clarification_questions: string[];
 }
@@ -126,7 +126,7 @@ export interface DebateView {
 export interface ClaimVerification {
   claim: string;
   plan_id: string | null;
-  perspective: string;
+  domain: string;
   evidence_ids: string[];
   status: VerificationStatus;
   notes: string;
@@ -202,7 +202,7 @@ export type ResumeRequest =
 
 // --- evidence (GET /evidence) --------------------------------------------------------------------
 
-export type Perspective = "research" | "doctor" | "patient";
+export type Domain = "apps" | "papers" | "tech";
 
 export type VerificationStatus =
   | "pending"
@@ -215,7 +215,7 @@ export type VerificationStatus =
 
 export interface Evidence {
   evidence_id: string;
-  perspective: Perspective;
+  domain: Domain;
   source_title: string;
   source_url: string;
   source_type: string;
@@ -226,7 +226,7 @@ export interface Evidence {
   is_direct_quote: boolean;
   claims_supported: string[];
   limitations: string[];
-  patient_context: { is_recurring: boolean; experience_described: string } | null;
+  feedback_context: { is_recurring: boolean; experience_described: string } | null;
   sentiment: "positive" | "negative" | "mixed" | "neutral" | null;
   relevance_score: number;
   reliability_notes: string;
@@ -244,7 +244,7 @@ export interface EvidenceResponse {
 
 export interface CarePlan {
   plan_id: string;
-  perspective: Perspective;
+  domain: Domain;
   round: number;
   name: string;
   summary: string;
@@ -274,8 +274,8 @@ export interface PlanScore {
   remaining_risks: string[];
 }
 
-export interface PerspectiveResult {
-  perspective: Perspective;
+export interface DomainResult {
+  domain: Domain;
   plan: CarePlan | null;
   score: PlanScore | null;
   key_evidence: { evidence_id: string; title: string; url: string; verification_status: VerificationStatus }[];
@@ -296,7 +296,7 @@ export interface FinalReport {
   assumptions: string[];
   research_methodology: string;
   overview: string;
-  perspectives: PerspectiveResult[];
+  domains: DomainResult[];
   where_perspectives_agree: string[];
   where_perspectives_differ: string[];
   is_conditional: boolean;

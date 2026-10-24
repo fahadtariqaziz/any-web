@@ -325,7 +325,7 @@ def get_live(thread_id: str, request: Request):
     snapshot = _snapshot(request, thread_id)
     values = snapshot.values or {}
     evidence = values.get("evidence", [])
-    by_perspective = Counter(e.get("perspective", "?") for e in evidence)
+    by_perspective = Counter(e.get("domain", "?") for e in evidence)
     return LiveSnapshot(
         thread_id=thread_id,
         run_state=_run_state(request.app.state.runner, thread_id, snapshot),
@@ -348,11 +348,11 @@ def get_live(thread_id: str, request: Request):
         research=ResearchView(
             passes=_counters(values).research_passes,
             queries=values.get("research_queries", []),
-            evidence_by_perspective=dict(by_perspective),
+            evidence_by_domain=dict(by_perspective),
             evidence_gaps=values.get("evidence_gaps", []),
             conflicting_claims=values.get("conflicting_claims", []),
             rejected_count=len(values.get("rejected_sources", [])),
-            perspective_summaries=values.get("perspective_summaries", {}),
+            domain_summaries=values.get("domain_summaries", {}),
             research_focus=values.get("research_focus", []),
         ),
         debate=DebateView(

@@ -1,6 +1,6 @@
-// Small formatting helpers and the visual vocabulary (colours per perspective / state) used everywhere.
+// Small formatting helpers and the visual vocabulary (colours per domain / state) used everywhere.
 
-import type { Level, Perspective, RunState, VerificationStatus } from "@/lib/api/types";
+import type { Level, Domain, RunState, VerificationStatus } from "@/lib/api/types";
 
 export function formatDuration(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
@@ -48,45 +48,45 @@ export function hostname(url: string): string {
   }
 }
 
-// --- perspectives -------------------------------------------------------------------------------
+// --- research domains -------------------------------------------------------------------------------
 
-export const PERSPECTIVES: Perspective[] = ["research", "doctor", "patient"];
+export const DOMAINS: Domain[] = ["apps", "papers", "tech"];
 
-export const PERSPECTIVE_META: Record<Perspective, { label: string; short: string; description: string; dot: string; text: string; bg: string; border: string; ring: string }> = {
-  research: {
-    label: "Research perspective",
-    short: "Research",
-    description: "Papers, trials, systematic reviews",
-    dot: "bg-violet-500",
-    text: "text-violet-700",
-    bg: "bg-violet-50",
-    border: "border-violet-200",
-    ring: "ring-violet-300",
-  },
-  doctor: {
-    label: "Doctor perspective",
-    short: "Doctor",
-    description: "Clinical guidelines, medical references",
-    dot: "bg-sky-500",
-    text: "text-sky-700",
-    bg: "bg-sky-50",
-    border: "border-sky-200",
-    ring: "ring-sky-300",
-  },
-  patient: {
-    label: "Patient perspective",
-    short: "Patient",
-    description: "Real-world experiences from forums and reviews",
+export const DOMAIN_META: Record<Domain, { label: string; short: string; description: string; dot: string; text: string; bg: string; border: string; ring: string }> = {
+  apps: {
+    label: "Existing apps & user feedback",
+    short: "Apps",
+    description: "Reviews, app stores, forums, product docs",
     dot: "bg-amber-500",
     text: "text-amber-800",
     bg: "bg-amber-50",
     border: "border-amber-200",
     ring: "ring-amber-300",
   },
+  papers: {
+    label: "Papers & technical literature",
+    short: "Papers",
+    description: "arXiv, ACM, IEEE, journals, reports",
+    dot: "bg-violet-500",
+    text: "text-violet-700",
+    bg: "bg-violet-50",
+    border: "border-violet-200",
+    ring: "ring-violet-300",
+  },
+  tech: {
+    label: "Feasibility & implementations",
+    short: "Tech",
+    description: "Repositories, libraries, APIs, official docs",
+    dot: "bg-sky-500",
+    text: "text-sky-700",
+    bg: "bg-sky-50",
+    border: "border-sky-200",
+    ring: "ring-sky-300",
+  },
 };
 
-export function perspectiveOf(value: string): Perspective | null {
-  return (PERSPECTIVES as string[]).includes(value) ? (value as Perspective) : null;
+export function domainOf(value: string): Domain | null {
+  return (DOMAINS as string[]).includes(value) ? (value as Domain) : null;
 }
 
 // --- states ---------------------------------------------------------------------------------------
@@ -144,20 +144,23 @@ export const RUBRIC: { key: string; label: string; weight: number }[] = [
 ];
 
 export const SOURCE_TYPE_LABEL: Record<string, string> = {
+  review_site: "Review site",
+  app_store: "App store",
+  community_discussion: "Community discussion",
+  product_docs: "Product docs",
   research_paper: "Research paper",
-  clinical_guideline: "Clinical guideline",
-  medical_reference: "Medical reference",
-  patient_community: "Patient community",
-  health_article: "Health article",
+  technical_docs: "Technical docs",
+  source_repository: "Source repository",
+  article_or_blog: "Article / blog",
   other: "Other source",
 };
 
 export const STRENGTH_LABEL: Record<string, string> = {
-  systematic_review_or_meta_analysis: "Systematic review / meta-analysis",
-  randomized_trial: "Randomised trial",
-  observational_study: "Observational study",
-  clinical_guideline: "Clinical guideline",
-  expert_or_reference: "Expert / reference",
+  peer_reviewed: "Peer-reviewed",
+  official_documentation: "Official documentation",
+  maintained_repository: "Maintained repository",
+  aggregated_reviews: "Aggregated reviews",
+  expert_article: "Expert article",
   anecdotal: "Anecdotal",
   unknown: "Strength unknown",
 };

@@ -4,7 +4,7 @@ evidence the same way (and so a change here reaches all agents at once)."""
 import json
 
 from ai_decision_arena.memory import memories_block
-from ai_decision_arena.schemas import PERSPECTIVE_LABELS
+from ai_decision_arena.schemas import DOMAIN_LABELS
 from ai_decision_arena.state import ArenaState
 
 # Appended to every agent's system prompt. The product plans and builds software from evidence and from what
@@ -45,13 +45,13 @@ def evidence_block(evidence: list[dict], max_excerpt_chars: int = 350) -> str:
         return "<evidence>(none)</evidence>"
     items = []
     for e in evidence:
-        patient = e.get("patient_context") or {}
+        patient = e.get("feedback_context") or {}
         extra = ""
         if patient:
             extra = (f'\n  <patient recurring="{patient.get("is_recurring")}">'
                      f'{patient.get("experience_described", "")}</patient>')
         items.append(
-            f'<item id="{e["evidence_id"]}" perspective="{e["perspective"]}" type="{e["source_type"]}" '
+            f'<item id="{e["evidence_id"]}" domain="{e["domain"]}" type="{e["source_type"]}" '
             f'strength="{e.get("evidence_strength", "unknown")}" relevance="{e["relevance_score"]:.2f}">\n'
             f'  <title>{e["source_title"][:120]}</title>\n'
             f'  <excerpt quote="{e["is_direct_quote"]}">{e["relevant_excerpt"][:max_excerpt_chars]}</excerpt>\n'
@@ -68,8 +68,8 @@ def plans_block(plans: list[dict]) -> str:
         return "<plans>(none)</plans>"
     items = []
     for p in plans:
-        body = {k: v for k, v in p.items() if k not in ("plan_id", "perspective", "round")}
-        items.append(f'<plan id="{p["plan_id"]}" perspective="{p["perspective"]}">\n'
+        body = {k: v for k, v in p.items() if k not in ("plan_id", "domain", "round")}
+        items.append(f'<plan id="{p["plan_id"]}" domain="{p["domain"]}">\n'
                      f"{json.dumps(body, indent=1)}\n</plan>")
     return "<plans>\n" + "\n".join(items) + "\n</plans>"
 
@@ -89,5 +89,5 @@ def criticisms_block(criticisms: list[dict]) -> str:
     return "<criticisms>\n" + "\n".join(items) + "\n</criticisms>"
 
 
-def perspective_label(perspective: str) -> str:
-    return PERSPECTIVE_LABELS.get(perspective, perspective)
+def domain_label(domain: str) -> str:
+    return DOMAIN_LABELS.get(domain, domain)

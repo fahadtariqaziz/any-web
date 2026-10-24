@@ -4,7 +4,7 @@ The onboarding graph never lets Claude pick tools: there, Python calls Tavily at
 cost stay predictable (~30 s). In the chat a turn is open-ended, so Claude chooses:
 
     search_knowledge(query)          the knowledge base: curated docs + research from this and earlier sessions
-    web_search(query, perspective)   a fresh Tavily search in one lane (research / doctor / patient)
+    web_search(query, domain)   a fresh Tavily search in one lane (research / doctor / patient)
     remember_fact(fact)              save a lasting fact about the patient (long-term memory)
     load_skill(name)                 load a skill's instructions (skills.py) when the conversation needs it
     ask_researcher(question)         delegate a research question to the research SUB-AGENT (researcher.py)
@@ -58,16 +58,16 @@ def search_knowledge_tool(ctx: ToolContext) -> BaseTool:
 
 
 def web_search_tool(ctx: ToolContext) -> BaseTool:
-    def web_search(query: str, perspective: Literal["research", "doctor", "patient"]) -> str:
-        """Search the web in one lane: "research" (studies, reviews), "doctor" (guidelines, NHS, Mayo Clinic...)
+    def web_search(query: str, domain: Literal["apps", "papers", "tech"]) -> str:
+        """Search the web in one domain: "research" (studies, reviews), "doctor" (guidelines, NHS, Mayo Clinic...)
         or "patient" (forums, real experiences). Use short keyword queries. Only when search_knowledge did not
         have the answer; limited to a few searches per message."""
         if ctx.web_searches >= MAX_WEB_SEARCHES:
             return f"Search limit reached ({MAX_WEB_SEARCHES} per message): answer with what you have."
         ctx.web_searches += 1
-        hits = search_one(SearchQuery(query=query[:300], perspective=perspective, topic="routine_lifestyle",
+        hits = search_one(SearchQuery(query=query[:300], domain=domain, topic={"apps": "existing_solutions", "papers": "established_approaches", "tech": "libraries_and_frameworks"}[domain],
                                       preferred_domains=[]))
-        return _sources([{"title": h.title, "url": h.url, "lane": perspective, "snippet": h.snippet[:600]}
+        return _sources([{"title": h.title, "url": h.url, "lane": domain, "snippet": h.snippet[:600]}
                          for h in hits[:WEB_RESULTS]])
     return StructuredTool.from_function(web_search, handle_tool_error=True)
 

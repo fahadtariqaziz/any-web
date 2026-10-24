@@ -2,7 +2,7 @@
 // doing in plain words and how long it usually takes (timings observed in the handoff's test runs).
 // Everything here is derived from DecisionStatus; nothing is guessed when the backend knows better.
 
-import type { DecisionStatus, Perspective, ProgressLine } from "@/lib/api/types";
+import type { DecisionStatus, Domain, ProgressLine } from "@/lib/api/types";
 
 export type StageId = "intake" | "clarify" | "research" | "debate" | "verify" | "report";
 
@@ -15,10 +15,10 @@ export interface Stage {
 export const STAGES: Stage[] = [
   { id: "intake", label: "Intake", blurb: "Understanding your message" },
   { id: "clarify", label: "Questions", blurb: "A few questions for you" },
-  { id: "research", label: "Research", blurb: "Three lanes of evidence" },
+  { id: "research", label: "Research", blurb: "Three domains of evidence" },
   { id: "debate", label: "Debate", blurb: "Propose, critique, judge" },
   { id: "verify", label: "Verification", blurb: "Claims checked at source" },
-  { id: "report", label: "Report", blurb: "One plan per perspective" },
+  { id: "report", label: "Report", blurb: "One plan per domain" },
 ];
 
 export interface NodeInfo {
@@ -55,15 +55,15 @@ export const NODE_INFO: Record<string, NodeInfo> = {
   },
   research: {
     label: "Research",
-    headline: "Researching your condition from three perspectives",
-    doing: "Planning three web searches per lane (research papers, clinical guidance, patient communities), running them in parallel, then reading every result and keeping only short, sourced evidence records.",
+    headline: "Researching your idea in three domains",
+    doing: "Planning web searches for three domains (existing apps and user feedback, research papers, technical feasibility), running them in parallel, then reading every result and keeping only short, sourced evidence records.",
     expectedSeconds: 55,
     stage: "research",
   },
   proposer: {
     label: "Proposer",
     headline: "Drafting care plans",
-    doing: "Each lane builds two or three care plans from its own evidence only, so the three perspectives stay distinct. Every plan covers routine, diet, treatments as reported, timeline and outlook.",
+    doing: "Each lane builds two or three care plans from its own evidence only, so the three domains stay distinct. Every plan covers routine, diet, treatments as reported, timeline and outlook.",
     expectedSeconds: 22,
     stage: "debate",
   },
@@ -91,7 +91,7 @@ export const NODE_INFO: Record<string, NodeInfo> = {
   final_report: {
     label: "Report writer",
     headline: "Writing your report",
-    doing: "Assembling the three winning plans with their scores and evidence, then writing the overview, where the perspectives agree and differ, the uncertainties and the next steps.",
+    doing: "Assembling the three winning plans with their scores and evidence, then writing the overview, where the domains agree and differ, the uncertainties and the next steps.",
     expectedSeconds: 12,
     stage: "report",
   },
@@ -191,11 +191,11 @@ export type LaneState = "waiting" | "working" | "done";
 
 export interface SubProgress {
   summary: string | null; // e.g. "6 of 9 searches done"
-  lanes: Record<Perspective, LaneState> | null;
+  lanes: Record<Domain, LaneState> | null;
   fraction: number | null; // 0..1 when the node reports countable sub-steps
 }
 
-const PERSPECTIVES: Perspective[] = ["research", "doctor", "patient"];
+const DOMAINS: Domain[] = ["apps", "papers", "tech"];
 
 function activeLines(lines: ProgressLine[], node: string | null): ProgressLine[] {
   const out: ProgressLine[] = [];
@@ -216,28 +216,28 @@ export function subProgress(lines: ProgressLine[], node: string | null): SubProg
   if (node === "research") {
     const planned = msgs.map((m) => /planned (\d+) searches/.exec(m)).find(Boolean);
     const total = planned ? Number(planned[1]) : null;
-    const searchesDone = msgs.filter((m) => /^\[(research|doctor|patient)\] (\d+ results|search failed)/.test(m)).length;
+    const searchesDone = msgs.filter((m) => /^\[(apps|papers|tech)\] (\d+ results|search failed)/.test(m)).length;
     const extracting = msgs.some((m) => /unique results/.test(m));
-    const lanes = Object.fromEntries(PERSPECTIVES.map((p) => [p, "waiting"])) as Record<Perspective, LaneState>;
+    const lanes = Object.fromEntries(DOMAINS.map((p) => [p, "waiting"])) as Record<Domain, LaneState>;
     if (extracting) {
-      for (const p of PERSPECTIVES) lanes[p] = msgs.some((m) => m.startsWith(`${p} lane: kept`)) ? "done" : "working";
-      const done = PERSPECTIVES.filter((p) => lanes[p] === "done").length;
-      return { summary: `Reading results: ${done} of 3 lanes extracted`, lanes, fraction: 0.6 + (done / 3) * 0.4 };
+      for (const p of DOMAINS) lanes[p] = msgs.some((m) => m.startsWith(`${p} domain: kept`)) ? "done" : "working";
+      const done = DOMAINS.filter((p) => lanes[p] === "done").length;
+      return { summary: `Reading results: ${done} of 3 domains extracted`, lanes, fraction: 0.6 + (done / 3) * 0.4 };
     }
     if (total) {
-      for (const p of PERSPECTIVES) lanes[p] = msgs.some((m) => m.startsWith(`[${p}]`)) ? "working" : "waiting";
+      for (const p of DOMAINS) lanes[p] = msgs.some((m) => m.startsWith(`[${p}]`)) ? "working" : "waiting";
       return { summary: `Searching: ${Math.min(searchesDone, total)} of ${total} searches done`, lanes, fraction: 0.1 + Math.min(searchesDone / total, 1) * 0.5 };
     }
     return { summary: "Planning the searches", lanes: null, fraction: 0.05 };
   }
 
   if (["proposer", "critic", "judge", "evidence_checker"].includes(node)) {
-    const lanes = Object.fromEntries(PERSPECTIVES.map((p) => [p, "working"])) as Record<Perspective, LaneState>;
-    for (const p of PERSPECTIVES) if (msgs.some((m) => m.startsWith(`${p} lane:`))) lanes[p] = "done";
-    const done = PERSPECTIVES.filter((p) => lanes[p] === "done").length;
+    const lanes = Object.fromEntries(DOMAINS.map((p) => [p, "working"])) as Record<Domain, LaneState>;
+    for (const p of DOMAINS) if (msgs.some((m) => m.startsWith(`${p} domain:`))) lanes[p] = "done";
+    const done = DOMAINS.filter((p) => lanes[p] === "done").length;
     const decided = msgs.some((m) => m.startsWith("decision:"));
     if (decided) return { summary: "Decision made", lanes, fraction: 1 };
-    return { summary: `${done} of 3 lanes finished`, lanes, fraction: done / 3 };
+    return { summary: `${done} of 3 domains finished`, lanes, fraction: done / 3 };
   }
 
   return none;

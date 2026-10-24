@@ -11,7 +11,7 @@ from ai_decision_arena.db.engine import session_factory
 from ai_decision_arena.db.models import (ChatMessage, DecisionReport, DecisionSession, EvidenceRecord, KnowledgeDoc,
                                          UserMemory)
 
-EVIDENCE_COLUMNS = {"evidence_id", "perspective", "source_url", "source_title", "source_type",
+EVIDENCE_COLUMNS = {"evidence_id", "domain", "source_url", "source_title", "source_type",
                     "relevant_excerpt", "verification_status", "retrieved_at"}
 
 
@@ -66,7 +66,7 @@ def save_completion(thread_id: str, state: dict, status: str, metrics: dict) -> 
             {
                 "session_id": session_id,
                 "evidence_id": e["evidence_id"],
-                "perspective": e["perspective"],
+                "domain": e["domain"],
                 "source_url": str(e["source_url"]),
                 "source_title": e["source_title"],
                 "source_type": e["source_type"],
@@ -87,7 +87,7 @@ def save_completion(thread_id: str, state: dict, status: str, metrics: dict) -> 
         # The knowledge base grows with every session: its evidence becomes searchable for later chats.
         _upsert_knowledge(db, [
             {"kind": "evidence", "key": f"{thread_id}:{e['evidence_id']}", "title": e["source_title"],
-             "url": str(e["source_url"]), "perspective": e["perspective"], "condition": state.get("project_name"),
+             "url": str(e["source_url"]), "domain": e["domain"], "condition": state.get("project_name"),
              "content": " ".join([e.get("relevant_excerpt", ""), *e.get("claims_supported", [])]), "thread_id": thread_id}
             for e in state.get("evidence", [])
         ])
@@ -172,7 +172,7 @@ def upsert_knowledge_docs(rows: list[dict]) -> None:
 # document containing every word; turning "&" into "|" (OR) lets ts_rank reward documents that match MORE words.
 # Documents of the current chat get a boost (they were found for this very patient).
 SEARCH_SQL = text("""
-SELECT id, kind, title, url, perspective, condition, thread_id, content,
+SELECT id, kind, title, url, domain, condition, thread_id, content,
        ts_rank(search_vector, q) * CASE WHEN thread_id = :thread_id THEN 1.5 ELSE 1 END AS rank
 FROM knowledge_docs,
      to_tsquery('english', replace(plainto_tsquery('english', :query)::text, ' & ', ' | ')) AS q
@@ -210,8 +210,8 @@ def backfill_knowledge_from_evidence() -> int:
     """Copy the evidence of sessions saved BEFORE the knowledge base existed (new sessions do it at completion)."""
     with session_factory().begin() as db:
         return db.execute(text("""
-            INSERT INTO knowledge_docs (kind, key, title, url, perspective, condition, content, thread_id)
-            SELECT 'evidence', s.thread_id || ':' || e.evidence_id, e.source_title, e.source_url, e.perspective,
+            INSERT INTO knowledge_docs (kind, key, title, url, domain, condition, content, thread_id)
+            SELECT 'evidence', s.thread_id || ':' || e.evidence_id, e.source_title, e.source_url, e.domain,
                    s.project_name, e.excerpt, s.thread_id
             FROM evidence_records e JOIN decision_sessions s ON s.id = e.session_id
             ON CONFLICT ON CONSTRAINT uq_knowledge_docs_kind_key DO NOTHING""")).rowcount

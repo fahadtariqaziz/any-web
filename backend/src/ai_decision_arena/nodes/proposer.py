@@ -1,4 +1,4 @@
-"""Node 4 — Proposer: build 2-3 care plans PER PERSPECTIVE from that perspective's evidence.
+"""Node 4 — Proposer: build 2-3 care plans PER PERSPECTIVE from that domain's evidence.
 
 Three LLM calls run in parallel (one per lane). Each lane only sees its own evidence, so the
 "doctor" plans really come from clinical sources and the "patient" plans from patient reports.
@@ -17,18 +17,18 @@ from langsmith.utils import ContextThreadPoolExecutor
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
-from ai_decision_arena.prompting import BUILDER_RULES, criticisms_block, evidence_block, perspective_label, user_case_block
-from ai_decision_arena.schemas import PERSPECTIVES, CarePlan, ProposerOutput
+from ai_decision_arena.prompting import BUILDER_RULES, criticisms_block, evidence_block, domain_label, user_case_block
+from ai_decision_arena.schemas import DOMAINS, CarePlan, ProposerOutput
 from ai_decision_arena.state import ArenaState
 
 MAX_PLANS_PER_PERSPECTIVE = 3
 PLAN_LETTERS = "abc"
 
 SYSTEM_PROMPT = """You are the Proposer agent of Health Decision Arena. You write plans for ONE lens only:
-the {perspective_label}.
+the {domain_label}.
 
 From the evidence below, build 2-3 MEANINGFULLY DIFFERENT ways this user could manage their condition,
-as this perspective sees it. Each plan must describe: daily routine, diet, medications/treatments as the
+as this domain sees it. Each plan must describe: daily routine, diet, medications/treatments as the
 evidence reports them, how long until progress is typically seen, whether the condition is common or rare
 and the outlook, benefits, drawbacks/risks, assumptions, difficulty, safety notes, supporting evidence ids
 and evidence gaps.
@@ -51,7 +51,7 @@ Rules:
   AFTER a clinician has assessed them. Do not anchor on a single diagnosis (e.g. DKA) when the symptoms could
   have other serious causes (e.g. chest pain with fast breathing): describe the symptom pattern and say the
   emergency team will find the cause. Name it "Emergency first: ..." and set evidence_too_thin to false.
-  The user must still get all three perspectives.
+  The user must still get all three domains.
 - If <previous_criticisms> is non-empty this is a new debate round: fix those weaknesses, drop plans that
   cannot be defended, and keep what the critic accepted.
 """ + BUILDER_RULES
@@ -65,21 +65,21 @@ list and evidence_too_thin true).
 """
 
 
-def _propose_lane(state: ArenaState, perspective: str, round_number: int) -> tuple[list[dict], str, str]:
+def _propose_lane(state: ArenaState, domain: str, round_number: int) -> tuple[list[dict], str, str]:
     """One Proposer call for one lane. Returns (CarePlan dicts, note, lane_status) where lane_status is
     ok | thin (evidence insufficient, research may help) | declined (deliberately no plan) | no_evidence."""
-    evidence = [e for e in state.get("evidence", []) if e["perspective"] == perspective]
+    evidence = [e for e in state.get("evidence", []) if e["domain"] == domain]
     if not evidence:
-        return [], "No evidence was retrieved for this perspective, so no plan could be built.", "no_evidence"
+        return [], "No evidence was retrieved for this domain, so no plan could be built.", "no_evidence"
 
-    previous = [c for c in state.get("criticisms", []) if c["plan_id"].startswith(perspective + "_")]
+    previous = [c for c in state.get("criticisms", []) if c["plan_id"].startswith(domain + "_")]
     user_content = f"""{user_case_block(state)}
 {evidence_block(evidence)}
-<evidence_gaps>{json.dumps([g for g in state.get("evidence_gaps", []) if g.startswith(f"[{perspective}]")], indent=2)}</evidence_gaps>
+<evidence_gaps>{json.dumps([g for g in state.get("evidence_gaps", []) if g.startswith(f"[{domain}]")], indent=2)}</evidence_gaps>
 <previous_criticisms>{criticisms_block(previous) if previous else "(none)"}</previous_criticisms>
 <debate_round>{round_number}</debate_round>"""
 
-    system_prompt = SYSTEM_PROMPT.replace("{perspective_label}", perspective_label(perspective))
+    system_prompt = SYSTEM_PROMPT.replace("{domain_label}", domain_label(domain))
     quick = get_settings().session_mode == "quick"
     if quick:
         system_prompt = QUICK_RULE + system_prompt
@@ -89,7 +89,7 @@ def _propose_lane(state: ArenaState, perspective: str, round_number: int) -> tup
         system_prompt,
         user_content,
         max_tokens=7000,
-        run_name=f"proposer_{perspective}_llm",
+        run_name=f"proposer_{domain}_llm",
     )
 
     known = {e["evidence_id"] for e in evidence}
@@ -100,17 +100,17 @@ def _propose_lane(state: ArenaState, perspective: str, round_number: int) -> tup
         unknown = [eid for eid in p.supporting_evidence_ids if eid not in known]
         gaps = list(p.evidence_gaps)
         if unknown:
-            gaps.append(f"Cited evidence ids not found in this perspective's evidence: {unknown}")
+            gaps.append(f"Cited evidence ids not found in this domain's evidence: {unknown}")
         plan = CarePlan(
             **(p.model_dump() | {"supporting_evidence_ids": cited, "evidence_gaps": gaps}),
-            plan_id=f"{perspective}_{PLAN_LETTERS[i]}",
-            perspective=perspective,
+            plan_id=f"{domain}_{PLAN_LETTERS[i]}",
+            domain=domain,
             round=round_number,
         )
         plans.append(plan.model_dump(mode="json"))
 
     note = out.why_fewer_than_two.strip() if len(plans) < 2 and not quick else ""
-    report("proposer", f"{perspective} lane: {len(plans)} plan(s)" + (f" — {note[:80]}" if note else ""))
+    report("proposer", f"{domain} domain: {len(plans)} plan(s)" + (f" — {note[:80]}" if note else ""))
     if len(plans) >= 2:
         lane_status = "ok"
     elif out.evidence_too_thin:
@@ -122,19 +122,19 @@ def _propose_lane(state: ArenaState, perspective: str, round_number: int) -> tup
 
 def proposer_node(state: ArenaState) -> dict:
     round_number = state.get("debate_round", 0) + 1
-    report("proposer", f"debate round {round_number}: building plans for the 3 lanes in parallel")
+    report("proposer", f"debate round {round_number}: building plans for the 3 domains in parallel")
 
-    with ContextThreadPoolExecutor(max_workers=len(PERSPECTIVES)) as pool:
-        results = list(pool.map(lambda p: _propose_lane(state, p, round_number), PERSPECTIVES))
+    with ContextThreadPoolExecutor(max_workers=len(DOMAINS)) as pool:
+        results = list(pool.map(lambda p: _propose_lane(state, p, round_number), DOMAINS))
 
     plans: list[dict] = []
     notes: dict[str, str] = {}
     lane_status: dict[str, str] = {}
-    for perspective, (lane_plans, note, status) in zip(PERSPECTIVES, results):
+    for domain, (lane_plans, note, status) in zip(DOMAINS, results):
         plans += lane_plans
-        lane_status[perspective] = status
+        lane_status[domain] = status
         if note:
-            notes[perspective] = note
+            notes[domain] = note
 
     return {
         "care_plans": plans,

@@ -7,7 +7,7 @@ import { Callout } from "@/components/ui/Callout";
 import { Markdown } from "@/components/ui/Markdown";
 import { ScoreBars } from "@/components/report/ScoreBars";
 import type { CarePlan, ClaimVerification, Criticism, PlanScore, VerificationStatus } from "@/lib/api/types";
-import { CONFIDENCE_TONE, LEVEL_TONE, PERSPECTIVE_META, VERIFICATION_META, titleCase } from "@/lib/format";
+import { CONFIDENCE_TONE, LEVEL_TONE, DOMAIN_META, VERIFICATION_META, titleCase } from "@/lib/format";
 
 export function PlanDetails({
   plan,
@@ -22,7 +22,7 @@ export function PlanDetails({
   claims?: ClaimVerification[];
   keyEvidence?: { evidence_id: string; title: string; url: string; verification_status: VerificationStatus }[];
 }) {
-  const meta = PERSPECTIVE_META[plan.perspective];
+  const meta = DOMAIN_META[plan.domain];
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">

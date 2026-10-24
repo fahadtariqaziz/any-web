@@ -25,7 +25,7 @@ def show(title: str, fn) -> None:
 # 1) A good evidence record
 good = {
     "evidence_id": "ev_001",
-    "perspective": "doctor",
+    "domain": "doctor",
     "source_title": "NHS: Type 2 diabetes - Food and keeping active",
     "source_url": "https://www.nhs.uk/conditions/type-2-diabetes/food-and-keeping-active/",
     "source_type": "medical_reference",
@@ -37,8 +37,8 @@ good = {
 }
 show("Good evidence", lambda: Evidence.model_validate(good).evidence_id)
 
-# 2) Bad evidence: wrong id format, unknown perspective, invalid URL, unknown source type, score > 1
-bad = good | {"evidence_id": "evidence-1", "perspective": "nurse", "source_url": "not a url",
+# 2) Bad evidence: wrong id format, unknown domain, invalid URL, unknown source type, score > 1
+bad = good | {"evidence_id": "evidence-1", "domain": "nurse", "source_url": "not a url",
               "source_type": "blog", "relevance_score": 1.7}
 show("Bad evidence", lambda: Evidence.model_validate(bad))
 
@@ -52,9 +52,9 @@ show("Clarification asking with no questions (model_validator)", lambda: Clarifi
 
 # 4) Research plan must cover all three lanes
 show("Research plan missing the patient lane", lambda: ResearchPlan(search_term="type 2 diabetes", queries=[
-    {"query": "type 2 diabetes diet meta-analysis", "perspective": "research", "topic": "diet", "preferred_domains": []},
-    {"query": "type 2 diabetes guideline treatment", "perspective": "doctor", "topic": "medications_treatment", "preferred_domains": []},
-    {"query": "type 2 diabetes prevalence", "perspective": "research", "topic": "overview_prevalence", "preferred_domains": []},
+    {"query": "type 2 diabetes diet meta-analysis", "domain": "research", "topic": "diet", "preferred_domains": []},
+    {"query": "type 2 diabetes guideline treatment", "domain": "doctor", "topic": "medications_treatment", "preferred_domains": []},
+    {"query": "type 2 diabetes prevalence", "domain": "research", "topic": "overview_prevalence", "preferred_domains": []},
 ]))
 
 # 5) Judge verdict: only the 4 allowed decisions

@@ -1,7 +1,7 @@
 "use client";
 
 // The final report: red flags first, overview, the three winning plans side by side, where the
-// perspectives agree and differ, uncertainties, next steps, your information, methodology, disclaimer.
+// domains agree and differ, uncertainties, next steps, your information, methodology, disclaimer.
 
 import { FileText, Printer } from "lucide-react";
 import { useState } from "react";
@@ -69,12 +69,12 @@ export function ReportView({ report, workflowStatus, live }: { report: FinalRepo
       </Card>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight text-slate-900">The best plan from each perspective</h2>
+        <h2 className="text-lg font-semibold tracking-tight text-slate-900">The best plan from each domain</h2>
         <div className="grid gap-4 lg:grid-cols-3">
-          {report.perspectives.map((p) => (
+          {report.domains.map((p) => (
             <PerspectiveCard
-              key={p.perspective}
-              perspective={p.perspective}
+              key={p.domain}
+              domain={p.domain}
               planId={p.plan?.plan_id ?? null}
               name={p.plan?.name ?? null}
               summary={p.plan?.summary ?? null}
@@ -93,7 +93,7 @@ export function ReportView({ report, workflowStatus, live }: { report: FinalRepo
           <Card>
             <CardBody>
               {(() => {
-                const result = report.perspectives.find((p) => p.plan?.plan_id === openPlan);
+                const result = report.domains.find((p) => p.plan?.plan_id === openPlan);
                 if (!result?.plan) return null;
                 return (
                   <PlanDetails
@@ -111,15 +111,15 @@ export function ReportView({ report, workflowStatus, live }: { report: FinalRepo
       </section>
 
       <Card>
-        <CardHeader eyebrow="Side by side" title="Compare the three plans" description="Routine, diet, treatments as reported, timeline and outlook, from each perspective's own evidence." />
+        <CardHeader eyebrow="Side by side" title="Compare the three plans" description="Routine, diet, treatments as reported, timeline and outlook, from each domain's own evidence." />
         <CardBody>
-          <ComparisonGrid perspectives={report.perspectives} />
+          <ComparisonGrid domains={report.domains} />
         </CardBody>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader eyebrow="Consensus" title="Where the perspectives agree" />
+          <CardHeader eyebrow="Consensus" title="Where the domains agree" />
           <CardBody><BulletList items={report.where_perspectives_agree} emptyText="No shared points were identified." /></CardBody>
         </Card>
         <Card>
@@ -148,13 +148,13 @@ export function ReportView({ report, workflowStatus, live }: { report: FinalRepo
         </Card>
       </div>
 
-      {report.perspectives.some((p) => p.verification_notes.length > 0) && (
+      {report.domains.some((p) => p.verification_notes.length > 0) && (
         <Card>
           <CardHeader eyebrow="Evidence checker" title="Verification notes" />
           <CardBody className="grid gap-4 md:grid-cols-3">
-            {report.perspectives.map((p) => (
-              <div key={p.perspective} className="space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{titleCase(p.perspective)}</p>
+            {report.domains.map((p) => (
+              <div key={p.domain} className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{titleCase(p.domain)}</p>
                 <BulletList items={p.verification_notes} emptyText="No notes." />
               </div>
             ))}
