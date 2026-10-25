@@ -44,7 +44,7 @@ export function PipelineStepper({
   running: boolean;
 }) {
   return (
-    <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-9" aria-label="Pipeline">
+    <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-10" aria-label="Pipeline">
       {STAGES.map((stage, i) => {
         const state = states[stage.id];
         const sub = detail(stage.id, state, activeNode, counters);

@@ -103,6 +103,11 @@ class Settings(BaseSettings):
     implementer_task_budget_usd: float = Field(default=2.0, gt=0, description="Agent cost cap per task attempt.")
     implementation_budget_usd: float = Field(default=15.0, gt=0, description="Agent cost cap per session: no new "
                                              "task attempt starts once the session spent this much.")
+    max_build_fix_rounds: int = Field(default=2, ge=0, le=5, description="Times a failing build check sends a fix "
+                                      "task back to the coding agent before the preview starts anyway (per change).")
+    max_change_requests: int = Field(default=10, ge=0, le=50, description="Change requests per session from the "
+                                     "preview pause; after that the session can only finish.")
+    preview_idle_check_seconds: float = Field(default=300, ge=5, description="How often idle previews are looked for.")
     max_task_attempts: int = Field(default=2, ge=1, le=5, description="Attempts per task (a retry gets the failing "
                                    "verify output); then the task is failed and its dependants blocked.")
     quick_model: str = Field(default="claude-haiku-5-5", description="Model for every agent of a quick (patient chat) session.")

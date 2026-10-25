@@ -1,10 +1,10 @@
-// The pipeline as the USER sees it: 9 stages built from the graph's 18 nodes, plus what each node is
+// The pipeline as the USER sees it: 10 stages built from the graph's 22 nodes, plus what each node is
 // doing in plain words and how long it usually takes (timings observed in the handoff's test runs).
 // Everything here is derived from DecisionStatus; nothing is guessed when the backend knows better.
 
 import type { DecisionStatus, Domain, ProgressLine } from "@/lib/api/types";
 
-export type StageId = "intake" | "clarify" | "research" | "debate" | "verify" | "report" | "brief" | "plan" | "build";
+export type StageId = "intake" | "clarify" | "research" | "debate" | "verify" | "report" | "brief" | "plan" | "build" | "preview";
 
 export interface Stage {
   id: StageId;
@@ -22,6 +22,7 @@ export const STAGES: Stage[] = [
   { id: "brief", label: "Brief", blurb: "Problem statement and solution, validated" },
   { id: "plan", label: "Plan", blurb: "Implementation plan for your approval" },
   { id: "build", label: "Build", blurb: "Coding agent, task by task, checked by tests" },
+  { id: "preview", label: "Preview", blurb: "Your app running; ask for changes" },
 ];
 
 export interface NodeInfo {
@@ -156,12 +157,41 @@ export const NODE_INFO: Record<string, NodeInfo> = {
     expectedSeconds: 180,
     stage: "build",
   },
+  build_check: {
+    label: "Build check",
+    headline: "Installing, testing and building your app",
+    doing: "The builder runs the plan's install, test and build commands in the project folder. Only their exit codes count. If one fails, the coding agent gets a fix task with the error output (at most twice), then the preview starts anyway and shows what is wrong.",
+    expectedSeconds: 60,
+    stage: "build",
+  },
+  preview: {
+    label: "Preview",
+    headline: "Starting your app",
+    doing: "Starting the app's dev server on its own port. The preview counts as ready only when the server actually answers.",
+    expectedSeconds: 15,
+    stage: "preview",
+  },
+  await_change_request: {
+    label: "Your changes",
+    headline: "Your app is running",
+    doing: "Try the preview. Ask for a change, ask for a new plan, or finish the session.",
+    expectedSeconds: 0,
+    stage: "preview",
+    waitsForUser: true,
+  },
+  change_request_router: {
+    label: "Change request",
+    headline: "Applying your request",
+    doing: "Turning your change into a task for the coding agent, or sending a new-plan request to the planner.",
+    expectedSeconds: 2,
+    stage: "preview",
+  },
   completion: {
     label: "Saving",
     headline: "Saving your session",
     doing: "Storing the session, the evidence and the report in the database.",
     expectedSeconds: 2,
-    stage: "build",
+    stage: "preview",
   },
 };
 
@@ -205,7 +235,7 @@ export function deriveActivity(status: DecisionStatus): Activity {
     // The checkpoint says which node LangGraph is executing; before the first checkpoint it is intake.
     activeNode = status.next_nodes[0] ?? lastNodeLine(lines)?.node ?? "intake";
   } else if (status.run_state === "paused") {
-    const pauseNode = { clarification: "await_clarification", brief_review: "await_brief_review", plan_review: "await_plan_review" };
+    const pauseNode = { clarification: "await_clarification", brief_review: "await_brief_review", plan_review: "await_plan_review", change_request: "await_change_request" };
     activeNode = status.next_nodes[0] ?? (status.pending ? pauseNode[status.pending.type] : "await_clarification");
   } else if (status.run_state === "interrupted") {
     activeNode = status.next_nodes[0] ?? null;
@@ -237,7 +267,7 @@ export function stageStates(status: DecisionStatus, activity: Activity): Record<
     for (const s of STAGES) result[s.id] = "done";
     return result;
   }
-  const current = activity.activeStage ?? (finished ? "build" : "intake");
+  const current = activity.activeStage ?? (finished ? "preview" : "intake");
   const currentIndex = STAGE_INDEX[current];
   for (const s of STAGES) {
     const i = STAGE_INDEX[s.id];

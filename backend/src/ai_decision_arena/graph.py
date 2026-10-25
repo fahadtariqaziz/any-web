@@ -17,7 +17,12 @@
     await_plan_review → plan_review_router ─┬─(approved, both hashes)─► implementer
                                             └─(changes, ≤ max_plan_revisions)► planner
     implementer ─┬─(a task is pending: one attempt per step)─► implementer
-                 └─(all done / failed / blocked / budget)─────► completion → END   (M9: build_check, preview)
+                 └─(all done / failed / blocked / budget)─────► build_check
+    build_check ─┬─(failed, fix round left: a fix task was added)─► implementer
+                 └─────────────────────────────────────────────────► preview → await_change_request (pause)
+    await_change_request → change_request_router ─┬─(change: new task)─► implementer
+                                                  ├─(replan)──────────► planner (plan review again)
+                                                  └─(finish)──────────► completion → END
     Any node that raises → its error is stored (nodes/node_wrapper.py) → completion (status failed).
 
 Every edge is "guarded": if the state carries an error, the graph goes straight to completion. Nodes are not
@@ -42,6 +47,8 @@ from ai_decision_arena.nodes.clarification import await_clarification_node, clar
 from ai_decision_arena.nodes.critic import critic_node
 from ai_decision_arena.nodes.evidence_checker import evidence_checker_node
 from ai_decision_arena.nodes.final_report import completion_node, final_report_node
+from ai_decision_arena.nodes.delivery import (await_change_request_node, build_check_node, change_request_router_node,
+                                              preview_node)
 from ai_decision_arena.nodes.implementer import implementer_node
 from ai_decision_arena.nodes.intake import intake_node
 from ai_decision_arena.nodes.judge import judge_node
@@ -69,6 +76,10 @@ NODES = {
     "await_plan_review": await_plan_review_node,
     "plan_review_router": plan_review_router_node,
     "implementer": implementer_node,
+    "build_check": build_check_node,
+    "preview": preview_node,
+    "await_change_request": await_change_request_node,
+    "change_request_router": change_request_router_node,
 }
 
 
@@ -127,13 +138,31 @@ def route_after_plan_review(state: ArenaState) -> Literal["planner", "await_plan
     return "await_plan_review"
 
 
-def route_after_implementer(state: ArenaState) -> Literal["implementer", "completion"]:
+def _has_pending_task(state: ArenaState) -> bool:
+    return any(t.get("status") == "pending" for t in state.get("implementation_tasks", []))
+
+
+def route_after_implementer(state: ArenaState) -> Literal["implementer", "build_check", "completion"]:
     # The node decides every task's status (verify commands, attempts, blocking, budget); a pending task means
     # another attempt is due. The approvals are re-checked on every step.
     if not plan_is_approved(state):
         return "completion"
-    pending = any(t.get("status") == "pending" for t in state.get("implementation_tasks", []))
-    return "implementer" if pending else "completion"
+    return "implementer" if _has_pending_task(state) else "build_check"
+
+
+def route_after_build_check(state: ArenaState) -> Literal["implementer", "preview"]:
+    # build_check adds a fix task (pending) when a fix round is left; otherwise the preview shows the result.
+    return "implementer" if _has_pending_task(state) and plan_is_approved(state) else "preview"
+
+
+def route_after_change_request(state: ArenaState) -> Literal["implementer", "planner", "completion",
+                                                             "await_change_request"]:
+    route = state.get("change_route")
+    if route == "change":
+        return "implementer" if plan_is_approved(state) else "await_change_request"
+    if route == "replan":
+        return "planner"
+    return "completion"
 
 
 def guarded(route: Callable[[ArenaState], str] | str):
@@ -176,7 +205,12 @@ def build_graph(checkpointer: BaseCheckpointSaver | None = None):
     connect("planner", "await_plan_review", ["await_plan_review"])
     connect("await_plan_review", "plan_review_router", ["plan_review_router"])
     connect("plan_review_router", route_after_plan_review, ["planner", "await_plan_review", "implementer"])
-    connect("implementer", route_after_implementer, ["implementer"])
+    connect("implementer", route_after_implementer, ["implementer", "build_check"])
+    connect("build_check", route_after_build_check, ["implementer", "preview"])
+    connect("preview", "await_change_request", ["await_change_request"])
+    connect("await_change_request", "change_request_router", ["change_request_router"])
+    connect("change_request_router", route_after_change_request,
+            ["implementer", "planner", "completion", "await_change_request"])
     builder.add_edge("completion", END)
 
     return builder.compile(checkpointer=checkpointer)

@@ -6,7 +6,7 @@
 /** What the HTTP layer knows about a session (not the graph's own status). */
 export type RunState = "running" | "paused" | "interrupted" | "finished";
 
-export type PauseType = "clarification" | "brief_review" | "plan_review";
+export type PauseType = "clarification" | "brief_review" | "plan_review" | "change_request";
 
 export interface ProgressLine {
   at: string; // ISO time
@@ -56,11 +56,52 @@ export interface PlanReviewPayload {
   error?: string;
 }
 
+/** The live preview of the session's dev server (GET /preview; also inside the change_request pause). */
+export interface PreviewInfo {
+  state: "starting" | "ready" | "failed" | "stopped";
+  url: string | null; // set only when ready (after a successful HTTP health check)
+  port: number | null;
+  command: string;
+  last_error: string | null; // exit code / timeout + the server's last output
+  log_tail?: string;
+}
+
+export interface BuildStep {
+  phase: "install" | "test" | "build";
+  command: string;
+  ok: boolean;
+  exit_code: number | null;
+  summary: string; // e.g. "exit 0 in 1.2s", "timed out after 120s"
+  output: string;
+}
+
+/** The last build check: install → test → build in the sandbox. passed comes from exit codes only. */
+export interface BuildResults {
+  round: number;
+  passed: boolean;
+  steps: BuildStep[];
+  at: string;
+}
+
+/** The app runs in the preview: ask for a change, a new plan, or finish (spec §8 / §9). */
+export interface ChangeRequestPayload {
+  type: "change_request";
+  preview: PreviewInfo | Record<string, never>;
+  build: BuildResults | Record<string, never>;
+  tasks: { id: string; title: string; status: TaskStatus; attempts: number }[];
+  cost_usd: number;
+  round: number;
+  changes_allowed: boolean; // false once max_change_requests was reached: finish only
+  replan_allowed: boolean;
+  error?: string;
+}
+
 /** `type` tells which payload it is (TypeScript narrows on it: if (p.type === "clarification") ...). */
 export type PendingPause =
   | { type: "clarification"; payload: ClarificationPayload }
   | { type: "brief_review"; payload: BriefReviewPayload }
-  | { type: "plan_review"; payload: PlanReviewPayload };
+  | { type: "plan_review"; payload: PlanReviewPayload }
+  | { type: "change_request"; payload: ChangeRequestPayload };
 
 export interface ErrorInfo {
   code: string;
@@ -239,6 +280,7 @@ export type ResumeRequest =
   | { type: "clarification"; answers: Record<string, string> } // exact question text -> answer
   | { type: "brief_review"; action: "approve" | "request_changes"; feedback?: string; target?: ReviewTarget }
   | { type: "plan_review"; action: "approve" | "request_changes"; feedback?: string }
+  | { type: "change_request"; action: "change" | "replan" | "finish"; request?: string }
   | { type: "continue" };
 
 // --- evidence (GET /evidence) --------------------------------------------------------------------
@@ -539,14 +581,51 @@ export interface ImplementationPlan {
   risks_and_decisions: string[];
 }
 
+/** done = the task's verify commands passed in the sandbox (never the agent's own claim). */
+export type TaskStatus = "pending" | "done" | "failed" | "blocked" | "skipped";
+
+export interface VerifyResult {
+  command: string;
+  ok: boolean;
+  exit_code: number | null;
+  summary: string;
+  output: string;
+}
+
+export interface TaskResult {
+  attempt: number;
+  passed: boolean;
+  files_changed: string[];
+  verify: VerifyResult[];
+  agent: { ok: boolean; error: string | null; turns: number; cost_usd: number; seconds: number; commands: number; report: string };
+}
+
 export interface ImplementationTask {
-  id: string;
+  id: string; // T1.. plan tasks, F1.. build fixes, C1.. change requests
   title: string;
   phase: string;
   depends_on: string[];
-  status: string; // pending | ... (the implementer updates it, M8)
+  status: TaskStatus;
   attempts: number;
-  result: unknown;
+  result: TaskResult | { reason: string } | null;
+}
+
+export interface ImplementationResponse {
+  thread_id: string;
+  workflow_status: string | null;
+  workspace_dir: string | null;
+  current_task_id: string | null;
+  tasks: ImplementationTask[];
+  log: { task_id: string; attempt: number; ok: boolean; status: TaskStatus; summary: string; cost_usd: number; at: string }[];
+  cost_usd: number;
+  build: BuildResults | null;
+}
+
+export interface PreviewResponse extends PreviewInfo {
+  thread_id: string;
+  log_tail: string;
+  started_at: string | null;
+  ready_at: string | null;
 }
 
 export interface PlanResponse {

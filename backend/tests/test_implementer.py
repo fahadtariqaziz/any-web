@@ -94,12 +94,15 @@ def test_prompt_carries_only_the_task_context(graph, fake_llm, fake_search):
 def test_the_agents_claim_does_not_count_only_verify(graph, fake_llm, fake_search):
     fake_llm.agent.skip = {"T1"}                            # agent "succeeds" (ok=True) but writes nothing
     state = run_full(graph, "impl-fail")
-    t1, t2 = state["implementation_tasks"]
+    t1, t2, *fixes = state["implementation_tasks"]
     assert t1["status"] == "failed" and t1["attempts"] == get_settings().max_task_attempts
     assert t1["result"]["agent"]["ok"] and not t1["result"]["passed"]
     assert t1["result"]["verify"][0]["exit_code"] != 0 and "No such file" in t1["result"]["verify"][0]["output"]
-    assert t2["status"] == "blocked" and [c["task"] for c in fake_llm.agent.calls] == ["T1", "T1"]
-    assert state["status"] == "completed_with_uncertainty" and state["metrics"]["tasks"]["failed"] == 1
+    assert t2["status"] == "blocked" and [c["task"] for c in fake_llm.agent.calls][:2] == ["T1", "T1"]
+    # the build check then fails too and sends fix tasks (that this fake agent cannot fix either)
+    assert [f["id"] for f in fixes] == ["F1", "F2"] and all(f["status"] == "failed" for f in fixes)
+    assert state["build_results"]["passed"] is False
+    assert state["status"] == "completed_with_uncertainty" and state["metrics"]["tasks"]["failed"] == 3
 
 
 def test_retry_gets_the_failing_output_and_can_pass(graph, fake_llm, fake_search):
@@ -137,4 +140,4 @@ def test_route_after_implementer(monkeypatch):
     assert G.route_after_implementer({"implementation_tasks": [task("T1")]}) == "completion"   # not approved
     monkeypatch.setattr(G, "plan_is_approved", lambda state: True)
     assert G.route_after_implementer({"implementation_tasks": [task("T1")]}) == "implementer"
-    assert G.route_after_implementer({"implementation_tasks": [task("T1", status="done")]}) == "completion"
+    assert G.route_after_implementer({"implementation_tasks": [task("T1", status="done")]}) == "build_check"

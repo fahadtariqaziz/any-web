@@ -12,6 +12,8 @@ Flow:
     GET  /api/decisions/{id}/brief        → the validated problem statement + solution brief
     GET  /api/decisions/{id}/plan         → the implementation plan (from the plan review on)
     GET  /api/decisions/{id}/artifacts    → approved versions of the brief and the plan
+    GET  /api/decisions/{id}/implementation → the coding agent's tasks, attempt log and last build check
+    GET  /api/decisions/{id}/preview      → the live preview (dev server) state; POST .../preview/restart | stop
     GET  /api/decisions/{id}/evidence     → kept evidence with verification status
     GET  /api/decisions/{id}/live         → everything produced so far (case, evidence counts, plans, scores, verdicts)
     GET  /api/decisions                   → recent sessions (from the app tables); ?mode=quick for the chat list
@@ -47,6 +49,9 @@ from ai_decision_arena.api.triggers import router as triggers_router
 from ai_decision_arena.api.errors import ApiError
 from ai_decision_arena.api.schemas import (
     Accepted,
+    ChangeRequestResume,
+    ImplementationResponse,
+    PreviewResponse,
     CaseView,
     ClarificationResume,
     ContinueResume,
@@ -79,7 +84,8 @@ from ai_decision_arena.graph import build_graph
 from ai_decision_arena.llm import resolve_model
 from ai_decision_arena.memory import valid_user_id
 from ai_decision_arena.triggers import CheckInScheduler
-from ai_decision_arena.workspace.processes import ProcessManager
+from ai_decision_arena.workspace.paths import PathError, workspace_for
+from ai_decision_arena.workspace.processes import IdleStopper, RuntimeRecord, get_manager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -120,12 +126,15 @@ async def lifespan(app: FastAPI):
     check_models()
     # Dev servers (M7): adopt the ones still running from before a restart, clean up what a crash left behind.
     # They are NOT stopped at shutdown, so `uvicorn --reload` keeps the previews alive (idle stop ends them).
-    app.state.processes = ProcessManager()
+    app.state.processes = get_manager()           # shared with the preview node (graph threads)
     app.state.processes.reconcile()
+    idle_stopper = IdleStopper(app.state.processes)
+    idle_stopper.start()
     scheduler = CheckInScheduler(graph) if get_settings().check_ins_enabled else None   # scheduled trigger
     if scheduler:
         scheduler.start()
     yield
+    idle_stopper.stop()
     if scheduler:
         scheduler.stop()
     pool.close()
@@ -339,6 +348,14 @@ def resume_decision(thread_id: str, body: ResumeRequest, request: Request):
         if body.action == "request_changes" and not payload.get("changes_allowed", True):
             raise ApiError(422, "invalid_input", "The plan was revised the maximum number of times: it can only be approved now.")
 
+    if isinstance(body, ChangeRequestResume):
+        if body.action != "finish" and len(body.request.strip()) < 3:
+            raise ApiError(422, "invalid_input", "Describe the change you want: a request is required.")
+        if body.action != "finish" and not payload.get("changes_allowed", True):
+            raise ApiError(422, "invalid_input", "The maximum number of change requests was reached: finish the session.")
+        if body.action == "replan" and not payload.get("replan_allowed", True):
+            raise ApiError(422, "invalid_input", "The plan was revised the maximum number of times: ask for a change instead.")
+
     reply = body.model_dump(exclude={"type"})      # exactly what interrupt() returns inside the node
     _start(runner, thread_id, Command(resume=reply))
     return Accepted(thread_id=thread_id)
@@ -393,6 +410,67 @@ def get_plan(thread_id: str, request: Request):
                         model=(values.get("models_used") or {}).get("planner", ""),
                         approved_at=values.get("plan_approved_at") if plan_is_approved(values) else None,
                         tasks=values.get("implementation_tasks", []))
+
+
+@app.get("/api/decisions/{thread_id}/implementation", response_model=ImplementationResponse, tags=["decisions"])
+def get_implementation(thread_id: str, request: Request):
+    """The coding agent's tasks and log (409 "no_implementation" before the plan was approved)."""
+    values = _snapshot(request, thread_id).values or {}
+    if not values.get("workspace_dir"):
+        raise ApiError(409, "no_implementation", f"Nothing built yet (status {values.get('status')}).")
+    return ImplementationResponse(thread_id=thread_id, workflow_status=values.get("status"),
+                                  workspace_dir=values.get("workspace_dir"), current_task_id=values.get("current_task_id"),
+                                  tasks=values.get("implementation_tasks", []), log=values.get("implementation_log", []),
+                                  cost_usd=values.get("implementation_cost_usd", 0.0), build=values.get("build_results"))
+
+
+def _preview_response(thread_id: str, record: RuntimeRecord) -> PreviewResponse:
+    return PreviewResponse(thread_id=thread_id, state=record.state, url=record.url if record.state == "ready" else None,
+                           port=record.port, command=record.command, last_error=record.last_error,
+                           log_tail=get_manager().log_tail(thread_id)[-3000:],
+                           started_at=record.started_at.isoformat() if record.started_at else None,
+                           ready_at=record.ready_at.isoformat() if record.ready_at else None)
+
+
+def _preview_record(request: Request, thread_id: str) -> RuntimeRecord:
+    _snapshot(request, thread_id)                                   # 404 for unknown sessions
+    try:
+        record = get_manager().status(thread_id)
+    except Exception as exc:
+        raise ApiError(503, "database_unavailable", f"Could not read the preview ({type(exc).__name__}).") from exc
+    if record is None:
+        raise ApiError(409, "no_preview", "This session has no preview yet.")
+    return record
+
+
+@app.get("/api/decisions/{thread_id}/preview", response_model=PreviewResponse, tags=["preview"])
+def get_preview(thread_id: str, request: Request):
+    """Live state of the session's dev server. Reading it counts as "looked at" for the idle stop."""
+    record = _preview_record(request, thread_id)
+    get_manager().touch(thread_id)
+    return _preview_response(thread_id, record)
+
+
+@app.post("/api/decisions/{thread_id}/preview/restart", response_model=PreviewResponse, tags=["preview"])
+def restart_preview(thread_id: str, request: Request):
+    """Restart the dev server with the approved plan's dev command; returns after the health check (≤ 60 s)."""
+    values = _snapshot(request, thread_id).values or {}
+    plan = values.get("implementation_plan")
+    if not plan or not values.get("workspace_dir"):
+        raise ApiError(409, "no_preview", "This session has nothing to preview yet.")
+    if _run_state(request.app.state.runner, thread_id, _snapshot(request, thread_id)) == "running":
+        raise ApiError(409, "already_running", "The builder is working on this session; the preview restarts itself.")
+    try:
+        ws = workspace_for(thread_id)
+    except PathError as exc:
+        raise ApiError(422, "invalid_input", str(exc)) from exc
+    return _preview_response(thread_id, get_manager().start(ws, plan["commands"]["dev"]))
+
+
+@app.post("/api/decisions/{thread_id}/preview/stop", response_model=PreviewResponse, tags=["preview"])
+def stop_preview(thread_id: str, request: Request):
+    _preview_record(request, thread_id)
+    return _preview_response(thread_id, get_manager().stop(thread_id, reason="user"))
 
 
 @app.get("/api/decisions/{thread_id}/artifacts", response_model=ArtifactList, tags=["decisions"])

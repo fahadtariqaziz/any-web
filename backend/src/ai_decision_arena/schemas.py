@@ -38,6 +38,9 @@ WorkflowStatus = Literal[
     "planning",
     "awaiting_plan_review",
     "implementing",
+    "building",
+    "previewing",
+    "awaiting_changes",
     "completed",
     "completed_with_uncertainty",
     "failed",
@@ -1186,6 +1189,19 @@ class PlanReviewReply(BaseModel):
     def changes_need_feedback(self) -> "PlanReviewReply":
         if self.action == "request_changes" and len(self.feedback.strip()) < 3:
             raise ValueError("Describe the change you want (feedback is required to request changes).")
+        return self
+
+
+class ChangeRequestReply(BaseModel):
+    """What the user sends back while the preview runs (M9): a change for the coding agent, a new plan, or finish."""
+
+    action: Literal["change", "replan", "finish"]
+    request: str = Field(default="", max_length=4000)
+
+    @model_validator(mode="after")
+    def changes_need_text(self) -> "ChangeRequestReply":
+        if self.action in ("change", "replan") and len(self.request.strip()) < 3:
+            raise ValueError("Describe the change you want (a request is required for change / replan).")
         return self
 
 

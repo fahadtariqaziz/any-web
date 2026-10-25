@@ -2,7 +2,8 @@
 
 Spec §9: run each generated app in its own environment, show useful errors when it fails to start, keep one project
 from disturbing another. Facts here come only from the OS and HTTP, never from a model:
-- `ready` is set ONLY after an HTTP answer from http://127.0.0.1:<port>/ (any status: the server is up);
+- `ready` is set ONLY after an HTTP answer from http://127.0.0.1:<port>/ (any status: the server is up) AND the
+  listening socket on that port belongs to the started process tree (never another app answering on the port);
 - `failed` carries the exit code / timeout and the tail of the server's log (.builder/logs/dev-server.log);
 - each session gets its own port from `preview_port_range` (registry + a real bind test), passed as $PORT; a command
   may also contain "{port}" (Vite ignores $PORT: "npm run dev -- --port {port} --strictPort");
@@ -25,6 +26,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal, Protocol
 
+import psutil
 from pydantic import BaseModel
 
 from ai_decision_arena.config import get_settings
@@ -112,8 +114,25 @@ def port_range() -> range:
     return range(low, high + 1)
 
 
+def port_accepts(port: int, timeout: float = 0.3) -> bool:
+    """Something accepts TCP connections on this port on loopback (127.0.0.1 or ::1)."""
+    for family, host in ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")):
+        try:
+            with socket.socket(family, socket.SOCK_STREAM) as sock:
+                sock.settimeout(timeout)
+                if sock.connect_ex((host, port)) == 0:
+                    return True
+        except OSError:
+            continue
+    return False
+
+
 def port_is_free(port: int) -> bool:
-    """A real bind on 127.0.0.1 (and ::1 when the machine has IPv6: Vite's "localhost" may be ::1)."""
+    """Nobody listens on the port. A connect test first: on macOS a bind with SO_REUSEADDR to 127.0.0.1 SUCCEEDS
+    while another process listens on the wildcard address (`*:4100`, e.g. a Node server), so the bind alone said
+    "free" and two previews shared a port. Then a real bind on 127.0.0.1 and ::1."""
+    if port_accepts(port):
+        return False
     for family, host in ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")):
         try:
             with socket.socket(family, socket.SOCK_STREAM) as sock:
@@ -141,13 +160,75 @@ def http_answers(port: int, timeout: float = 2.0) -> bool:
     return False
 
 
+_manager: "ProcessManager | None" = None
+_manager_lock = threading.Lock()
+
+
+def get_manager() -> "ProcessManager":
+    """The process-wide manager: the preview node (graph thread) and the API endpoints must share one registry of
+    child processes. Created on first use (store: DB, or memory when PERSIST_RESULTS=false)."""
+    global _manager
+    with _manager_lock:
+        if _manager is None:
+            _manager = ProcessManager()
+        return _manager
+
+
+def set_manager(manager: "ProcessManager | None") -> None:
+    global _manager
+    with _manager_lock:
+        _manager = manager
+
+
+class IdleStopper:
+    """Trigger (spec §10.8): every `preview_idle_check_seconds`, stop previews nobody looked at for
+    `preview_idle_minutes` (GET /preview touches them)."""
+
+    def __init__(self, manager: "ProcessManager") -> None:
+        self.manager = manager
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._loop, name="preview-idle-stopper", daemon=True)
+
+    def _loop(self) -> None:
+        while not self._stop.wait(get_settings().preview_idle_check_seconds):
+            try:
+                stopped = self.manager.stop_idle()
+                if stopped:
+                    log.info("idle previews stopped: %s", stopped)
+            except Exception:                       # never let the trigger thread die
+                log.exception("idle preview check failed")
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+
+
+def listens_on(pid: int, port: int) -> bool:
+    """The process `pid` or one of its children holds a LISTEN socket on `port` (it is OUR server that answers)."""
+    try:
+        root = psutil.Process(pid)
+        procs = [root, *root.children(recursive=True)]
+    except psutil.Error:
+        return False
+    for proc in procs:
+        try:
+            if any(c.status == psutil.CONN_LISTEN and c.laddr and c.laddr.port == port
+                   for c in proc.net_connections(kind="inet")):
+                return True
+        except psutil.Error:
+            continue
+    return False
+
+
 class ProcessManager:
     """One per API process (app.state.processes). Thread-safe for start/stop; the health wait runs unlocked."""
 
     def __init__(self, store: RuntimeStore | None = None, root: Path | None = None) -> None:
         self.store = store or default_store()
         self.root = root
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()       # start / stop / status: a stop must never be read as a crash
         self._children: dict[str, subprocess.Popen] = {}   # started by THIS process (reaped on stop)
 
     # --- helpers ---------------------------------------------------------------------------------------------
@@ -236,7 +317,7 @@ class ProcessManager:
         while time.monotonic() < deadline:
             if not self._alive(record):
                 return self._fail(record, self._exit_note(record))
-            if http_answers(record.port):
+            if http_answers(record.port) and listens_on(record.pid, record.port):   # an answer from OUR server
                 record.state, record.ready_at = "ready", now()
                 record.url, record.last_seen_at = f"http://localhost:{record.port}", record.ready_at
                 log.info("preview %s: ready at %s", thread_id, record.url)
@@ -251,10 +332,11 @@ class ProcessManager:
 
     def status(self, thread_id: str) -> RuntimeRecord | None:
         """The current record; an active server whose process died is marked failed with its log tail."""
-        record = self.store.get(thread_id)
-        if record and record.state in ACTIVE and not self._alive(record) and not self._being_started(record):
-            return self._fail(record, self._exit_note(record))
-        return record
+        with self._lock:                     # inside the lock: a concurrent stop() finishes first (no false "failed")
+            record = self.store.get(thread_id)
+            if record and record.state in ACTIVE and not self._alive(record) and not self._being_started(record):
+                return self._fail(record, self._exit_note(record))
+            return record
 
     def touch(self, thread_id: str) -> None:
         """The preview was looked at (resets the idle clock)."""

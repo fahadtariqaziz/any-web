@@ -3,12 +3,17 @@
 > **Read this first in every new session.** It is the always-current record: where the project stands, how it is built,
 > the plan we follow, and what is next. **Update it after every major change** (structure, decisions, progress, next step).
 >
-> **New agent / new session?** Read section 0 (status), the current milestone in section 8, then **section 15 (how to work
-> here) and section 16 (gotchas)** before touching code. They record how the previous sessions worked and what bit them.
-> The **original product specification is saved verbatim in `docs/app-builder-spec.md`**; milestones cite it as "spec §4.3".
+> **New agent / new session? Start here (10 minutes):**
+> 1. Read section 0 (where we are), "▶ Next step" at the very end, and the next milestone's block in section 8.
+> 2. Read **section 15 (how to work here)** and **section 16 (gotchas)** in full: they are the lessons of M0–M9.
+> 3. Check the machine: `git status` (clean = the user committed the last milestone; if not, ask), the user's dev
+>    servers (`lsof -nP -iTCP:8001 -sTCP:LISTEN`, `lsof -nP -iTCP:3001 -sTCP:LISTEN`; reuse them, never start a second
+>    one), `bash backend/scripts/verify_m0.sh` (must end with `M0 VERIFY: PASS`).
+> 4. The product spec is saved verbatim in `docs/app-builder-spec.md` (milestones cite it as "spec §4.3").
 >
-> **Working rule (agreed 2026-10-24):** one milestone at a time. For each: build → run its verify script → if it passes,
-> the user commits and pushes (Claude never commits) → next milestone. Ask the user when a decision is theirs.
+> **Working rule (agreed 2026-10-24):** one milestone at a time. For each: build → run its verify script(s) → report
+> the real result → the user commits and pushes (**Claude never commits or pushes**) → wait for "pushed" → next
+> milestone. Ask the user when a decision is theirs (section 13) or before a live run that costs real money.
 
 ---
 
@@ -18,18 +23,19 @@
 |---|---|
 | **Spec** | `docs/app-builder-spec.md` — the user's original brief, verbatim (clarification §1, research §2, proposals §3, brief §4.1–4.10, validation §5, review §6, planning §7, implementation §8, preview + isolation §9, platform §10.1–10.11, constraints §12, outcome §13). The milestone blocks below quote the parts each one needs. |
 | **Concept (decided 2026-10-24)** | An AI application builder like Lovable: the user describes an app or website; the system clarifies, researches, proposes, critiques, judges, writes a validated problem statement + solution brief, gets approval, plans (Opus 5.5), implements (Sonnet 5.5) in an isolated session folder, and shows a live preview beside the chat. |
-| **Where we are** | **M8 done** (2026-10-25): after the plan approval, `implementer` (Claude Agent SDK, `claude-sonnet-5-5`, effort medium) builds the plan ONE task attempt per graph step in `generated_projects/<thread_id>/app`; Python runs each task's `verify_commands` in the sandbox and only their exit codes mark a task done (retry once with the failing output, then failed → dependants blocked; session USD budget). Agent = built-in Read/Write/Edit/Glob/Grep behind a path hook + our `run_command` MCP tool (sandbox); no Bash; user's Claude Code config not loaded. Then `completion` (M9 inserts build_check / preview). **M7:** `workspace/` = `paths.py` (session folders `generated_projects/<thread_id>/{app,.builder}`, `safe_path` with symlink resolution), `sandbox.py` (one command: M6 command policy, argv only, env built from nothing, cwd `app/`, own process group, timeout kill, 20 kB tails, audit log, git ceiling), `processes.py` (dev server per session: port 4100–4199, `$PORT`/`{port}`, ready only after an HTTP answer, stop / restart / idle stop, startup `reconcile`), table `project_runtimes`. Not wired into the graph yet (M8/M9 use it). **M6:** after the brief approval, `planner` (Opus 5.5, effort high, model checked against `GET /v1/models`) writes an `ImplementationPlan` checked in Python (ids, dependency order, relative files, allowlisted commands, every approved MVP feature covered); `await_plan_review` → `plan_review_router` (approve with hash + artifact, or changes ≤ 3). **M5:** the validated brief pauses for the user's review (`await_brief_review` → `brief_review_router`; approve with hash guard + `project_artifacts`, or change requests routed to wording / requirements / research / proposal, always revalidated). **M4:** after the report, `brief_writer` (3 structured calls → `ProblemBrief`, Python references + label fixes + markdown) and `brief_validator` (6 deterministic checks + 1 LLM review on the 9 spec criteria; Python verdict approve / revise ≤ 2 / clarify). `GET /brief`, admin `BriefView`. M3: proposer → critic → judge → checker → report. |
-| **Next milestone** | **M9 — build check, preview, change requests** (section 8). |
+| **Where we are** | **M0–M9 done (2026-10-25). The pipeline works end to end:** idea → clarification → research (3 domains) → proposals / critic / judge / checker → validated brief → **user approval** → Opus plan → **user approval** → Sonnet coding agent builds task by task (verified by real commands) → build check → **live preview** → change requests → finish. Proven by the M9 E2E over HTTP: a 12-task Opus plan built 12/12 on the first attempt, build + preview + one change request, agent cost $0.74 (section 14). The UI is still the **admin view** (`/admin`, `/decisions/<id>`: stepper + panels per pause); the chat pages (`/`, `/c/<id>`) are the old quick chat and do not show builds yet. |
+| **Milestones** | M0 harness · M1 intake + clarification · M2 research · M3 debate · M4 brief writer + validator · M5 brief review · M6 Opus planner + plan review · M7 workspace / sandbox / processes · M8 coding agent (Claude Agent SDK) · M9 build check / preview / change requests. Details: section 8 (✅ blocks), section 14 (progress log with real numbers), section 12 (decisions). |
+| **Next milestone** | **M10 — Lovable UI** (section 8): chat left + live preview right. Open questions 3 and 4 (section 13) should be answered at its start. |
 | **Models (verified 2026-10-24 via `client.models.list()`)** | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` are all available to the key in `backend/.env`. Configured default: `ANTHROPIC_MODEL=claude-sonnet-5-5`. |
-| **Environment (verified 2026-10-24)** | uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head · Claude Code CLI 2.1.310 installed · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are taken by the original ai-lab servers** → run ai-lab-2 on **8001/3001** (section 11). |
-| **Tests** | `backend/tests/` (218 pytest tests; the coding agent is a `FakeAgent` in conftest, verify commands run for real; `test_workspace.py` runs real subprocesses (python3, git) under tmp_path, no network / no DB: fake LLM + fake search, see `tests/conftest.py`). Run `bash backend/scripts/verify_m0.sh` (pytest + eslint + tsc). No frontend unit tests yet. |
+| **Environment (verified 2026-10-24/25)** | macOS, zsh · uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head `f4a5b6c7d8e9` · `claude-agent-sdk` 0.2.174 (ships its own Claude Code CLI 2.1.310) · `psutil` 7.2 · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are the original ai-lab** → ai-lab-2 runs on **8001/3001** (the user starts them with `--reload`; section 11) · previews use ports **4100–4199** · generated apps in `generated_projects/` (git-ignored). |
+| **Tests** | `bash backend/scripts/verify_m0.sh` = 229 pytest + eslint + tsc, ~30 s. Offline: fake LLM, fake Tavily, `FakeAgent` for the coding agent, in-memory checkpoints, no DB; but sandbox commands, git and dev servers (`python3 -m http.server {port}`) run for REAL under tmp dirs. Live checks: `backend/scripts/verify_m1..m9.py` (real APIs, node level) and `scripts/api_flow.py --auto` (full HTTP E2E); what each needs, writes and costs: section 11. No frontend unit tests (lint + tsc + the user's browser check). |
 
 ---
 
 ## 1. Target product in one paragraph
 
 User prompt → **clarification** (2–3 rounds, pauses for answers) → **research** in 3 domains (existing apps & user feedback ·
-papers & technical literature · feasibility & implementations) → **proposer** (4–5 solution proposals) → **critic** → **judge**
+papers & technical literature · feasibility & implementations) → **proposer** (2–3 solution proposals in one call) → **critic** → **judge**
 (scores, picks the strongest, may loop to research / clarification) → **evidence checker** → **brief writer** (one-page problem
 statement + solution brief with labelled claims and real references) → **brief validator** (deterministic + LLM checks) →
 **user review** (approve or request changes; changes route back to the right node) → **planner** (Opus 5.5, Claude-Code-style
@@ -41,7 +47,7 @@ done. Every generated project lives in `generated_projects/<session_id>/`, isola
 
 ## 2. Current architecture (started as a copy of the ai-lab health app; 2.1 and 2.3 are kept current)
 
-### 2.1 Graph today (`backend/src/ai_decision_arena/graph.py`, 17 nodes + completion)
+### 2.1 Graph today (`backend/src/ai_decision_arena/graph.py`, 21 nodes + completion)
 ```
 START → intake → clarification ──(need answers, ≤3 rounds)──► await_clarification ──► clarification
                      │ enough info
@@ -57,11 +63,15 @@ START → intake → clarification ──(need answers, ≤3 rounds)──► aw
                                                                                        ├──(clarify, loop allowed)──► clarification
                                                                                        └──(approve)──► await_brief_review (pause)
 await_brief_review → brief_review_router ──(approved, hash guard)──► planner (Opus 5.5) → await_plan_review (pause)
-await_plan_review → plan_review_router ──(approved, brief + plan hashes)──► implementer (Sonnet agent, 1 task attempt/step)
-                                       └──(changes, ≤ max_plan_revisions)──► planner
-implementer ──(a task pending)──► implementer   ──(all done / failed / blocked / budget)──► completion → END   (M9: build_check)
                                          ├──(wording)──► brief_writer      ├──(requirements)──► clarification
                                          ├──(research)─► research          └──(proposal)──────► proposer
+await_plan_review → plan_review_router ──(approved, brief + plan hashes)──► implementer (Sonnet agent, 1 task attempt/step)
+                                       └──(changes, ≤ max_plan_revisions)──► planner
+implementer ──(a task pending)──► implementer   ──(all done / failed / blocked / budget)──► build_check
+build_check ──(failed, fix round left: fix task F<n> added)──► implementer   ──(else)──► preview → await_change_request (pause)
+await_change_request → change_request_router ──(change: task C<n>)──► implementer ──(replan)──► planner ──(finish)──► completion → END
+Pauses (interrupt): await_clarification, await_brief_review, await_plan_review, await_change_request. Draw it:
+`cd backend && uv run python scripts/draw_graph.py` (mermaid, phases 1–10).
 Any node that raises → error stored (nodes/node_wrapper.py) → completion (status failed).
 ```
 
@@ -87,17 +97,21 @@ ai-lab-2/
 ├── backend/
 │   ├── .env (not in git; template .env.example), pyproject.toml, uv.lock, alembic.ini, Dockerfile
 │   ├── migrations/versions/        # Alembic migrations (9 so far; head f4a5b6c7d8e9 = project_runtimes)
-│   ├── knowledge/*.md              # curated knowledge docs (health; to be replaced)
-│   ├── skills/*/SKILL.md           # chat skills (health; to be replaced)
+│   ├── knowledge/*.md              # curated knowledge docs (STILL health: emergency signs, medication... M11 replaces)
+│   ├── skills/*/SKILL.md           # chat skills (STILL health: meal-planning, habit-coaching... M11 replaces)
+│   ├── .cache/*.json               # cached real states for the verify scripts (git-ignored; section 11)
 │   ├── scripts/                    # run_graph, run_intake, run_research, api_flow (HTTP end to end), check_env, draw_graph,
-│   │                               #   probe_schema (grammar limit), load_knowledge, print_helpers, verify_m0.sh, verify_m1..m8.py, spike_agent_sdk.py
-│   ├── tests/                      # pytest: conftest (fake LLM + fake search), graph, limits, sources, schemas,
-│   │                               #   nodes, full pipeline on InMemorySaver, API with TestClient
+│   │                               #   probe_schema (grammar limit), load_knowledge, print_helpers, verify_m0.sh, verify_m1..m9.py, spike_agent_sdk.py
+│   ├── tests/                      # pytest: conftest (FakeLLM, fake search, FakeAgent, process_manager fixture,
+│   │                               #   finish_session), test_graph, test_limits, test_sources, test_schemas, test_nodes,
+│   │                               #   test_research, test_brief, test_brief_review, test_plan, test_workspace,
+│   │                               #   test_implementer, test_delivery, test_pipeline_fake, test_api (TestClient)
 │   └── src/ai_decision_arena/      # package name kept (rename = churn, no value now)
 │       ├── graph.py, state.py, schemas.py (~1200 lines), config.py, limits.py, prompting.py, llm.py, progress.py
 │       ├── brief.py (brief references / labels / rendering / deterministic checks), plan.py (plan checks / rendering / hashes)
 │       ├── nodes/  intake, clarification, research, proposer, critic, judge, evidence_checker, final_report (+ completion),
-│       │           brief_writer, brief_validator, brief_review (await + router), planner (+ await + router), implementer, node_wrapper
+│       │           brief_writer, brief_validator, brief_review (await + router), planner (+ await + router), implementer, delivery (build_check, preview,
+│       │           await_change_request, change_request_router), node_wrapper
 │       ├── research/  planner (queries), search (Tavily), extractor (snippets → Evidence), sources (domains, url utils)
 │       ├── workspace/  paths (session folders, safe_path, tool_path_problem), sandbox (one command), processes (dev
 │       │               servers, M7), agent (Claude Agent SDK adapter, M8)
@@ -106,9 +120,14 @@ ai-lab-2/
 │       └── api/  main (decisions endpoints), runner (background threads), chat, memories, triggers, schemas, errors
 └── frontend/src/
     ├── app/(chat)/   `/` and `/c/[threadId]`  — ChatGPT-style chat (ChatShell, ChatView, Composer, Messages…)
-    ├── app/(admin)/  `/admin`, `/decisions/[threadId]` — full pipeline view (stepper, clarification form, debate, evidence, report)
-    ├── hooks/  useDecision (poll 2 s), useLive, useFetch, useStartChat…
-    └── lib/  api/client.ts, api/types.ts (hand-written mirror of API models), pipeline.ts, chatStages.ts, format.ts
+    ├── app/(admin)/  `/admin`, `/decisions/[threadId]` — full pipeline view: DecisionView renders ONE panel per state
+    │                 (NowPanel while running; ClarificationForm / BriefReviewPanel / PlanReviewPanel / ChangeRequestPanel
+    │                 per pause; finished: AppView + PlanView + BriefView + ReportView), PipelineStepper (10 stages)
+    ├── components/   session/ (panels above + BuildViews: PreviewCard, BuildCard, TaskList), report/, debate/, evidence/, ui/
+    ├── hooks/  useDecision (poll 2 s running, 5 s paused/interrupted, stop when finished), useLive (useBrief, usePlan,
+    │           useImplementation, usePreview...), useFetch, useStartChat…
+    └── lib/  api/client.ts, api/types.ts (hand-written mirror of API models), pipeline.ts (STAGES, NODE_INFO, progress
+              parsing), chatStages.ts, format.ts (status labels / tones)
 ```
 
 ### 2.4 Mechanisms we keep (platform, not health-specific)
@@ -124,16 +143,22 @@ ai-lab-2/
 - Chat tool loop (`tools.stream_with_tools`, bounded rounds), research sub-agent (`researcher.py`), skills loader, knowledge base (Postgres FTS), long-term memory keyed by a browser id, scheduled trigger thread.
 - Frontend: polling hook, resume flow, discriminated `pending` payloads, stepper derived from status, live snapshot tabs.
 
-### 2.5 Health-specific parts (to replace)
-Prompts of every node and of `research/planner.py`, `research/extractor.py`, `chat.py`, `researcher.py`; `SAFETY_RULES`; vocabularies in
-`schemas.py` (`Perspective`, `SourceType`, `EvidenceStrength`, `ConditionCategory`, `ResearchTopic`, `CarePlan`, `FinalReport`,
-`OnboardingSummary`…); domain lists in `research/sources.py`; rubric in `config.py`; red-flag / emergency logic; `knowledge/*.md`;
-`skills/*`; DB columns `condition_name`, `condition_category`, `red_flags`, `patient_id`, table `patient_memories`; all UI wording,
-`PERSPECTIVE_META`, `NODE_INFO`, report components.
+### 2.5 Health-app leftovers still in the code (checked 2026-10-25)
+Everything on the main path (prompts, schemas, state, DB columns, research domains, rubric, admin UI) was converted in
+M1–M9. Still health-flavoured, all OFF the build path:
+- `backend/knowledge/*.md` (emergency-warning-signs, medication-safety...), `backend/skills/*` (meal-planning,
+  habit-coaching, emotional-support, explaining-test-results) → replaced in M11 by builder docs/skills.
+- `tools.py` (chat tool docstrings: "patient", lanes "research / doctor / patient"), `triggers.py` check-in prompt,
+  `config.py` quick/chat model descriptions ("patient chat") → M10/M11 (depends on open question 3).
+- Frontend: the chat pages (`app/(chat)/`, `components/chat/*`, `useStartChat`, `chatStages.ts`), `RedFlagBanner`,
+  the "Patient context" label in `EvidencePanel` (feedback context of app reviews), wording in `ReportView` /
+  `DecisionView` / `types.ts` comments → M10.
+- DB: `knowledge_docs.condition` column (feeds a generated FTS column) → M11.
 
-### 2.6 Gaps for the new product
-No file/command tools or sandbox for generated code · only one pause type · no approval checkpoints · no planner /
-implementer / preview nodes · no prompt registry or versions · no per-node token/cost accounting · no per-session workspace.
+### 2.6 Gaps still open (planned)
+Lovable chat + preview layout (M10) · prompt registry / versions, eval cases, per-node token + USD accounting,
+`tool_calls` table, builder knowledge + skills, idle trigger beyond previews (M11) · Docker runtime per session (M12).
+Not planned yet: auth / multi-user isolation of the API (sessions are keyed by thread_id + a browser user id only).
 
 ---
 
@@ -470,7 +495,7 @@ operation itself confirmed it: exit codes and HTTP checks, never the model's say
 - **Verify:** pytest with a fake agent (task bookkeeping, attempts, caps) + `scripts/verify_m8.py`: trivial plan (static page + one test) implemented end to end; verify commands pass for real.
 - **Commit:** `M8: implementer coding agent`
 
-### M9 — Build check, preview, change requests, completion
+### M9 — Build check, preview, change requests, completion ✅ done 2026-10-25
 Spec §9 (preview + isolation): run the generated app in an isolated environment; show it in a preview panel; refresh it when
 changes are applied; show useful build / runtime errors when it fails to start. Each session has a unique id and its own
 `generated_projects/<session>/` folder with source, configuration, dependencies and artifacts; generated code never modifies the
@@ -547,9 +572,37 @@ NEXT_PUBLIC_API_URL=http://localhost:8001 npx next dev -p 3001     # http://loca
 cd backend && uv run pytest -q            # from M0
 uv run python scripts/check_env.py        # keys work
 ```
+**Live checks and what they cost** (real APIs; run long ones in the background with `python -u ... > /tmp/x.log 2>&1`).
+Costs marked "measured" come from the agent's `ResultMessage`; the others are rough guesses (per-node LLM cost
+accounting arrives with M11, until then LLM spend is not metered):
+
+| Script | Needs | Writes | Cost / time |
+|---|---|---|---|
+| `verify_m1.py` intake + clarification | — | — | cents (guess), < 1 min |
+| `verify_m2.py` research | — | — | Tavily + cents (guess), ~1 min |
+| `verify_m3.py` debate (`--fresh` = redo research) | research cache, else runs research | `.cache/research_calculator.json`, `.cache/debate_calculator.json` | ~$0.2–0.5 (guess), 2–4 min |
+| `verify_m4.py` brief writer + validator | debate cache | `.cache/brief_calculator.json` | ~$0.2 (guess), ~2 min |
+| `verify_m5.py` brief review | brief cache | — (artifact row in DB) | ~$0.1 (guess), ~2 min |
+| `verify_m6.py` Opus plan | brief cache | `.cache/plan_calculator.json` | ~$0.5 (guess), ~4 min |
+| `verify_m7.py` workspace / sandbox / processes | — | — | free, seconds |
+| `verify_m8.py` coding agent, 2-task plan | plan cache | a workspace | $0.05 measured, ~30 s |
+| `verify_m9.py` build / preview / change | plan cache | a workspace + project_runtimes row | $0.09–0.10 measured, ~1 min |
+| `api_flow.py --auto [--change "..."]` full E2E over HTTP | dev servers on 8001/3001 | a real session | agent $0.74 measured + research/brief/plan LLM calls (unmetered, guess $1–2); ~15 min active |
+
+`.cache/` is git-ignored: a fresh clone runs verify_m3 → m4 → m6 once to rebuild the chain. The cached
+calculator state carries a CONDITIONAL report (M3's Judge asked for clarification), so sessions built from it end
+`completed_with_uncertainty` even when the build is perfect. Verify scripts with `PERSIST_RESULTS` on save their
+sessions into the real DB: they show up in `/admin`'s recent sessions (named "A simple calculator web app").
+
+**Generated projects:** `generated_projects/<thread_id>/app` (the project) + `.builder/` (brief.md, plan.md, plan.json,
+tasks.json, runtime.json, logs/<task>.log = the agent's tool calls, logs/commands.jsonl = every sandbox command,
+logs/dev-server.log). `generated_projects/.shared/` = tool symlinks + npm/uv/pip caches. Safe to delete old session
+folders by hand (stop their preview first: `POST /api/decisions/<id>/preview/stop`); no cleanup CLI yet (M12).
+Previews keep running after "finish" until the idle stop (30 min without `GET /preview`).
+
 Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decision_sessions`, `evidence_records`, `decision_reports`,
-`user_feedback`, `chat_messages`, `user_memories`, `knowledge_docs` (its `condition` column is renamed in M11), LangGraph `checkpoint*`.
-`project_artifacts` (M5), `project_runtimes` (M7). Planned: `tool_calls`.
+`user_feedback`, `chat_messages`, `user_memories`, `knowledge_docs` (its `condition` column is renamed in M11), LangGraph `checkpoint*`,
+`project_artifacts` (M5: approved brief / plan versions), `project_runtimes` (M7: one dev server per session). Planned: `tool_calls`.
 
 ---
 
@@ -569,6 +622,29 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 - 2026-10-24: Standard test idea for every live verify and the first end-to-end builds: **"A simple calculator web app"** (user's call: if the smallest project builds, bigger ones follow).
 - 2026-10-24 (M1): risk flags are informational only; `limits.loops_allowed` no longer blocks on them. `max_clarification_rounds` = 3.
 - 2026-10-24 (M3): one Proposer call makes 2–3 proposals over ALL evidence; one Critic call per proposal (parallel); one Judge call scores all and Python picks the winner; the checker verifies the winner only. Material contradictions found by the Judge become clarification questions when a round is available. Quick mode runs every node (one proposal, quick settings). The interim `FinalReport` = winner + alternatives (M4 replaces the user-facing document). The chat's first summary is built from the report in Python (no LLM call). Health demo scripts (`run_debate`, `run_report`, `demo_data`, `schemas_demo`) deleted; health report components replaced by `ProposalDetails`.
+- 2026-10-25 (M9, after the E2E): **preview isolation**: `port_is_free` first tries to CONNECT on 127.0.0.1 / ::1
+  (anything accepting = taken), and `ready` additionally requires `listens_on(pid, port)` (psutil: the started process
+  tree holds the LISTEN socket). Reason: macOS lets a SO_REUSEADDR bind to 127.0.0.1:4100 succeed while a Node app
+  listens on `*:4100`; a second session got 4100 and its health check was answered by the OTHER session's app (a
+  crashed dev server looked "ready"). Frontend: `useDecision` keeps polling every 5 s while paused / interrupted (a
+  pause answered elsewhere, e.g. by `api_flow.py` or another tab, used to leave the page stale forever); a finished
+  built session shows `AppView` (preview card with Start/Restart, build check, tasks) above the plan; the plan card
+  counts plan tasks and shows "+N added later" for F/C tasks. `BuildViews.tsx` holds the shared cards.
+- 2026-10-25 (M9): `build_check` runs `plan.commands` install → test → build (stops at the first failure; facts =
+  exit codes). Failing + fix round left (`max_build_fix_rounds=2`, reset by every change request) + budget left →
+  task `F<n>` (verify = the failing command; the output goes into its description inside `<untrusted>`), back to the
+  implementer; otherwise the preview starts anyway and shows the errors. Tasks created after planning (F = fix, C =
+  change) carry their own `spec` (a `PlanTask`) in `implementation_tasks`; their commands come from the checked plan,
+  never from an LLM. `preview` = `get_manager().start(ws, plan.commands.dev)` (a restart each time: "refresh after
+  changes"). One process-wide `ProcessManager` (`processes.get_manager()`), shared by the preview node (graph threads)
+  and the API; `IdleStopper` thread in the lifespan (`preview_idle_check_seconds=300`, `preview_idle_minutes=30`;
+  `GET /preview` touches). Change requests: `ChangeRequestReply {action: change | replan | finish, request}`,
+  `max_change_requests=10` (then finish only); change → task `C<n>` verified by `plan.commands.test` (or build; `ls` only
+  if a plan has neither); replan → `plan_feedback` entry (source change_request) + plan approval cleared → planner →
+  plan review again (bounded by `max_plan_revisions`); finish → completion, the preview keeps running until the idle
+  stop. Completion: `completed_with_uncertainty` also when the last build check failed or the preview is not ready;
+  metrics `build_passed`, `preview_state`, `change_requests`. Statuses `building`, `previewing`, `awaiting_changes`.
+  `ProcessManager` uses an RLock and `status()` runs under it (a GET during a stop marked the server "failed").
 - 2026-10-25 (M8): **Claude Agent SDK** for the coding agent (user's answer to open question 1), after
   `scripts/spike_agent_sdk.py` passed all hard requirements (13 s, $0.02): hook sees every call and its deny is
   enforced, cwd = app/, no Bash offered, apiKeySource `ANTHROPIC_API_KEY`, cost + usage in `ResultMessage`, user config
@@ -596,7 +672,7 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 - 2026-10-25 (M4): the brief writer makes **three** strict structured calls (sections 1–4, then 5–6 and 7–9 in parallel with sections 1–4 as context): the whole brief schema exceeds the API's grammar limit. Python owns: references (from cited ids only), the `verified` label (needs a checker-verified source, else downgraded to `research_backed`), `required_by_user` technology (only with label `user_provided`), the one-page budget (900 words over sections 1–9, labels/citations/URLs not counted): the renderer moves list items beyond per-list caps to the appendix and, while the page is over budget, shrinks the caps level by level (`CAP_LEVELS` 1.0/0.75/0.5/0; floors keep the MVP, scope, user journey, 3 functional requirements, 2 success criteria and 2 risks in the main part); only a brief too long at the smallest caps fails `det_word_budget`. Reason: in the first live run the LLM needed two full rewrites (1561 → 1080 → 1012 words) for length alone. M5 E2E still needed two (1021 → 940 → 861): the writer now aims at 80% of the budget with ≤ ~20-word items, and `det_word_budget` passes up to budget × 1.10 (`WORD_BUDGET_TOLERANCE`, "approximately one page"). Validator: deterministic checks first; if one fails and a revision is left, revise **without** the LLM call; revise also on any high-severity LLM criterion; clarify only when the reviewer says the brief cannot go forward without the user AND `loops_allowed` permits (bumps `research_retry_count`, resets `brief_revision_count`); otherwise approve, listing remaining medium/high failures as open issues (appendix C + `unresolved_questions`, status `completed_with_uncertainty`). Approve currently routes to `completion` (M5 inserts `await_brief_review`). `GET /brief` returns only a draft whose validation verdict is approve and whose `brief_generated_at` matches the brief (no unvalidated draft is ever shown). The brief lives in the checkpoint only; `project_artifacts` (DB) comes with M5.
 - 2026-10-24 (M2): the word is **domain** everywhere (code, state, API, DB columns, UI), keys `apps / papers / tech`. Tavily steering is "prefer" for all three (never exclusive); the apps domain searches with `advanced` depth. `SearchQuery` validates that a topic belongs to its domain; each domain's key topic (`user_complaints`, `established_approaches`, `feasibility_and_risks`) is always searched on the first pass (`planner.ensure_key_topics`). Patient-story top-up removed.
 
-## 13. Open questions (for the user; question 1 answered 2026-10-25, none blocks M9)
+## 13. Open questions (for the user; 1 answered 2026-10-25; ask 3 and 4 when M10 starts, they shape its chat)
 1. ~~**Coding agent (M8):** OK to spike the Claude Agent SDK first?~~ **Answered 2026-10-25: yes, use the Claude Agent SDK** (own tool loop stays the fallback if the spike fails a hard requirement).
 2. **Preview runtime:** start the Docker daemon for v2 later, or stay on host subprocesses for now? (v1 works without Docker.)
 3. **Chat after preview:** keep the tool-using chat (`chat.py`) as "ask about this project", or retire it?
@@ -660,11 +736,44 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
   finishing (log). NOT yet tried: the full 11-task Opus calculator plan (Vite + Vitest, `npm install` from the
   network) — natural first run for M9's end-to-end check.
 
+- 2026-10-25: **M9 built.** `nodes/delivery.py` (4 nodes), routes `route_after_build_check` /
+  `route_after_change_request` (implementer now → build_check), `implementer.task_spec` / `add_task` / `next_task_id`,
+  `processes.get_manager` / `set_manager` / `IdleStopper`, settings `max_build_fix_rounds` / `max_change_requests` /
+  `preview_idle_check_seconds`, state `build_results` / `build_fix_round` / `preview` / `change_requests` /
+  `change_route`, API (`ImplementationResponse`, `PreviewResponse`, `ChangeRequestResume`, 3 endpoints + restart),
+  frontend types / client / `ChangeRequestPanel` / stage "Preview" (10 stages) / 4 node texts / 3 status labels,
+  `api_flow.py` (change-request pause: own GET of the preview URL, `--change`, exit 1 unless every preview GET was
+  200), `draw_graph.py` phase 10. Verify: 228 pytest (10 new in `test_delivery.py`: preview after a passing build with a
+  real server, failing build → fix task that fixes it, fix-round cap then preview, change → C1 + rebuild + restarted
+  preview, replan → planner with the request + new approval, change cap, empty change refused, broken dev server
+  reported with its own output, route, idle stopper; test_api now walks implementation → preview (real GET 200) →
+  restart → finish) + eslint + tsc green. Live `verify_m9.py` PASS 2× (real agent, real server, real DB; tiny 2-task
+  plan, no package download): tasks done first attempt, build passed, preview ready on 4100, our GET 200 with the
+  page, `project_runtimes` row ready; change "add a footer" → C1 done, build 2 passed, preview restarted (new pid),
+  our GET shows the footer; finish; no key in app/; repo untouched; 41 s and $0.09–0.10 per run.
+  Found on the way: the stop/status race above (test_idle_stopper caught it).
+
+- 2026-10-25: **M9 full E2E PASS** (`api_flow.py --auto --change "Add a dark theme toggle ..."` against the dev
+  servers on 8001/3001, session `e39ceeb5`): clarification 2 rounds, 45 sources, 3 proposals, 10 claims checked, brief
+  approved (14/15 checks), Opus plan 4 phases / 12 tasks (vanilla JS, hand-written recursive-descent parser, vendored
+  Big.js, node:test) in 222 s; the agent built **12/12 tasks on the first attempt** (5–10 turns, $0.03–0.11 each);
+  build check 1 (`npm install` incl. big.js from the network, `npm test`, `npm run build`) passed; preview ready on
+  4100, our GET 200; change → C1 done first attempt (14 turns, $0.08, `src/theme.js` + `tests/theme.test.js`), build
+  check 2 passed, preview restarted, GET 200; finish. Agent cost $0.74 total; build phase ≈ 5 min. Independent
+  re-check afterwards: the served page contains the `theme-toggle` button (aria-label, aria-pressed); our own
+  `npm test` in the sandbox → 85/85 pass. Status `completed_with_uncertainty` comes from the research report
+  (`is_conditional`: a thin domain or unverified winner claims), not from the build (build passed, 13/13 tasks done).
+  The user's screenshots showed two UI problems (stale page while another client resumed; "13 tasks" counting the
+  change task; a finished session hid the built app) → fixed (decisions). Re-running the tests while the E2E app
+  still held 4100 exposed the preview isolation bug → fixed + regression test
+  (`test_a_foreign_wildcard_listener_is_never_mistaken_for_our_preview`). After the fixes: 229 pytest 3× green,
+  eslint + tsc green, `verify_m9.py` PASS again (chose 4101 because 4100 was taken).
+
 ## 15. How to work on this repo (the loop every milestone follows)
 
-1. **Start:** read section 0, the milestone block in section 8 (it quotes the spec parts it needs; the full text is
-   `docs/app-builder-spec.md`), and section 3 (what maps to what). Check `git status` is clean
-   (the user commits after each milestone; if it is not clean, ask before continuing).
+1. **Start:** follow "Start here" at the top. Read the milestone block in section 8 (it quotes the spec parts it needs;
+   the full text is `docs/app-builder-spec.md`). Check `git status` is clean (the user commits after each milestone;
+   if it is not clean, ask before continuing).
 2. **Map before you change:** grep every identifier / literal you will touch across `backend/src backend/scripts backend/tests
    frontend/src` (quote the globs: `--include='*.py'`). Decide what is a mechanical rename and what needs new content.
 3. **Mechanical renames by script** (M1, M2 pattern): write a small Python script (word-boundary `re.sub`, longest names first,
@@ -697,7 +806,19 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 11. **Handoff:** update section 0 (status table), tick the milestone in section 8, add to 12 (decisions), 14 (progress log, with the
     real verify numbers), 16 (new gotchas), and rewrite "▶ Next step". Then tell the user the commit name from the milestone's
     **Commit:** line and the files in `git status`. **Never run `git commit` / `git push`.** Wait for "pushed" before the next milestone.
-12. **Ask the user** only for decisions that are theirs (section 13); otherwise choose, state the assumption in the handoff, continue.
+12. **Ask the user** only for decisions that are theirs (section 13) and before live runs that cost real money (the full
+    E2E: tell them the estimate first); otherwise choose, state the assumption in the handoff, continue.
+13. **Facts, not claims** (the product's own rule applies to us): a build, test, preview or "it works" is reported only
+    after a command or HTTP request confirmed it. Re-check the agent's output independently (re-run its tests in the
+    sandbox, GET the preview, read the generated code), and when a check fails, read the cause from the state or the
+    log before explaining it (a guessed cause was wrong once in M8).
+14. **Intermittent failure = real bug until proven otherwise.** M7's reconcile kill (reloader), M9's stop/status race
+    and M9's port sharing all first looked like flakes. Repeat the run, find the mechanism, add a regression test.
+15. **While a long live run is going:** do not edit backend files (the user's `uvicorn --reload` restarts the API and
+    redoes the in-flight step); frontend edits are safe. Check progress through the API (`GET /api/decisions/<id>`) or
+    the log, not the browser page.
+16. **Tests that touch processes or ports** must use the fixtures (`root` / `ws` / `manager` in test_workspace,
+    autouse `process_manager` in conftest) and must not assume a fixed free port: leftover previews may hold 4100+.
 
 ## 16. Gotchas met so far (read before you repeat them)
 
@@ -735,8 +856,8 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
   live "now" panel; change both sides (grep `report("` in nodes and `msgs.some(` in pipeline.ts).
 - `knowledge_docs.search_vector` is a Postgres **generated column** that references the `condition` column; that rename was deferred
   to M11 to avoid recreating the computed column mid-pivot. `knowledge_docs.condition` still stores the project name.
-- Health demo data remains in `backend/scripts/demo_data.py` / `schemas_demo.py` until M3; `RedFlagBanner` naming and the chat UI
-  wording until M10. Compile them (`uv run python -m compileall -q scripts src migrations`) rather than run them.
+- The health demo scripts were deleted in M3. Health leftovers that remain are listed in section 2.5. Scripts that are
+  rarely run can rot: compile them (`uv run python -m compileall -q scripts src migrations`) after renames.
 
 **Edits and renames (more)**
 - **BSD `sed` has no `\b`**: `sed -i '' 's/\bcare_plans\b/x/'` silently changes nothing on macOS. Use Python `re.sub(r"\bname\b", ...)` (or `[[:<:]]name[[:>:]]`) for word-boundary renames, and always re-grep afterwards.
@@ -785,35 +906,106 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 - The fake LLM resolves a runtime schema subclass (e.g. `plan.plan_schema_for`) through its MRO to the base builder, then
   re-validates with the subclass so the extra validators still run.
 
-**Processes and sandbox (M7)**
-- **The user's `uvicorn --reload` on 8001 restarts the API on every backend edit** (including new scripts). Anything
-  the API does at startup runs again mid-session: M7's `reconcile()` killed a live command of a separate script until
-  run files recorded their owner process. Startup cleanup must only touch what a DEAD process left behind.
-  Two intermittent failures right after editing files = suspect the reloader first (`lsof -nP -iTCP:8001 -sTCP:LISTEN`).
-- macOS: `psutil.Process(pid).environ()` returns `{}` for other processes (SIP), so env markers cannot identify our
-  processes; use pid + `create_time()` (and the owner's) instead.
-- A port in TCP TIME_WAIT (after our own health-check request) fails a plain `bind()` for ~30 s; dev servers bind with
-  `SO_REUSEADDR`, so the free-port test must too (it still fails on a LISTENING port).
-- Under `uv run`, the builder's `.venv/bin` is first on PATH: `which python3` = the builder's interpreter. The sandbox
-  strips the virtualenv from the PATH it builds tool links from.
-- `command_problems` on `shlex.join(argv)` sees quoted `;` / `(` / `>` as shell operators: argv lists skip that check.
-- `generated_projects/` sits inside ai-lab-2's git repo: without `GIT_CEILING_DIRECTORIES`, `git add/commit` in a
-  session's `app/` would act on the builder's repo.
+**Problems met in M7–M9 and how they were solved** (format: *Symptom* → cause → **fix**; read the symptom first, it
+is what you will see)
 
-**Coding agent (M8)**
-- The claude-api skill does not cover the Claude Agent SDK: read its installed source instead
-  (`.venv/lib/python3.13/site-packages/claude_agent_sdk/types.py`, `ClaudeAgentOptions` docstrings) — never guess options.
-- `ClaudeAgentOptions.env` is merged OVER the parent's environment (builder secrets included): never offer the built-in
-  Bash; run commands through the sandbox MCP tool. Without `setting_sources=[]` + an own `CLAUDE_CONFIG_DIR` the CLI
-  loads the user's `~/.claude` (settings, CLAUDE.md, memory). The init message still LISTS the CLI's bundled skills
-  unless `skills=[]` (they are not callable without the Skill tool).
-- Claude Code's file tools send ABSOLUTE paths: `safe_path` (relative only) alone would deny everything; the hook uses
-  `tool_path_problem` (absolute → `is_inside`, relative → `safe_path`).
-- `completed_with_uncertainty` has three causes (conditional report, brief open issues, unfinished tasks). The cached
-  calculator state has a CONDITIONAL report (M3's Judge asked for clarification), so any session built from it ends
-  "with uncertainty" even when every task passes. Read the cause from the state before blaming the build.
-- Tests: the conftest `FakeAgent` (in the `fake_llm` fixture) writes the files a task lists; `skip` / `fail_once`
-  steer failures. The fake plan's verify commands are `ls <files>` so they run for real without npm.
+*Workspace, sandbox, processes (M7)*
+- *Symptom:* a sandbox command dies with exit `-15` (SIGTERM) after ~1–1.5 s, only sometimes (2 of 4 runs), never
+  when the same command runs alone. → Cause: the user's `uvicorn --reload` on 8001 restarts the API on EVERY backend
+  file edit (new scripts too); the API's startup `reconcile()` treated the live command of a separate script as an
+  orphan and killed it. → **Fix:** the run file `.builder/run/<pid>.json` records its OWNER process (pid + start time);
+  startup cleanup only kills groups whose owner is dead. Proved by touching a backend file mid-command: the worker
+  restarted (97632 → 97771) and the command ran to its own timeout. Rule: anything at API startup must only clean up
+  after DEAD processes. Two intermittent failures right after editing files = suspect the reloader first
+  (`lsof -nP -iTCP:8001 -sTCP:LISTEN`).
+- *Symptom:* `psutil.Process(pid).environ()` returns `{}` for a child process, so an env marker (`AI_BUILDER_SESSION=...`)
+  could not identify our processes. → Cause: macOS (SIP) hides other processes' environment. → **Fix:** identify a
+  process by pid + `create_time()` (`sandbox.is_same_process`), never by its environment.
+- *Symptom:* port tests flaky: "port not free" right after `stop()`, and a restart sometimes failed. → Cause: our own
+  health-check request leaves the server's port in TCP TIME_WAIT (~30 s) and a plain `bind()` refuses it. → **Fix:**
+  the free-port bind uses `SO_REUSEADDR` like real dev servers do (still fails on a LISTENING port).
+- *Symptom:* the sandbox's `python3 -c "import sys; print(sys.prefix)"` printed the BUILDER's virtualenv. → Cause: under
+  `uv run`, `.venv/bin` is first on PATH, so the tool symlinks pointed at the builder's interpreter. → **Fix:**
+  `sandbox.host_tool_path()` removes the virtualenv from the PATH the tool links are built from (test asserts it).
+- *Symptom:* `python3 -c "print(1); print(2)"` refused as "shell operators are not allowed". → Cause:
+  `command_problems(shlex.join(argv))` sees the quoted `;` / `(` / `>` as shell operators. → **Fix:** argv LISTS skip the
+  shell-operator check (`shell_operators=False`, there is no shell); plan command STRINGS keep it.
+- *Symptom (found by reasoning, then tested):* `git status` inside a session's `app/` succeeded, i.e. it saw the
+  ai-lab-2 repo around `generated_projects/`; `git add/commit` there would write into the builder's own repository.
+  → **Fix:** `GIT_CEILING_DIRECTORIES=<generated_projects>` in the sandbox env; test + verify_m7 assert exit 128
+  "not a git repository".
+- *Symptom:* `timeout 600 uv run ...` → exit 127 "command not found: timeout". → Cause: macOS has no GNU `timeout`.
+  → **Fix:** rely on the tool call's own timeout, or `run_in_background` for long runs.
+
+*Coding agent (M8)*
+- *Symptom:* not knowing the Claude Agent SDK's options; the claude-api skill says it does not cover the SDK. →
+  **Fix:** read the installed source (`backend/.venv/lib/python3.13/site-packages/claude_agent_sdk/types.py`,
+  `ClaudeAgentOptions` docstrings, `HookMatcher`, `ResultMessage`, `create_sdk_mcp_server` / `tool` in `__init__.py`),
+  then prove each requirement with a small real spike (`scripts/spike_agent_sdk.py`, 13 s, $0.02) before building.
+- *Symptom (found in the SDK docstring):* `ClaudeAgentOptions.env` is "merged over the parent process's environment".
+  → Cause: the CLI subprocess inherits the builder's env (`DATABASE_URL`, Tavily / LangSmith keys); its built-in Bash
+  would run generated-project commands next to those secrets. → **Fix:** never offer the built-in Bash
+  (`tools=[Read, Write, Edit, Glob, Grep]`); commands go through our in-process MCP tool `run_command` →
+  `sandbox.run` (env built from nothing); the secret names are also set to "" in the CLI env.
+- *Symptom:* without isolation the CLI would load the user's `~/.claude` (settings, CLAUDE.md, memory); the init
+  message still listed the CLI's bundled skills. → **Fix:** `setting_sources=[]`, `CLAUDE_CONFIG_DIR=.builder/claude-config`,
+  `skills=[]`; auth with `ANTHROPIC_API_KEY` from `.env` (init shows `apiKeySource: ANTHROPIC_API_KEY`).
+- *Symptom:* the path hook would deny every file call. → Cause: Claude Code's file tools send ABSOLUTE paths and
+  `safe_path` only accepts relative ones. → **Fix:** `paths.tool_path_problem` (absolute → `is_inside` after resolving
+  symlinks, relative → `safe_path`, Glob patterns may not contain `..` / start with `/` or `~`).
+- *Symptom:* verify_m8 FAILED on "status completed_with_uncertainty" although both tasks passed; my first explanation
+  ("the brief has open issues") was a GUESS and wrong (0 open issues). → Cause: the cached calculator state has a
+  CONDITIONAL research report (M3's Judge asked for clarification); `completed_with_uncertainty` has three causes
+  (conditional report, brief open issues, unfinished tasks / failed build / preview not ready). → **Fix:** the check
+  reads the cause from the state and states which one applies. Rule: read the cause, never guess it.
+- Tests: the conftest `FakeAgent` (in the `fake_llm` fixture) writes the files a task lists; `skip` / `fail_once` /
+  `writes` steer failures and fixes. The fake plan's verify commands are `ls <files>` so they run for real without npm.
+
+*Build check, preview, change requests (M9)*
+- *Symptom:* after the user's 2nd screenshot the admin page still said "Waiting for your plan review" 3 minutes after
+  `api_flow.py --auto` had approved the plan (the API said `running · implementing`). → Cause: `useDecision` polled
+  only while `run_state == "running"`; once it saw "paused" it never asked again, so a pause answered elsewhere
+  (script, another tab) left the page stale forever. → **Fix:** poll every 5 s while paused / interrupted, stop only
+  when finished. Rule: check live state through the API (`curl localhost:8001/api/decisions/<id>`), not the page.
+- *Symptom:* a crashed test dev server was reported "ready", and a stopped preview still answered HTTP — only while the
+  E2E calculator was still running on 4100. → Cause: on macOS a `SO_REUSEADDR` bind to 127.0.0.1:4100 SUCCEEDS while
+  another process (Node) listens on the wildcard `*:4100`; the second session got 4100 and its health check was
+  answered by the OTHER session's app (in production: one session's preview showing another session's app). → **Fix:**
+  `port_is_free` first CONNECTS to 127.0.0.1 / ::1 (anything accepting = taken), and `ready` additionally requires
+  `processes.listens_on(pid, port)` (psutil: our started process tree holds the LISTEN socket). Regression test
+  `test_a_foreign_wildcard_listener_is_never_mistaken_for_our_preview`.
+- *Symptom:* `test_idle_stopper` saw state "failed" instead of "stopped". → Cause: a race: `stop()` kills the server,
+  then saves "stopped"; a concurrent `status()` (the test loop, or any `GET /preview`) saw a dead process on a "ready"
+  record and saved "failed" over it. → **Fix:** `ProcessManager` uses an RLock and `status()` checks + fails under it.
+- *Symptom:* my new regression test failed: `listens_on(os.getpid(), port)` was True for the "foreign" server. → Cause:
+  the foreign server was started by the pytest process, so it is a CHILD of it and `listens_on` (correctly) includes
+  children. → **Fix:** compare against the preview's own pid, not the test process. Rule: when a new test fails, check
+  the test's assumption before changing the code.
+- *Symptom:* after wiring the new pause, 8 existing tests failed ("Left contains one more item: 'await_change_request'",
+  `PendingPause` literal error, "too many values to unpack"). → Cause: sessions no longer END after the plan approval;
+  they pause at `await_change_request`, the API's `PauseType` did not know `change_request`, and a failed task now
+  triggers fix tasks F1/F2. → **Fix:** `finish_session` replies `finish`; `to_preview` helper in `test_delivery.py`;
+  `PauseType` + `ChangeRequestResume`; tests updated to the new flow (expected changes, not regressions).
+- *Tip:* adding a member to a TypeScript discriminated union (`PauseType`) makes `tsc` list every place that must
+  handle it (`DecisionView`, `pipeline.ts` pause map): add the type first, then fix what tsc reports.
+- Pipeline tests start REAL dev servers (fake plan dev = `python3 -m http.server {port}`); the autouse
+  `process_manager` fixture gives each test its own in-memory registry and stops its servers afterwards. Leftover
+  previews (idle stop = 30 min) from E2E runs hold ports while tests run: never assume a specific free port.
+- A dev command needs the port: real plans put `$PORT` inside the package.json script (the shell expands it); a plain
+  command can use `{port}` (replaced by Python). `npx serve -l tcp://...:$PORT` as a plan command does NOT work
+  (no shell, `$PORT` stays literal).
+- To steer the fake planner in one test: `fake_llm.overrides[S.ImplementationPlan] = builder` (e.g. a broken dev
+  command); `fake_llm.kwargs[i]["user"]` holds each call's prompt (used to prove a replan request reached the planner).
+
+**Working with the user / this environment**
+- The user watches the admin page while things run and sends screenshots: they found bugs lint + tsc could not
+  (M5: 5 bugs; M9: stale page while a script resumed, wrong task count, finished session hiding the app). Ask for a
+  browser check after every UI change and say exactly what to look at.
+- The user's dev servers run with `--reload` from their own terminal; output of those processes is not visible to
+  the agent. Use the API (`curl localhost:8001/...`) and `lsof` to see their state.
+- The claude-api skill describes the Messages API defaults (it says to use Opus everywhere): this project's model
+  choices are decided (planner Opus 5.5, everything else Sonnet 5.5, fallback Haiku 5.5, all in config.py). Do not
+  change models because a reference says so; it also does not cover the Claude Agent SDK (read its installed source).
 
 **Spec**
 - Until 2026-10-24 the product spec existed only in the chat that produced this plan; a new session could not see sections
@@ -840,12 +1032,8 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
   is in the prompt, a stricter check (count of "or" clauses) would be an M11 eval, not a hard filter.
 
 ## ▶ Next step
-**User commits M8** as `M8: implementer coding agent`. Then **M9 — build check, preview, change requests** (section 8):
-`build_check` (Python only: `plan.commands` install → test → build through `sandbox.run`, fix rounds ≤
-`max_build_fix_rounds` as new implementer fix tasks), `preview` (`ProcessManager.start(ws, plan.commands.dev)` with
-`$PORT`, ready only after the health check; note the planner already tells the plan to read `$PORT` in the dev
-script), `await_change_request` (pause: change → new implementer task, replan → planner, finish → completion), the
-idle-stop trigger for previews, `GET /api/decisions/{id}/preview` (+ restart / stop) and `GET /implementation`
-(tasks + log tail), `types.ts`. Live check: the full 11-task Opus calculator plan end to end (`api_flow.py --auto`
-against 8001), then `curl` of the preview URL → 200. That run downloads npm packages (Vite, Vitest) and costs more
-than M8's trivial plan: expect several dollars and ~20–40 minutes; mention it to the user before running it.
+**User commits M9** as `M9: build check, preview and change requests` (browser check of the finished-session view:
+open the E2E session `e39ceeb5` at http://localhost:3001/decisions/e39ceeb5-cf6b-4950-b518-b656ec65515b → "Your app"
+card with the preview, build check and 13 tasks; the plan card reads "12 tasks · +1 added later"). Then **M10 —
+Lovable UI** (section 8): `/` and `/c/[id]` become chat left + live preview right, reusing `BuildViews.tsx`
+(`PreviewCard`, `BuildCard`, `TaskList`), `ChangeRequestPanel` logic and the polling fix; `next build` must pass.

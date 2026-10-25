@@ -113,6 +113,9 @@ export const WORKFLOW_STATUS_LABEL: Record<string, string> = {
   planning: "Planning the build",
   awaiting_plan_review: "Waiting for your plan review",
   implementing: "Building your app",
+  building: "Checking the build",
+  previewing: "Starting the preview",
+  awaiting_changes: "Your app is running",
   completed: "Completed",
   completed_with_uncertainty: "Completed with uncertainty",
   failed: "Failed",
@@ -126,6 +129,7 @@ export function workflowStatusTone(status: string | null | undefined): Tone {
     case "awaiting_clarification": return "amber";
     case "awaiting_brief_review": return "amber";
     case "awaiting_plan_review": return "amber";
+    case "awaiting_changes": return "amber";
     default: return "brand";
   }
 }

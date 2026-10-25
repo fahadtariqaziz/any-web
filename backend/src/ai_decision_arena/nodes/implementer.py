@@ -83,6 +83,23 @@ def pick_next_task(tasks: list[dict]) -> int | None:
     return None
 
 
+def task_spec(plan: ImplementationPlan, task_state: dict) -> PlanTask:
+    """A plan task, or a task added later (build fix, change request: M9) that carries its own `spec`."""
+    if task_state.get("spec"):
+        return PlanTask.model_validate(task_state["spec"])
+    return next(t for t in plan.tasks if t.id == task_state["id"])
+
+
+def add_task(tasks: list[dict], spec: PlanTask) -> list[dict]:
+    """Append a task created after planning (its commands come from the checked plan, never from an LLM)."""
+    return [*tasks, {"id": spec.id, "title": spec.title, "phase": spec.phase, "depends_on": spec.depends_on,
+                     "status": "pending", "attempts": 0, "result": None, "spec": spec.model_dump()}]
+
+
+def next_task_id(tasks: list[dict], prefix: str) -> str:
+    return f"{prefix}{sum(t['id'].startswith(prefix) for t in tasks) + 1}"
+
+
 def list_files(ws: Workspace) -> list[str]:
     files = []
     for path in sorted(ws.app.rglob("*")):
@@ -181,7 +198,7 @@ def implementer_node(state: ArenaState) -> dict:
         return update | {"implementation_tasks": tasks, "current_task_id": None}
 
     task_state = tasks[index]
-    task = next(t for t in plan.tasks if t.id == task_state["id"])
+    task = task_spec(plan, task_state)
     attempt = task_state["attempts"] + 1
     model, note = resolve_model(settings.implementer_model)
     if note:

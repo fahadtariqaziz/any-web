@@ -7,6 +7,7 @@ Then:
     uv run python scripts/api_flow.py                                   # "A simple calculator web app", you answer
     uv run python scripts/api_flow.py "A booking site for a small yoga studio"
     uv run python scripts/api_flow.py --auto                            # skip questions, approve the brief and the plan
+    uv run python scripts/api_flow.py --auto --change "Add a dark theme" # ... then one change request, then finish
     uv run python scripts/api_flow.py --thread <thread_id>              # pick up an existing session
 """
 
@@ -20,6 +21,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("question", nargs="*")
 parser.add_argument("--auto", action="store_true", help="no typing: skip all questions, approve the brief and the plan")
 parser.add_argument("--thread", help="existing thread_id instead of starting a new session")
+parser.add_argument("--change", help="with --auto: send this change request at the first preview pause, then finish")
 parser.add_argument("--base", default="http://localhost:8001")
 args = parser.parse_args()
 
@@ -54,6 +56,8 @@ def answer(pending: dict) -> dict:
         return review(payload)
     if pending["type"] == "plan_review":
         return review_plan(payload)
+    if pending["type"] == "change_request":
+        return change_request(payload)
     print(f"\n🤔 Clarification round {payload['round']} (Enter = skip)")
     answers = {} if args.auto else {q: input(f"{q}\n> ") for q in payload["questions"]}
     return {"type": "clarification", "answers": answers}
@@ -86,6 +90,46 @@ def review_plan(payload: dict) -> dict:
     if not feedback:
         return {"type": "plan_review", "action": "approve"}
     return {"type": "plan_review", "action": "request_changes", "feedback": feedback}
+
+
+preview_checks: list[tuple[str, int | str]] = []     # (url, HTTP status or error) at every preview pause
+changes_sent = 0
+
+
+def change_request(payload: dict) -> dict:
+    global changes_sent
+    build, preview = payload.get("build") or {}, payload.get("preview") or {}
+    print(f"\n🧱 Build check {build.get('round')}: {'PASSED' if build.get('passed') else 'FAILED'}")
+    for s in build.get("steps", []):
+        print(f"   {'✅' if s['ok'] else '❌'} {s['phase']}: {s['command']} → {s['summary']}")
+        if not s["ok"]:
+            print("      " + s["output"][-800:].replace("\n", "\n      "))
+    for task in payload["tasks"]:
+        print(f"   {task['id']:>4} {task['status']:<8} {task['title']}" + (f" ({task['attempts']} attempts)" if task["attempts"] > 1 else ""))
+    print(f"   agent cost so far: ${payload['cost_usd']:.2f}")
+    if preview.get("state") == "ready":
+        try:
+            code: int | str = httpx.get(preview["url"], timeout=10).status_code       # our own check, not the server's word
+        except httpx.HTTPError as exc:
+            code = type(exc).__name__
+        preview_checks.append((preview["url"], code))
+        print(f"🖥  preview ready at {preview['url']} → GET {code}")
+    else:
+        preview_checks.append((preview.get("url") or "", preview.get("state", "none")))
+        print(f"🖥  preview {preview.get('state')}: {(preview.get('last_error') or '')[:1500]}")
+    if args.auto:
+        if args.change and changes_sent == 0 and payload["changes_allowed"]:
+            changes_sent += 1
+            print(f"   --auto: change request: {args.change}")
+            return {"type": "change_request", "action": "change", "request": args.change}
+        print("   --auto: finishing")
+        return {"type": "change_request", "action": "finish"}
+    text = input("Enter = FINISH; type a change; or '!replan <text>' for a new plan:\n> ").strip()
+    if not text:
+        return {"type": "change_request", "action": "finish"}
+    if text.startswith("!replan "):
+        return {"type": "change_request", "action": "replan", "request": text[8:]}
+    return {"type": "change_request", "action": "change", "request": text}
 
 
 if args.thread:
@@ -133,4 +177,14 @@ if artifacts.status_code == 200:
     print(f"🗂  artifacts: {[(a['kind'], a['version'], a['content_hash'][:10]) for a in artifacts.json()['artifacts']]}")
 evidence = check(api.get(f"{P}/{thread_id}/evidence"))
 print(f"\n📚 evidence: {evidence['count']}  {evidence['verification_counts']}")
-sys.exit(0 if report.status_code == 200 else 1)
+impl = api.get(f"{P}/{thread_id}/implementation")
+if impl.status_code == 200:
+    im = impl.json()
+    counts: dict[str, int] = {}
+    for task in im["tasks"]:
+        counts[task["status"]] = counts.get(task["status"], 0) + 1
+    print(f"🤖 tasks {counts}, build passed: {(im['build'] or {}).get('passed')}, agent cost ${im['cost_usd']:.2f}")
+    print(f"   project folder: {im['workspace_dir']}")
+print(f"🖥  preview checks: {preview_checks}")
+preview_ok = all(code == 200 for _, code in preview_checks) if preview_checks else impl.status_code != 200
+sys.exit(0 if report.status_code == 200 and preview_ok else 1)

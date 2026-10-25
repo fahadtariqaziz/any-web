@@ -36,11 +36,18 @@ def test_full_pipeline_pauses_for_clarification_then_completes(graph, fake_llm, 
     assert result["brief_approved_at"] and result["brief_review_route"] == "approved"
     assert snapshot.interrupts[0].value["type"] == "plan_review" and result["status"] == "awaiting_plan_review"
 
-    # 4) approve the plan → implementer (fake agent, real sandbox verify) task by task → completion
+    # 4) approve the plan → implementer (fake agent, real sandbox verify) → build check → preview (a real server)
     result = graph.invoke(Command(resume={"action": "approve"}), CONFIG)
-    assert graph.get_state(CONFIG).next == ()
+    snapshot = graph.get_state(CONFIG)
+    assert snapshot.next == ("await_change_request",) and result["status"] == "previewing"
     assert result["plan_approved_at"] and [t["status"] for t in result["implementation_tasks"]] == ["done", "done"]
-    assert result["workspace_dir"] and result["metrics"]["tasks"]["done"] == 2
+    assert result["build_results"]["passed"] and result["preview"]["state"] == "ready"
+    assert snapshot.interrupts[0].value["preview"]["url"].startswith("http://localhost:")
+
+    # 5) finish → completion
+    result = graph.invoke(Command(resume={"action": "finish"}), CONFIG)
+    assert graph.get_state(CONFIG).next == ()
+    assert result["workspace_dir"] and result["metrics"]["tasks"]["done"] == 2 and result["metrics"]["build_passed"]
     assert result["status"] == "completed"
     assert result["clarification_round_count"] == 1
     assert result["clarification_answers"] == answers

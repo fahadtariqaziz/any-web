@@ -21,7 +21,12 @@ export function PlanView({ data }: { data: PlanResponse }) {
         title={
           <span className="flex items-center gap-2">
             <ListChecks className="size-5 text-brand" aria-hidden />
-            {data.plan.phases.length} phases · {data.tasks.length} tasks
+            {data.plan.phases.length} phases · {data.plan.tasks.length} tasks
+            {data.tasks.length > data.plan.tasks.length && (
+              <span className="text-sm font-normal text-slate-500">
+                · +{data.tasks.length - data.plan.tasks.length} added later (build fixes, change requests)
+              </span>
+            )}
           </span>
         }
         description={`Plan version ${data.revision + 1} · written by ${data.model}`}

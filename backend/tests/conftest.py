@@ -275,7 +275,8 @@ def build_plan(system: str, user: str) -> S.ImplementationPlan:
         ],
         feature_coverage=[S.FeatureCoverage(feature=f, task_ids=["T2"]) for f in mvp],
         testing_strategy=["unit tests with vitest"],
-        commands=S.PlanCommands(install=["npm install"], test=["npm test"], build=["npm run build"], dev="npm run dev"),
+        commands=S.PlanCommands(install=[], test=["ls package.json"], build=[],
+                                dev="python3 -m http.server {port} --bind 127.0.0.1"),     # a real server, no npm
         risks_and_decisions=["localStorage can be cleared"],
     )
 
@@ -310,7 +311,7 @@ class FakeLLM:
     def __call__(self, schema, system_prompt, user_content, *, max_tokens=None, run_name=None, model=None,
                  effort=None, timeout=None):
         self.calls.append((schema.__name__, run_name))
-        self.kwargs.append({"schema": schema, "model": model, "effort": effort, "timeout": timeout})
+        self.kwargs.append({"schema": schema, "model": model, "effort": effort, "timeout": timeout, "user": user_content})
         # A runtime subclass (e.g. plan.plan_schema_for) uses its base class's builder, then its own validators run.
         base = next(c for c in schema.__mro__ if c in self.overrides or c in DEFAULT_BUILDERS)
         builder = self.overrides.get(base) or DEFAULT_BUILDERS[base]
@@ -336,6 +337,8 @@ def finish_session(graph, config, answer: str = "x", review: dict | None = None,
             reply = {"answers": {q: answer for q in payload["questions"]}}
         elif payload["type"] == "plan_review":
             reply = {"action": "approve"}
+        elif payload["type"] == "change_request":
+            reply = {"action": "finish"}
         else:
             reply = review or {"action": "approve"}
         graph.invoke(Command(resume=reply), config)
@@ -343,6 +346,17 @@ def finish_session(graph, config, answer: str = "x", review: dict | None = None,
 
 
 # --- 3) fixtures -----------------------------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def process_manager():
+    """A fresh dev-server manager per test (in-memory registry); every server it started is stopped afterwards."""
+    from ai_decision_arena.workspace.processes import MemoryRuntimeStore, ProcessManager, set_manager
+    manager = ProcessManager(store=MemoryRuntimeStore())
+    set_manager(manager)
+    yield manager
+    manager.stop_all()
+    set_manager(None)
+
 
 @pytest.fixture
 def fake_llm(monkeypatch) -> FakeLLM:
@@ -366,6 +380,7 @@ class FakeAgent:
         self.calls: list[dict] = []
         self.skip: set[str] = set()          # task ids whose files are NOT written (verify fails)
         self.fail_once: set[str] = set()     # task ids that fail only their first attempt
+        self.writes: dict[str, list[str]] = {}   # extra files to write per task id (e.g. a fix task that fixes the build)
 
     def __call__(self, ws, prompt, system_append, *, model, label):
         import json as _json
@@ -378,6 +393,10 @@ class FakeAgent:
                 path = ws.app / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(f"// {task['id']}: {name}\n")
+        for name in self.writes.get(task["id"], []):
+            path = ws.app / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(f"// {task['id']}: {name}\n")
         return AgentRun(ok=True, subtype="success", num_turns=3, cost_usd=0.01, final_text=f"did {task['id']}")
 
 

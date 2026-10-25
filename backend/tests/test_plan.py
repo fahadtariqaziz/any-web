@@ -83,7 +83,7 @@ def test_render_and_tasks():
     md = render_plan_markdown(plan, "habit tracker", 0, "claude-opus-5-5")
     assert md.startswith("# Implementation plan: Habit tracker") and "claude-opus-5-5" in md
     assert "### P1. Setup" in md and "**T2. Habit tracking** · after T1" in md and "| track habits | T2 |" in md
-    assert "`npm test`" in md and "listens on `$PORT`" in md
+    assert "`ls package.json`" in md and "listens on `$PORT`" in md
     tasks = tasks_from_plan(plan)
     assert [t["id"] for t in tasks] == ["T1", "T2"] and all(t["status"] == "pending" and t["attempts"] == 0 for t in tasks)
 
@@ -137,8 +137,8 @@ def test_planner_runs_on_the_planner_model_after_brief_approval(graph, fake_llm,
     assert call["model"] == settings.planner_model and call["effort"] == settings.planner_effort
     assert call["timeout"] == settings.planner_timeout_seconds
     assert payload["round"] == 1 and payload["changes_allowed"] is True and payload["model"] == settings.planner_model
-    state, snapshot = resume(graph, "plan", action="approve")
-    assert snapshot.next == () and state["status"] == "completed" and plan_is_approved(state)
+    state, snapshot = resume(graph, "plan", action="approve")       # → build → preview pause
+    assert snapshot.next == ("await_change_request",) and plan_is_approved(state)
     assert state["models_used"]["planner"] == settings.planner_model
 
 
@@ -175,7 +175,7 @@ def test_plan_revision_cap(graph, fake_llm, fake_search, monkeypatch):
     _, snapshot = resume(graph, "plan-cap", action="request_changes", feedback="Again.")
     assert "can only be approved" in snapshot.interrupts[0].value["error"]
     state, snapshot = resume(graph, "plan-cap", action="approve")
-    assert snapshot.next == () and plan_is_approved(state)
+    assert snapshot.next == ("await_change_request",) and plan_is_approved(state)
 
 
 def test_route_after_plan_review_checks_both_approvals(graph, fake_llm, fake_search):

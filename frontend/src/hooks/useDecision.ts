@@ -1,8 +1,9 @@
 "use client";
 
-// Keeps a session's status fresh: GET every 2 s while the graph runs, stop when it pauses or finishes.
+// Keeps a session's status fresh: GET every 2 s while the graph runs, every 5 s while it is paused or interrupted
+// (someone else may answer the pause: another tab, scripts/api_flow.py), and stop once it finished.
 // Everything shown comes from the backend (run_state, progress, pending); the UI never guesses.
-// After a POST /resume, call refresh() to start polling again.
+// After a POST /resume, call refresh() to poll fast again at once.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -10,6 +11,7 @@ import { ApiError, getDecision } from "@/lib/api/client";
 import type { DecisionStatus } from "@/lib/api/types";
 
 const POLL_MS = 2000;
+const PAUSED_POLL_MS = 5000; // a pause can be answered elsewhere: notice it within a few seconds
 const RETRY_MS = 5000; // backend unreachable: keep trying, a bit slower
 
 export function useDecision(threadId: string, pollMs = POLL_MS) {
@@ -33,6 +35,7 @@ export function useDecision(threadId: string, pollMs = POLL_MS) {
         setError(null);
         setLastUpdate(Date.now());
         if (next.run_state === "running") timer = setTimeout(load, pollMs);
+        else if (next.run_state !== "finished") timer = setTimeout(load, PAUSED_POLL_MS);
       } catch (e) {
         if (cancelled) return;
         const err = e instanceof ApiError ? e : new ApiError(0, "unknown", String(e));

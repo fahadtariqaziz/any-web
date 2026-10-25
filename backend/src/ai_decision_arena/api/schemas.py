@@ -31,7 +31,7 @@ from ai_decision_arena.schemas import (
 # interrupted the run stopped mid-way (server restart, crash); POST /resume {"type": "continue"} picks it up
 # finished    the graph reached END (completed or failed: see workflow_status)
 RunState = Literal["running", "paused", "interrupted", "finished"]
-PauseType = Literal["clarification", "brief_review", "plan_review"]
+PauseType = Literal["clarification", "brief_review", "plan_review", "change_request"]
 
 
 # --- requests ----------------------------------------------------------------------------------
@@ -70,6 +70,15 @@ class PlanReviewResume(BaseModel):
     feedback: str = Field(default="", max_length=4000)
 
 
+class ChangeRequestResume(BaseModel):
+    """While the preview runs: a change for the coding agent, a new plan (approved again), or finish the session.
+    `request` is required for change / replan; refused once max_change_requests is reached."""
+
+    type: Literal["change_request"]
+    action: Literal["change", "replan", "finish"]
+    request: str = Field(default="", max_length=4000)
+
+
 class ContinueResume(BaseModel):
     """Restart an interrupted run from its last checkpoint (like run_graph.py --resume)."""
 
@@ -77,7 +86,7 @@ class ContinueResume(BaseModel):
 
 
 ResumeRequest = Annotated[
-    ClarificationResume | BriefReviewResume | PlanReviewResume | ContinueResume,
+    ClarificationResume | BriefReviewResume | PlanReviewResume | ChangeRequestResume | ContinueResume,
     Field(discriminator="type"),
 ]
 
@@ -170,6 +179,34 @@ class PlanResponse(BaseModel):
     model: str = Field(default="", description="Model that wrote it (after the availability check).")
     approved_at: str | None = Field(default=None, description="Set once the user approved exactly this plan.")
     tasks: list[dict[str, Any]] = Field(default_factory=list, description="The implementer's work list.")
+
+
+class ImplementationResponse(BaseModel):
+    """The coding agent's work (M8/M9): tasks with their verify results, the attempt log, the last build check."""
+
+    thread_id: str
+    workflow_status: str | None = None
+    workspace_dir: str | None = None
+    current_task_id: str | None = None
+    tasks: list[dict[str, Any]] = Field(default_factory=list, description="{id, title, phase, status, attempts, result}; "
+                                        "status ∈ pending | done | failed | blocked | skipped (done = verify passed).")
+    log: list[dict[str, Any]] = Field(default_factory=list, description="One entry per attempt, newest last.")
+    cost_usd: float = 0.0
+    build: dict[str, Any] | None = Field(default=None, description="Last build check: {round, passed, steps}.")
+
+
+class PreviewResponse(BaseModel):
+    """The session's dev server, read live from the process manager (not from the checkpoint)."""
+
+    thread_id: str
+    state: Literal["starting", "ready", "failed", "stopped"]
+    url: str | None = None
+    port: int | None = None
+    command: str
+    last_error: str | None = None
+    log_tail: str = ""
+    started_at: str | None = None
+    ready_at: str | None = None
 
 
 class ArtifactView(BaseModel):

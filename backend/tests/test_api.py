@@ -3,6 +3,7 @@
 import time
 from contextlib import asynccontextmanager
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from langgraph.checkpoint.memory import InMemorySaver
@@ -100,6 +101,22 @@ def test_start_pause_resume_report(client):
     assert client.post(f"/api/decisions/{thread_id}/resume", json={"type": "plan_review", "action": "approve"}).status_code == 202
     status = wait_until_not_running(client, thread_id)
     assert client.get(f"/api/decisions/{thread_id}/plan").json()["approved_at"]
+
+    # built (fake agent, real verify), build check passed, preview running → paused for change requests
+    assert status["run_state"] == "paused" and status["pending"]["type"] == "change_request"
+    impl = client.get(f"/api/decisions/{thread_id}/implementation").json()
+    assert [t["status"] for t in impl["tasks"]] == ["done", "done"] and impl["build"]["passed"] and impl["cost_usd"] > 0
+    preview = client.get(f"/api/decisions/{thread_id}/preview").json()
+    assert preview["state"] == "ready" and preview["url"].startswith("http://localhost:")
+    assert httpx.get(preview["url"], timeout=5).status_code == 200                      # the real dev server
+    assert client.post(f"/api/decisions/{thread_id}/resume",
+                       json={"type": "change_request", "action": "change"}).status_code == 422   # no request text
+    assert client.post(f"/api/decisions/{thread_id}/resume", json={"type": "plan_review", "action": "approve"}).status_code == 409
+    restarted = client.post(f"/api/decisions/{thread_id}/preview/restart").json()
+    assert restarted["state"] == "ready" and restarted["port"]
+    assert client.post(f"/api/decisions/{thread_id}/resume",
+                       json={"type": "change_request", "action": "finish"}).status_code == 202
+    status = wait_until_not_running(client, thread_id)
     assert status["run_state"] == "finished"
     assert status["workflow_status"] == "completed"
     assert status["has_report"] is True
@@ -164,4 +181,6 @@ def test_brief_change_request_round_trip_and_wording_only_cap(client, monkeypatc
     client.post(f"/api/decisions/{thread_id}/resume", json={"type": "brief_review", "action": "approve"})
     assert wait_until_not_running(client, thread_id)["pending"]["type"] == "plan_review"
     client.post(f"/api/decisions/{thread_id}/resume", json={"type": "plan_review", "action": "approve"})
+    assert wait_until_not_running(client, thread_id)["pending"]["type"] == "change_request"
+    client.post(f"/api/decisions/{thread_id}/resume", json={"type": "change_request", "action": "finish"})
     assert wait_until_not_running(client, thread_id)["workflow_status"] == "completed"

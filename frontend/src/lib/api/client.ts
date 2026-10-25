@@ -12,7 +12,9 @@ import type {
   CreateDecisionRequest,
   DecisionStatus,
   EvidenceResponse,
+  ImplementationResponse,
   LiveSnapshot,
+  PreviewResponse,
   ReportResponse,
   ResumeRequest,
   SessionList,
@@ -103,6 +105,25 @@ export function getBrief(threadId: string): Promise<BriefResponse> {
 /** The implementation plan. 409 "no_plan" until the planner wrote one. */
 export function getPlan(threadId: string): Promise<PlanResponse> {
   return request(`${BASE}/${encodeURIComponent(threadId)}/plan`);
+}
+
+/** The coding agent's tasks, attempt log and last build check. 409 "no_implementation" before the build started. */
+export function getImplementation(threadId: string): Promise<ImplementationResponse> {
+  return request(`${BASE}/${encodeURIComponent(threadId)}/implementation`);
+}
+
+/** Live state of the session's dev server (reading it keeps the preview from the idle stop). 409 "no_preview" before. */
+export function getPreview(threadId: string): Promise<PreviewResponse> {
+  return request(`${BASE}/${encodeURIComponent(threadId)}/preview`);
+}
+
+/** Restart the dev server; answers after the health check (up to a minute). */
+export function restartPreview(threadId: string): Promise<PreviewResponse> {
+  return request(`${BASE}/${encodeURIComponent(threadId)}/preview/restart`, { method: "POST" });
+}
+
+export function stopPreview(threadId: string): Promise<PreviewResponse> {
+  return request(`${BASE}/${encodeURIComponent(threadId)}/preview/stop`, { method: "POST" });
 }
 
 /** Approved versions of the brief (and later the plan). 503 if the database cannot be read. */

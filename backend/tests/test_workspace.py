@@ -330,3 +330,24 @@ def test_reconcile_does_not_fail_a_server_another_process_is_starting(ws, manage
     manager.store.save(RuntimeRecord(thread_id=ws.session_id, state="starting", command="npm start", port=4155,
                                      started_at=now()))
     assert manager.reconcile()["lost"] == [] and manager.status(ws.session_id).state == "starting"
+
+
+def test_a_foreign_wildcard_listener_is_never_mistaken_for_our_preview(root, manager, monkeypatch):
+    """Regression (M9 E2E): a Node app listening on *:4100 made 127.0.0.1:4100 look free (SO_REUSEADDR bind on
+    macOS); a second session got 4100 and its health check was answered by the OTHER app."""
+    from ai_decision_arena.workspace.processes import listens_on, port_accepts
+    monkeypatch.setattr(get_settings(), "preview_port_range", "4160-4161")
+    foreign = subprocess.Popen([PY, "-m", "http.server", "4160", "--bind", "::"], stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, start_new_session=True)
+    try:
+        deadline = time.monotonic() + 5
+        while not port_accepts(4160) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert port_accepts(4160) and not port_is_free(4160)
+        assert listens_on(foreign.pid, 4160)
+        record = manager.start(create_workspace("s-isolated"), SERVER)
+        assert record.state == "ready" and record.port == 4161                     # not the foreign app's port
+        assert listens_on(record.pid, 4161) and not listens_on(record.pid, 4160)     # ours ≠ the foreign one
+    finally:
+        os.killpg(foreign.pid, signal.SIGKILL)
+        foreign.wait()

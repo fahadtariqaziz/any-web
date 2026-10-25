@@ -110,6 +110,13 @@ class ArenaState(TypedDict, total=False):
     current_task_id: str | None          # the task of the last implementer step
     implementation_log: list[dict]       # {task_id, attempt, ok, summary, cost_usd, at} per attempt (capped)
     implementation_cost_usd: float       # agent cost so far (ResultMessage.total_cost_usd, summed in Python)
+
+    # --- build check, preview, change requests ------------------------------------------- (M9)
+    build_results: dict                  # last build check: {round, passed, steps: [{phase, command, ok, ...}]} (build_check)
+    build_fix_round: int                 # fix tasks sent since the last change request                           (build_check)
+    preview: dict                        # RuntimeRecord of the dev server + log_tail (processes.py)              (preview)
+    change_requests: list[dict]          # {round, action, request, at} per reply at the preview pause              (await_change_request)
+    change_route: str                    # change | replan | finish                                               (change_request_router)
     completed_at: str
     metrics: dict                        # durations, rounds, counts (completion)
 

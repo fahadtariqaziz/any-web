@@ -184,8 +184,10 @@ def completion_node(state: ArenaState, config: RunnableConfig) -> dict:
         open_issues = (state.get("brief_validation") or {}).get("open_issues")
         unfinished = [t for t in state.get("implementation_tasks", []) if t.get("status") != "done"]
         built = bool(state.get("workspace_dir"))
-        status = ("completed_with_uncertainty" if final.get("is_conditional") or open_issues or (built and unfinished)
-                  else "completed")
+        build_failed = bool(state.get("build_results")) and not state["build_results"].get("passed")
+        preview_down = bool(state.get("preview")) and state["preview"].get("state") != "ready"
+        status = ("completed_with_uncertainty" if final.get("is_conditional") or open_issues
+                  or (built and (unfinished or build_failed or preview_down)) else "completed")
     metrics = {
         "active_seconds": state.get("active_seconds", 0.0),
         "debate_rounds": state.get("debate_round", 0),
@@ -199,6 +201,9 @@ def completion_node(state: ArenaState, config: RunnableConfig) -> dict:
         tasks = state.get("implementation_tasks", [])
         metrics["tasks"] = {s: sum(t.get("status") == s for t in tasks) for s in ("done", "failed", "blocked", "skipped")}
         metrics["implementation_cost_usd"] = state.get("implementation_cost_usd", 0.0)
+        metrics["build_passed"] = (state.get("build_results") or {}).get("passed")
+        metrics["preview_state"] = (state.get("preview") or {}).get("state")
+        metrics["change_requests"] = len(state.get("change_requests", []))
     update = {
         "status": status,
         "completed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
