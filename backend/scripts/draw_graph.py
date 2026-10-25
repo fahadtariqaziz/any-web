@@ -53,7 +53,8 @@ PHASES = {
     "5 · Report": ["final_report"],
     "6 · Brief": ["brief_writer", "brief_validator"],
     "7 · Your review": ["await_brief_review", "brief_review_router"],
-    "8 · Plan (Opus)": ["planner", "await_plan_review", "plan_review_router", "completion"],
+    "8 · Plan (Opus)": ["planner", "await_plan_review", "plan_review_router"],
+    "9 · Build (Sonnet agent)": ["implementer", "completion"],
 }
 
 # Edges that go back to an earlier step (drawn dashed).
@@ -71,6 +72,7 @@ LOOPS = {
     ("brief_review_router", "await_brief_review"),
     ("plan_review_router", "planner"),
     ("plan_review_router", "await_plan_review"),
+    ("implementer", "implementer"),
 }
 
 PAUSES = {"await_clarification", "await_brief_review", "await_plan_review"}   # interrupt(): the graph stops until the user replies

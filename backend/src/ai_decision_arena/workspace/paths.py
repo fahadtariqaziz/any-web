@@ -80,6 +80,33 @@ def safe_path(ws: Workspace, relative: str) -> Path:
     return target
 
 
+PATH_KEYS = ("file_path", "path", "notebook_path")
+
+
+def tool_path_problem(ws: Workspace, tool_name: str, tool_input: dict) -> str | None:
+    """Why a coding agent's file-tool call must be refused (None = allowed). Claude Code's tools pass ABSOLUTE paths,
+    which are accepted when they resolve inside app/; relative ones go through safe_path. Glob patterns may not
+    climb out ('..', '/', '~')."""
+    for key in PATH_KEYS:
+        value = tool_input.get(key)
+        if not value:
+            continue
+        if not isinstance(value, str):
+            return f"{key} must be a string"
+        try:
+            if value.startswith("/"):
+                if "\x00" in value or not is_inside(ws, Path(value)):
+                    return f"{value} is outside the project folder"
+            else:
+                safe_path(ws, value)
+        except PathError as exc:
+            return str(exc)
+    pattern = tool_input.get("pattern", "")
+    if tool_name == "Glob" and isinstance(pattern, str) and (pattern.startswith(("/", "~")) or ".." in pattern):
+        return "glob patterns must stay inside the project"
+    return None
+
+
 def is_inside(ws: Workspace, path: Path) -> bool:
     """True when `path` (absolute, symlinks resolved) is the session's app folder or inside it."""
     app = ws.app.resolve()

@@ -14,8 +14,10 @@
                                               ├─(requirements)► clarification
                                               ├─(research)────► research
                                               └─(proposal)────► proposer
-    await_plan_review → plan_review_router ─┬─(approved, both hashes)─► completion → END   (M8: implementer)
+    await_plan_review → plan_review_router ─┬─(approved, both hashes)─► implementer
                                             └─(changes, ≤ max_plan_revisions)► planner
+    implementer ─┬─(a task is pending: one attempt per step)─► implementer
+                 └─(all done / failed / blocked / budget)─────► completion → END   (M9: build_check, preview)
     Any node that raises → its error is stored (nodes/node_wrapper.py) → completion (status failed).
 
 Every edge is "guarded": if the state carries an error, the graph goes straight to completion. Nodes are not
@@ -40,6 +42,7 @@ from ai_decision_arena.nodes.clarification import await_clarification_node, clar
 from ai_decision_arena.nodes.critic import critic_node
 from ai_decision_arena.nodes.evidence_checker import evidence_checker_node
 from ai_decision_arena.nodes.final_report import completion_node, final_report_node
+from ai_decision_arena.nodes.implementer import implementer_node
 from ai_decision_arena.nodes.intake import intake_node
 from ai_decision_arena.nodes.judge import judge_node
 from ai_decision_arena.nodes.node_wrapper import wrap_node
@@ -65,6 +68,7 @@ NODES = {
     "planner": planner_node,
     "await_plan_review": await_plan_review_node,
     "plan_review_router": plan_review_router_node,
+    "implementer": implementer_node,
 }
 
 
@@ -113,14 +117,23 @@ def route_after_brief_review(state: ArenaState) -> Literal["brief_writer", "clar
     return REVIEW_ROUTES.get(route or "", "await_brief_review")
 
 
-def route_after_plan_review(state: ArenaState) -> Literal["planner", "await_plan_review", "completion"]:
+def route_after_plan_review(state: ArenaState) -> Literal["planner", "await_plan_review", "implementer"]:
     route = state.get("plan_review_route")
     if route == "approved":
-        # Both approvals must match what is in the state now (M8 sends this to the implementer).
-        return "completion" if plan_is_approved(state) else "await_plan_review"
+        # Hard guard (not only the UI): both approvals must match what is in the state now.
+        return "implementer" if plan_is_approved(state) else "await_plan_review"
     if route == "changes":
         return "planner"
     return "await_plan_review"
+
+
+def route_after_implementer(state: ArenaState) -> Literal["implementer", "completion"]:
+    # The node decides every task's status (verify commands, attempts, blocking, budget); a pending task means
+    # another attempt is due. The approvals are re-checked on every step.
+    if not plan_is_approved(state):
+        return "completion"
+    pending = any(t.get("status") == "pending" for t in state.get("implementation_tasks", []))
+    return "implementer" if pending else "completion"
 
 
 def guarded(route: Callable[[ArenaState], str] | str):
@@ -162,7 +175,8 @@ def build_graph(checkpointer: BaseCheckpointSaver | None = None):
             ["brief_writer", "clarification", "research", "proposer", "await_brief_review", "planner"])
     connect("planner", "await_plan_review", ["await_plan_review"])
     connect("await_plan_review", "plan_review_router", ["plan_review_router"])
-    connect("plan_review_router", route_after_plan_review, ["planner", "await_plan_review"])
+    connect("plan_review_router", route_after_plan_review, ["planner", "await_plan_review", "implementer"])
+    connect("implementer", route_after_implementer, ["implementer"])
     builder.add_edge("completion", END)
 
     return builder.compile(checkpointer=checkpointer)

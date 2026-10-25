@@ -18,11 +18,11 @@
 |---|---|
 | **Spec** | `docs/app-builder-spec.md` — the user's original brief, verbatim (clarification §1, research §2, proposals §3, brief §4.1–4.10, validation §5, review §6, planning §7, implementation §8, preview + isolation §9, platform §10.1–10.11, constraints §12, outcome §13). The milestone blocks below quote the parts each one needs. |
 | **Concept (decided 2026-10-24)** | An AI application builder like Lovable: the user describes an app or website; the system clarifies, researches, proposes, critiques, judges, writes a validated problem statement + solution brief, gets approval, plans (Opus 5.5), implements (Sonnet 5.5) in an isolated session folder, and shows a live preview beside the chat. |
-| **Where we are** | **M7 done** (2026-10-25): `workspace/` = `paths.py` (session folders `generated_projects/<thread_id>/{app,.builder}`, `safe_path` with symlink resolution), `sandbox.py` (one command: M6 command policy, argv only, env built from nothing, cwd `app/`, own process group, timeout kill, 20 kB tails, audit log, git ceiling), `processes.py` (dev server per session: port 4100–4199, `$PORT`/`{port}`, ready only after an HTTP answer, stop / restart / idle stop, startup `reconcile`), table `project_runtimes`. Not wired into the graph yet (M8/M9 use it). **M6:** after the brief approval, `planner` (Opus 5.5, effort high, model checked against `GET /v1/models`) writes an `ImplementationPlan` checked in Python (ids, dependency order, relative files, allowlisted commands, every approved MVP feature covered); `await_plan_review` → `plan_review_router` (approve with hash + artifact, or changes ≤ 3). **M5:** the validated brief pauses for the user's review (`await_brief_review` → `brief_review_router`; approve with hash guard + `project_artifacts`, or change requests routed to wording / requirements / research / proposal, always revalidated). **M4:** after the report, `brief_writer` (3 structured calls → `ProblemBrief`, Python references + label fixes + markdown) and `brief_validator` (6 deterministic checks + 1 LLM review on the 9 spec criteria; Python verdict approve / revise ≤ 2 / clarify). `GET /brief`, admin `BriefView`. M3: proposer → critic → judge → checker → report. |
-| **Next milestone** | **M8 — implementer** (section 8). Needs the answer to open question 1 (section 13) first. |
+| **Where we are** | **M8 done** (2026-10-25): after the plan approval, `implementer` (Claude Agent SDK, `claude-sonnet-5-5`, effort medium) builds the plan ONE task attempt per graph step in `generated_projects/<thread_id>/app`; Python runs each task's `verify_commands` in the sandbox and only their exit codes mark a task done (retry once with the failing output, then failed → dependants blocked; session USD budget). Agent = built-in Read/Write/Edit/Glob/Grep behind a path hook + our `run_command` MCP tool (sandbox); no Bash; user's Claude Code config not loaded. Then `completion` (M9 inserts build_check / preview). **M7:** `workspace/` = `paths.py` (session folders `generated_projects/<thread_id>/{app,.builder}`, `safe_path` with symlink resolution), `sandbox.py` (one command: M6 command policy, argv only, env built from nothing, cwd `app/`, own process group, timeout kill, 20 kB tails, audit log, git ceiling), `processes.py` (dev server per session: port 4100–4199, `$PORT`/`{port}`, ready only after an HTTP answer, stop / restart / idle stop, startup `reconcile`), table `project_runtimes`. Not wired into the graph yet (M8/M9 use it). **M6:** after the brief approval, `planner` (Opus 5.5, effort high, model checked against `GET /v1/models`) writes an `ImplementationPlan` checked in Python (ids, dependency order, relative files, allowlisted commands, every approved MVP feature covered); `await_plan_review` → `plan_review_router` (approve with hash + artifact, or changes ≤ 3). **M5:** the validated brief pauses for the user's review (`await_brief_review` → `brief_review_router`; approve with hash guard + `project_artifacts`, or change requests routed to wording / requirements / research / proposal, always revalidated). **M4:** after the report, `brief_writer` (3 structured calls → `ProblemBrief`, Python references + label fixes + markdown) and `brief_validator` (6 deterministic checks + 1 LLM review on the 9 spec criteria; Python verdict approve / revise ≤ 2 / clarify). `GET /brief`, admin `BriefView`. M3: proposer → critic → judge → checker → report. |
+| **Next milestone** | **M9 — build check, preview, change requests** (section 8). |
 | **Models (verified 2026-10-24 via `client.models.list()`)** | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` are all available to the key in `backend/.env`. Configured default: `ANTHROPIC_MODEL=claude-sonnet-5-5`. |
 | **Environment (verified 2026-10-24)** | uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head · Claude Code CLI 2.1.310 installed · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are taken by the original ai-lab servers** → run ai-lab-2 on **8001/3001** (section 11). |
-| **Tests** | `backend/tests/` (207 pytest tests; `test_workspace.py` runs real subprocesses (python3, git) under tmp_path, no network / no DB: fake LLM + fake search, see `tests/conftest.py`). Run `bash backend/scripts/verify_m0.sh` (pytest + eslint + tsc). No frontend unit tests yet. |
+| **Tests** | `backend/tests/` (218 pytest tests; the coding agent is a `FakeAgent` in conftest, verify commands run for real; `test_workspace.py` runs real subprocesses (python3, git) under tmp_path, no network / no DB: fake LLM + fake search, see `tests/conftest.py`). Run `bash backend/scripts/verify_m0.sh` (pytest + eslint + tsc). No frontend unit tests yet. |
 
 ---
 
@@ -41,7 +41,7 @@ done. Every generated project lives in `generated_projects/<session_id>/`, isola
 
 ## 2. Current architecture (started as a copy of the ai-lab health app; 2.1 and 2.3 are kept current)
 
-### 2.1 Graph today (`backend/src/ai_decision_arena/graph.py`, 16 nodes + completion)
+### 2.1 Graph today (`backend/src/ai_decision_arena/graph.py`, 17 nodes + completion)
 ```
 START → intake → clarification ──(need answers, ≤3 rounds)──► await_clarification ──► clarification
                      │ enough info
@@ -57,8 +57,9 @@ START → intake → clarification ──(need answers, ≤3 rounds)──► aw
                                                                                        ├──(clarify, loop allowed)──► clarification
                                                                                        └──(approve)──► await_brief_review (pause)
 await_brief_review → brief_review_router ──(approved, hash guard)──► planner (Opus 5.5) → await_plan_review (pause)
-await_plan_review → plan_review_router ──(approved, brief + plan hashes)──► completion → END   (M8: implementer)
+await_plan_review → plan_review_router ──(approved, brief + plan hashes)──► implementer (Sonnet agent, 1 task attempt/step)
                                        └──(changes, ≤ max_plan_revisions)──► planner
+implementer ──(a task pending)──► implementer   ──(all done / failed / blocked / budget)──► completion → END   (M9: build_check)
                                          ├──(wording)──► brief_writer      ├──(requirements)──► clarification
                                          ├──(research)─► research          └──(proposal)──────► proposer
 Any node that raises → error stored (nodes/node_wrapper.py) → completion (status failed).
@@ -89,16 +90,17 @@ ai-lab-2/
 │   ├── knowledge/*.md              # curated knowledge docs (health; to be replaced)
 │   ├── skills/*/SKILL.md           # chat skills (health; to be replaced)
 │   ├── scripts/                    # run_graph, run_intake, run_research, api_flow (HTTP end to end), check_env, draw_graph,
-│   │                               #   probe_schema (grammar limit), load_knowledge, print_helpers, verify_m0.sh, verify_m1..m7.py
+│   │                               #   probe_schema (grammar limit), load_knowledge, print_helpers, verify_m0.sh, verify_m1..m8.py, spike_agent_sdk.py
 │   ├── tests/                      # pytest: conftest (fake LLM + fake search), graph, limits, sources, schemas,
 │   │                               #   nodes, full pipeline on InMemorySaver, API with TestClient
 │   └── src/ai_decision_arena/      # package name kept (rename = churn, no value now)
 │       ├── graph.py, state.py, schemas.py (~1200 lines), config.py, limits.py, prompting.py, llm.py, progress.py
 │       ├── brief.py (brief references / labels / rendering / deterministic checks), plan.py (plan checks / rendering / hashes)
 │       ├── nodes/  intake, clarification, research, proposer, critic, judge, evidence_checker, final_report (+ completion),
-│       │           brief_writer, brief_validator, brief_review (await + router), planner (+ await + router), node_wrapper
+│       │           brief_writer, brief_validator, brief_review (await + router), planner (+ await + router), implementer, node_wrapper
 │       ├── research/  planner (queries), search (Tavily), extractor (snippets → Evidence), sources (domains, url utils)
-│       ├── workspace/  paths (session folders, safe_path), sandbox (one command), processes (dev servers, M7)
+│       ├── workspace/  paths (session folders, safe_path, tool_path_problem), sandbox (one command), processes (dev
+│       │               servers, M7), agent (Claude Agent SDK adapter, M8)
 │       ├── chat.py, tools.py, researcher.py, skills.py, knowledge.py, memory.py, triggers.py, checkpointing.py
 │       ├── db/  engine, models (9 tables), repository
 │       └── api/  main (decisions endpoints), runner (background threads), chat, memories, triggers, schemas, errors
@@ -321,6 +323,17 @@ generated_projects/<thread_id>/
   top-level command only. What v1 does guarantee: no builder secrets in the env, cwd + paths, process groups,
   timeouts, output caps, audit log.
 
+**Coding agent as built in M8 (`workspace/agent.py`, 2026-10-25):** Claude Agent SDK `claude-agent-sdk` 0.2.174 (it runs
+its own bundled Claude Code CLI 2.1.310, not the user's install). `cwd=app/`, `model=implementer_model`,
+`effort=implementer_effort`, system prompt = the `claude_code` preset + our `SYSTEM_APPEND` (nodes/implementer.py),
+`tools=[Read, Write, Edit, Glob, Grep]` + in-process MCP tool `run_command` (→ `sandbox.run`), `permission_mode="dontAsk"`,
+PreToolUse hook = `paths.tool_path_problem` (absolute paths must resolve inside app/, relative ones via `safe_path`, Glob
+patterns may not climb out), `setting_sources=[]`, `skills=[]`, `CLAUDE_CONFIG_DIR=.builder/claude-config`,
+`max_turns` / `max_budget_usd` / wall-clock timeout per attempt, log `.builder/logs/<task>.log`. **Why no built-in Bash:**
+the SDK merges `env` OVER the builder's environment, so the CLI subprocess (and its Bash) would see `DATABASE_URL`,
+Tavily/LangSmith keys; our MCP tool runs commands in the sandbox's env-from-nothing instead (and those names are also
+emptied in the CLI's env).
+
 **v2 (M12, optional):** run each session's commands and dev server in a Docker container (`node:22` / `python:3.13`, only the session dir mounted, memory/CPU/pids limits) — the Docker daemon must be running; v1 uses host subprocesses with the controls above.
 
 ---
@@ -445,7 +458,7 @@ decision or contradict the approved brief. Presented for approval; revised on re
 - **Verify:** pytest (traversal, symlink escape, env scrub, timeout kill, output cap, allowlist) + `scripts/verify_m7.py`: creates a workspace, runs `npm init -y`, starts a tiny static server, health-checks, stops.
 - **Commit:** `M7: session workspace and sandbox`
 
-### M8 — Implementer (coding agent, one task per step)
+### M8 — Implementer (coding agent, one task per step) ✅ done 2026-10-25
 Spec §8: implement on `claude-sonnet-5-5` according to the approved plan; use tools, skills and subagents where they improve
 quality; manageable tasks with tracked progress; validate through automated tests, error handling, linting and quality checks;
 fix issues **before** marking a task complete; stay aligned with the approved brief and plan; accept user instructions through
@@ -556,6 +569,21 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 - 2026-10-24: Standard test idea for every live verify and the first end-to-end builds: **"A simple calculator web app"** (user's call: if the smallest project builds, bigger ones follow).
 - 2026-10-24 (M1): risk flags are informational only; `limits.loops_allowed` no longer blocks on them. `max_clarification_rounds` = 3.
 - 2026-10-24 (M3): one Proposer call makes 2–3 proposals over ALL evidence; one Critic call per proposal (parallel); one Judge call scores all and Python picks the winner; the checker verifies the winner only. Material contradictions found by the Judge become clarification questions when a round is available. Quick mode runs every node (one proposal, quick settings). The interim `FinalReport` = winner + alternatives (M4 replaces the user-facing document). The chat's first summary is built from the report in Python (no LLM call). Health demo scripts (`run_debate`, `run_report`, `demo_data`, `schemas_demo`) deleted; health report components replaced by `ProposalDetails`.
+- 2026-10-25 (M8): **Claude Agent SDK** for the coding agent (user's answer to open question 1), after
+  `scripts/spike_agent_sdk.py` passed all hard requirements (13 s, $0.02): hook sees every call and its deny is
+  enforced, cwd = app/, no Bash offered, apiKeySource `ANTHROPIC_API_KEY`, cost + usage in `ResultMessage`, user config
+  not loaded. Implementer = one task ATTEMPT per graph step (self-loop; every attempt is a checkpoint). Task status is
+  set by Python only: `done` iff every verify command exits 0 in the sandbox (the agent's report is recorded, never
+  trusted); otherwise `pending` while `attempts < max_task_attempts` (=2; the retry prompt carries the failing output
+  as `<untrusted>`), then `failed`; dependants of failed/blocked/skipped tasks → `blocked`; once
+  `implementation_budget_usd` (15) is spent the remaining tasks → `skipped`. Per attempt: `implementer_max_turns=40`,
+  `implementer_task_budget_usd=2`, `implementer_task_timeout_seconds=900`, `implementer_effort=medium` (the claude-api
+  reference recommends starting Sonnet 5.5 at medium for agentic coding). The prompt carries only the task, a plan
+  excerpt, a brief excerpt (description, MVP, out of scope), finished task titles and the file list (spec §10.9). The
+  implementer node raises unless `plan_is_approved`, and `route_after_plan_review` / `route_after_implementer` check it
+  too. Completion: a built session with any task not done → `completed_with_uncertainty`; metrics get task counts +
+  cost. Workspace also holds `.builder/brief.md`, `plan.md`, `plan.json`, `tasks.json`. UI: status `implementing`,
+  stage "Build" (9 stages), node text; the task list / log view comes with M9's `GET /implementation`.
 - 2026-10-25 (M7): `workspace/` package as in section 6 "As built". New dependency `psutil` (process start times:
   pid reuse can never make us kill a stranger). `command_problems(command, shell_operators=True)`: argv lists skip the
   shell-operator check; `--opt=/abs` and `--opt=../x` are now refused (value after `=` is checked like a path).
@@ -568,8 +596,8 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 - 2026-10-25 (M4): the brief writer makes **three** strict structured calls (sections 1–4, then 5–6 and 7–9 in parallel with sections 1–4 as context): the whole brief schema exceeds the API's grammar limit. Python owns: references (from cited ids only), the `verified` label (needs a checker-verified source, else downgraded to `research_backed`), `required_by_user` technology (only with label `user_provided`), the one-page budget (900 words over sections 1–9, labels/citations/URLs not counted): the renderer moves list items beyond per-list caps to the appendix and, while the page is over budget, shrinks the caps level by level (`CAP_LEVELS` 1.0/0.75/0.5/0; floors keep the MVP, scope, user journey, 3 functional requirements, 2 success criteria and 2 risks in the main part); only a brief too long at the smallest caps fails `det_word_budget`. Reason: in the first live run the LLM needed two full rewrites (1561 → 1080 → 1012 words) for length alone. M5 E2E still needed two (1021 → 940 → 861): the writer now aims at 80% of the budget with ≤ ~20-word items, and `det_word_budget` passes up to budget × 1.10 (`WORD_BUDGET_TOLERANCE`, "approximately one page"). Validator: deterministic checks first; if one fails and a revision is left, revise **without** the LLM call; revise also on any high-severity LLM criterion; clarify only when the reviewer says the brief cannot go forward without the user AND `loops_allowed` permits (bumps `research_retry_count`, resets `brief_revision_count`); otherwise approve, listing remaining medium/high failures as open issues (appendix C + `unresolved_questions`, status `completed_with_uncertainty`). Approve currently routes to `completion` (M5 inserts `await_brief_review`). `GET /brief` returns only a draft whose validation verdict is approve and whose `brief_generated_at` matches the brief (no unvalidated draft is ever shown). The brief lives in the checkpoint only; `project_artifacts` (DB) comes with M5.
 - 2026-10-24 (M2): the word is **domain** everywhere (code, state, API, DB columns, UI), keys `apps / papers / tech`. Tavily steering is "prefer" for all three (never exclusive); the apps domain searches with `advanced` depth. `SearchQuery` validates that a topic belongs to its domain; each domain's key topic (`user_complaints`, `established_approaches`, `feasibility_and_risks`) is always searched on the first pass (`planner.ensure_key_topics`). Patient-story top-up removed.
 
-## 13. Open questions (for the user; none blocks M7; question 1 must be answered before M8 starts)
-1. **Coding agent (M8):** OK to spike the Claude Agent SDK first (uses the installed Claude Code CLI, Sonnet 5.5, our hooks) with the own-tool-loop as fallback?
+## 13. Open questions (for the user; question 1 answered 2026-10-25, none blocks M9)
+1. ~~**Coding agent (M8):** OK to spike the Claude Agent SDK first?~~ **Answered 2026-10-25: yes, use the Claude Agent SDK** (own tool loop stays the fallback if the spike fails a hard requirement).
 2. **Preview runtime:** start the Docker daemon for v2 later, or stay on host subprocesses for now? (v1 works without Docker.)
 3. **Chat after preview:** keep the tool-using chat (`chat.py`) as "ask about this project", or retire it?
 4. **Quick mode / patient chat UI:** retire the "quick" profile entirely in M10?
@@ -615,6 +643,22 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
   on the way: the dev API's `--reload` re-ran `reconcile()` mid-verify and SIGTERMed the verify's live command (2 of 4
   runs) → run files carry the owner process; reproduced on purpose afterwards (worker 97632 → 97771 mid-command): the
   command ran to its own timeout.
+
+- 2026-10-25: **M8 done.** Spike `scripts/spike_agent_sdk.py` PASS (see decisions). `workspace/agent.py` (SDK adapter,
+  `AgentRun`), `paths.tool_path_problem`, `nodes/implementer.py` (`implementer_node`, `pick_next_task`, prompt,
+  verify, records), `route_after_implementer`, graph wiring (plan approved → implementer → completion), state
+  `workspace_dir` / `current_task_id` / `implementation_log` / `implementation_cost_usd`, status `implementing`, settings
+  `implementer_*` / `implementation_budget_usd` / `max_task_attempts`, completion status + metrics, `draw_graph.py`
+  phase 9, frontend stage "Build" + node text + status label; dependency `claude-agent-sdk`. Verify: 218 pytest (11 new
+  in `test_implementer.py`: dependency order, transitive blocking, safety net, file-tool guard incl. symlink / other
+  session / .builder / Glob, task-by-task build with real `ls` verify, prompt context, "agent says ok but verify fails →
+  failed + dependant blocked", retry with failing output passes, session budget skip, refusal without both approvals,
+  route) + eslint + tsc green. Live `verify_m8.py` PASS 3× in a row on a trivial 2-task plan (static calculator page +
+  node:test, no package download) from the cached approved calculator brief: both tasks done on the first attempt
+  (5 turns each, ~10 s each, $0.05–0.06 per session), every verify command re-run independently afterwards passes, no
+  denied call, no API key in app/, ai-lab-2's `git status` unchanged. The agent ran the verify commands itself before
+  finishing (log). NOT yet tried: the full 11-task Opus calculator plan (Vite + Vitest, `npm install` from the
+  network) — natural first run for M9's end-to-end check.
 
 ## 15. How to work on this repo (the loop every milestone follows)
 
@@ -756,6 +800,21 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 - `generated_projects/` sits inside ai-lab-2's git repo: without `GIT_CEILING_DIRECTORIES`, `git add/commit` in a
   session's `app/` would act on the builder's repo.
 
+**Coding agent (M8)**
+- The claude-api skill does not cover the Claude Agent SDK: read its installed source instead
+  (`.venv/lib/python3.13/site-packages/claude_agent_sdk/types.py`, `ClaudeAgentOptions` docstrings) — never guess options.
+- `ClaudeAgentOptions.env` is merged OVER the parent's environment (builder secrets included): never offer the built-in
+  Bash; run commands through the sandbox MCP tool. Without `setting_sources=[]` + an own `CLAUDE_CONFIG_DIR` the CLI
+  loads the user's `~/.claude` (settings, CLAUDE.md, memory). The init message still LISTS the CLI's bundled skills
+  unless `skills=[]` (they are not callable without the Skill tool).
+- Claude Code's file tools send ABSOLUTE paths: `safe_path` (relative only) alone would deny everything; the hook uses
+  `tool_path_problem` (absolute → `is_inside`, relative → `safe_path`).
+- `completed_with_uncertainty` has three causes (conditional report, brief open issues, unfinished tasks). The cached
+  calculator state has a CONDITIONAL report (M3's Judge asked for clarification), so any session built from it ends
+  "with uncertainty" even when every task passes. Read the cause from the state before blaming the build.
+- Tests: the conftest `FakeAgent` (in the `fake_llm` fixture) writes the files a task lists; `skip` / `fail_once`
+  steer failures. The fake plan's verify commands are `ls <files>` so they run for real without npm.
+
 **Spec**
 - Until 2026-10-24 the product spec existed only in the chat that produced this plan; a new session could not see sections
   4.1–4.10 or the nine validation checks. It is now saved verbatim in `docs/app-builder-spec.md` and quoted in the milestone
@@ -781,9 +840,12 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
   is in the prompt, a stricter check (count of "or" clauses) would be an M11 eval, not a hard filter.
 
 ## ▶ Next step
-**User commits M7** as `M7: session workspace and sandbox`. Then **M8 — implementer** (section 8), which first needs the
-user's answer to open question 1 (section 13): spike the Claude Agent SDK (Sonnet 5.5, cwd `app/`, PreToolUse hook =
-`workspace.sandbox.check_command` + `paths.safe_path`, no setting sources) with the own tool loop as fallback. Either way
-the agent's file tools go through `safe_path` and its commands through `sandbox.run`; Python then runs the task's
-`verify_commands` with `sandbox.run` and only `CommandResult.ok` marks a task done. Per-task logs go to
-`.builder/logs/<task>.log`, `tasks.json` to `.builder/`. The implementer route must use `plan.plan_is_approved`.
+**User commits M8** as `M8: implementer coding agent`. Then **M9 — build check, preview, change requests** (section 8):
+`build_check` (Python only: `plan.commands` install → test → build through `sandbox.run`, fix rounds ≤
+`max_build_fix_rounds` as new implementer fix tasks), `preview` (`ProcessManager.start(ws, plan.commands.dev)` with
+`$PORT`, ready only after the health check; note the planner already tells the plan to read `$PORT` in the dev
+script), `await_change_request` (pause: change → new implementer task, replan → planner, finish → completion), the
+idle-stop trigger for previews, `GET /api/decisions/{id}/preview` (+ restart / stop) and `GET /implementation`
+(tasks + log tail), `types.ts`. Live check: the full 11-task Opus calculator plan end to end (`api_flow.py --auto`
+against 8001), then `curl` of the preview URL → 200. That run downloads npm packages (Vite, Vitest) and costs more
+than M8's trivial plan: expect several dollars and ~20–40 minutes; mention it to the user before running it.

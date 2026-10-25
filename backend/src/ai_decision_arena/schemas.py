@@ -37,6 +37,7 @@ WorkflowStatus = Literal[
     "awaiting_brief_review",
     "planning",
     "awaiting_plan_review",
+    "implementing",
     "completed",
     "completed_with_uncertainty",
     "failed",

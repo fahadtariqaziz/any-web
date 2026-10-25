@@ -182,7 +182,10 @@ def completion_node(state: ArenaState, config: RunnableConfig) -> dict:
         status = "failed"                                    # never "completed" without a report
     else:
         open_issues = (state.get("brief_validation") or {}).get("open_issues")
-        status = "completed_with_uncertainty" if final.get("is_conditional") or open_issues else "completed"
+        unfinished = [t for t in state.get("implementation_tasks", []) if t.get("status") != "done"]
+        built = bool(state.get("workspace_dir"))
+        status = ("completed_with_uncertainty" if final.get("is_conditional") or open_issues or (built and unfinished)
+                  else "completed")
     metrics = {
         "active_seconds": state.get("active_seconds", 0.0),
         "debate_rounds": state.get("debate_round", 0),
@@ -192,6 +195,10 @@ def completion_node(state: ArenaState, config: RunnableConfig) -> dict:
         "claims_checked": len(state.get("verification_results", [])),
         "started_at": state.get("started_at"),
     }
+    if state.get("workspace_dir"):
+        tasks = state.get("implementation_tasks", [])
+        metrics["tasks"] = {s: sum(t.get("status") == s for t in tasks) for s in ("done", "failed", "blocked", "skipped")}
+        metrics["implementation_cost_usd"] = state.get("implementation_cost_usd", 0.0)
     update = {
         "status": status,
         "completed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),

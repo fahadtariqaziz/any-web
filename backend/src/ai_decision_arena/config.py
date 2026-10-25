@@ -94,7 +94,17 @@ class Settings(BaseSettings):
         default="high", description="Reasoning effort of the planner (Opus 5.5 defaults to medium; planning deserves more).")
     planner_max_tokens: int = Field(default=16000, ge=4000, le=32000)
     planner_timeout_seconds: float = Field(default=600, gt=0, description="A full plan at high effort takes minutes.")
-    implementer_model: str = Field(default="claude-sonnet-5-5", description="Model of the coding agent (M8).")
+    implementer_model: str = Field(default="claude-sonnet-5-5", description="Model of the coding agent (M8, Claude "
+                                   "Agent SDK; checked against the model list like the planner's).")
+    implementer_effort: Literal["low", "medium", "high", "xhigh", "max"] = Field(
+        default="medium", description="Sonnet 5.5's recalibrated levels: medium is the recommended start for agentic coding.")
+    implementer_max_turns: int = Field(default=40, ge=5, le=200, description="Agent turns per task attempt.")
+    implementer_task_timeout_seconds: float = Field(default=900, gt=0, description="Wall clock per task attempt.")
+    implementer_task_budget_usd: float = Field(default=2.0, gt=0, description="Agent cost cap per task attempt.")
+    implementation_budget_usd: float = Field(default=15.0, gt=0, description="Agent cost cap per session: no new "
+                                             "task attempt starts once the session spent this much.")
+    max_task_attempts: int = Field(default=2, ge=1, le=5, description="Attempts per task (a retry gets the failing "
+                                   "verify output); then the task is failed and its dependants blocked.")
     quick_model: str = Field(default="claude-haiku-5-5", description="Model for every agent of a quick (patient chat) session.")
     fallback_model: str = Field(default="claude-haiku-5-5", description="Backup model: a graph agent's call is repeated "
                                 "once on it when the main model fails. Empty = no fallback.")

@@ -104,6 +104,12 @@ class ArenaState(TypedDict, total=False):
     plan_review_route: str               # approved | changes                                                    (plan_review_router)
     plan_approved_at: str | None         #                                                                       (plan_review_router)
     plan_approved_hash: str | None       # sha256 of the approved plan_markdown                                  (plan_review_router)
+
+    # --- implementation ------------------------------------------------------------------------ (implementer, M8)
+    workspace_dir: str                   # generated_projects/<thread_id> (app/ = the project)
+    current_task_id: str | None          # the task of the last implementer step
+    implementation_log: list[dict]       # {task_id, attempt, ok, summary, cost_usd, at} per attempt (capped)
+    implementation_cost_usd: float       # agent cost so far (ResultMessage.total_cost_usd, summed in Python)
     completed_at: str
     metrics: dict                        # durations, rounds, counts (completion)
 

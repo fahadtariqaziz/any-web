@@ -180,7 +180,7 @@ def test_plan_revision_cap(graph, fake_llm, fake_search, monkeypatch):
 
 def test_route_after_plan_review_checks_both_approvals(graph, fake_llm, fake_search):
     state = run_full(graph, "routes")
-    assert G.route_after_plan_review(state) == "completion"
+    assert G.route_after_plan_review(state) == "implementer"
     assert G.route_after_plan_review(state | {"plan_markdown": "# edited"}) == "await_plan_review"
     assert G.route_after_plan_review(state | {"brief_markdown": "# edited"}) == "await_plan_review"   # brief changed
     assert G.route_after_plan_review(state | {"plan_review_route": "changes"}) == "planner"

@@ -112,6 +112,7 @@ export const WORKFLOW_STATUS_LABEL: Record<string, string> = {
   awaiting_brief_review: "Waiting for your review",
   planning: "Planning the build",
   awaiting_plan_review: "Waiting for your plan review",
+  implementing: "Building your app",
   completed: "Completed",
   completed_with_uncertainty: "Completed with uncertainty",
   failed: "Failed",

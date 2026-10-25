@@ -19,6 +19,9 @@ os.environ["LANGSMITH_TRACING"] = "false"
 os.environ["PERSIST_RESULTS"] = "false"
 os.environ["CHECK_INS_ENABLED"] = "false"
 os.environ["DATABASE_URL"] = "postgresql://test:test@127.0.0.1:1/never_connected"
+# Generated projects of the pipeline tests go to a throwaway folder, never the repo's generated_projects/.
+import tempfile  # noqa: E402
+os.environ["GENERATED_PROJECTS_DIR"] = tempfile.mkdtemp(prefix="ai-builder-tests-")
 
 import pytest  # noqa: E402
 from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
@@ -264,10 +267,11 @@ def build_plan(system: str, user: str) -> S.ImplementationPlan:
         phases=[S.PlanPhase(id="P1", name="Setup", goal="Project runs."), S.PlanPhase(id="P2", name="Features", goal="MVP works.")],
         tasks=[
             S.PlanTask(id="T1", phase="P1", title="Scaffold the project", description="Vite + vitest.", depends_on=[],
-                       files=["package.json", "src/main.js"], acceptance_criteria=["npm test passes"], verify_commands=["npm test"]),
+                       files=["package.json", "src/main.js"], acceptance_criteria=["npm test passes"],
+                       verify_commands=["ls package.json src/main.js"]),
             S.PlanTask(id="T2", phase="P2", title="Habit tracking", description="Add and tick habits.", depends_on=["T1"],
                        files=["src/habits.js"], acceptance_criteria=["ticking updates streak"],
-                       verify_commands=["npx vitest run tests/habits.test.js"]),
+                       verify_commands=["ls src/habits.js"]),
         ],
         feature_coverage=[S.FeatureCoverage(feature=f, task_ids=["T2"]) for f in mvp],
         testing_strategy=["unit tests with vitest"],
@@ -347,7 +351,34 @@ def fake_llm(monkeypatch) -> FakeLLM:
         monkeypatch.setattr(f"{module}.call_structured", fake)
     # The planner checks its model against GET /v1/models: no network in tests.
     monkeypatch.setattr("ai_decision_arena.nodes.planner.resolve_model", lambda wanted: (wanted, ""))
+    monkeypatch.setattr("ai_decision_arena.nodes.implementer.resolve_model", lambda wanted: (wanted, ""))
+    agent = FakeAgent()
+    monkeypatch.setattr("ai_decision_arena.nodes.implementer.run_agent_task", agent)
+    fake.agent = agent
     return fake
+
+
+class FakeAgent:
+    """Stands in for the Claude Agent SDK: writes the files listed in <task> (unless told to skip a task), costs
+    $0.01 per attempt. The implementer's verify commands then run for REAL in the sandbox (`ls <files>`)."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+        self.skip: set[str] = set()          # task ids whose files are NOT written (verify fails)
+        self.fail_once: set[str] = set()     # task ids that fail only their first attempt
+
+    def __call__(self, ws, prompt, system_append, *, model, label):
+        import json as _json
+        from ai_decision_arena.workspace.agent import AgentRun
+        task = _json.loads(tag("task", prompt))
+        self.calls.append({"task": task["id"], "model": model, "prompt": prompt, "system": system_append})
+        attempt = sum(c["task"] == task["id"] for c in self.calls)
+        if task["id"] not in self.skip and not (task["id"] in self.fail_once and attempt == 1):
+            for name in task["files"]:
+                path = ws.app / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(f"// {task['id']}: {name}\n")
+        return AgentRun(ok=True, subtype="success", num_turns=3, cost_usd=0.01, final_text=f"did {task['id']}")
 
 
 SOURCE_TYPE_BY_DOMAIN = {"apps": "review_site", "papers": "research_paper", "tech": "source_repository"}

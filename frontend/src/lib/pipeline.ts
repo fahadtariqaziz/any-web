@@ -1,10 +1,10 @@
-// The pipeline as the USER sees it: 8 stages built from the graph's 17 nodes, plus what each node is
+// The pipeline as the USER sees it: 9 stages built from the graph's 18 nodes, plus what each node is
 // doing in plain words and how long it usually takes (timings observed in the handoff's test runs).
 // Everything here is derived from DecisionStatus; nothing is guessed when the backend knows better.
 
 import type { DecisionStatus, Domain, ProgressLine } from "@/lib/api/types";
 
-export type StageId = "intake" | "clarify" | "research" | "debate" | "verify" | "report" | "brief" | "plan";
+export type StageId = "intake" | "clarify" | "research" | "debate" | "verify" | "report" | "brief" | "plan" | "build";
 
 export interface Stage {
   id: StageId;
@@ -21,6 +21,7 @@ export const STAGES: Stage[] = [
   { id: "report", label: "Report", blurb: "Winner, alternatives, open questions" },
   { id: "brief", label: "Brief", blurb: "Problem statement and solution, validated" },
   { id: "plan", label: "Plan", blurb: "Implementation plan for your approval" },
+  { id: "build", label: "Build", blurb: "Coding agent, task by task, checked by tests" },
 ];
 
 export interface NodeInfo {
@@ -148,12 +149,19 @@ export const NODE_INFO: Record<string, NodeInfo> = {
     expectedSeconds: 3,
     stage: "plan",
   },
+  implementer: {
+    label: "Coding agent",
+    headline: "Building your app, one task at a time",
+    doing: "A coding agent (Claude Sonnet) implements the next task of the approved plan inside this session's own project folder. Then the builder itself runs the task's test commands: a task counts as done only when they pass. A failing task is retried once with the error output.",
+    expectedSeconds: 180,
+    stage: "build",
+  },
   completion: {
     label: "Saving",
     headline: "Saving your session",
     doing: "Storing the session, the evidence and the report in the database.",
     expectedSeconds: 2,
-    stage: "plan",
+    stage: "build",
   },
 };
 
@@ -229,7 +237,7 @@ export function stageStates(status: DecisionStatus, activity: Activity): Record<
     for (const s of STAGES) result[s.id] = "done";
     return result;
   }
-  const current = activity.activeStage ?? (finished ? "plan" : "intake");
+  const current = activity.activeStage ?? (finished ? "build" : "intake");
   const currentIndex = STAGE_INDEX[current];
   for (const s of STAGES) {
     const i = STAGE_INDEX[s.id];
