@@ -9,7 +9,7 @@ and that the summaries exist. Prints what was found, then PASS or FAIL.
 import sys
 from typing import get_args
 
-from ai_decision_arena.config import get_settings, session_mode
+from ai_decision_arena.config import get_settings
 from ai_decision_arena.nodes import research as research_module
 from ai_decision_arena.nodes.intake import intake_node
 from ai_decision_arena.nodes.research import research_node
@@ -42,15 +42,14 @@ def recording_run_searches(queries):
 
 research_module.run_searches = recording_run_searches
 
-with session_mode("full"):
-    settings = get_settings()
-    print(f"model: {settings.anthropic_model}  queries per domain: {settings.queries_per_domain}  "
-          f"hits per domain: {settings.max_hits_per_domain}")
-    state = {"question": IDEA, "user_context": "", "mode": "full"}
-    state.update(intake_node(state))
-    state["assumptions"] = ["Basic arithmetic only, runs in the browser, no accounts (assumed for this check)."]
-    print(f"\n=== {IDEA}  →  project_name: {state['project_name']}")
-    out = research_node(state)
+settings = get_settings()
+print(f"model: {settings.anthropic_model}  queries per domain: {settings.queries_per_domain}  "
+      f"hits per domain: {settings.max_hits_per_domain}")
+state = {"question": IDEA, "user_context": "", "mode": "full"}
+state.update(intake_node(state))
+state["assumptions"] = ["Basic arithmetic only, runs in the browser, no accounts (assumed for this check)."]
+print(f"\n=== {IDEA}  →  project_name: {state['project_name']}")
+out = research_node(state)
 
 queries = out["research_queries"]
 evidence = out["evidence"]

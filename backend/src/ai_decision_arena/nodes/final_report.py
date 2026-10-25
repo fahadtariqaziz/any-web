@@ -199,6 +199,7 @@ def completion_node(state: ArenaState, config: RunnableConfig) -> dict:
         "started_at": state.get("started_at"),
         "llm_cost_usd": llm_cost(state),          # the builder's own model calls (metered since M11)
         "llm_calls": sum(e.get("calls", 0) for e in state.get("usage_log") or []),
+        "prompt_versions": state.get("prompt_versions") or {},
     }
     if state.get("workspace_dir"):
         tasks = state.get("implementation_tasks", [])

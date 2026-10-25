@@ -7,7 +7,7 @@ cost stay predictable (~30 s). In the chat a turn is open-ended, so Claude choos
     web_search(query, domain)        a fresh Tavily search in one domain (apps / papers / tech)
     remember_fact(fact)              save a lasting fact about the user or their project (long-term memory)
     ask_researcher(question)         delegate a research question to the research SUB-AGENT (researcher.py)
-    load_skill(name)                 (not offered to the chat until M11 brings builder skills; skills.py)
+    load_skill(name)                 the full text of one builder skill from <available_skills> (skills.py)
 
 Guardrails: at most MAX_TOOL_ROUNDS model calls with tools per turn (then one final answer without tools),
 at most MAX_WEB_SEARCHES web searches per turn, every tool result is wrapped as <source> data (never
@@ -16,6 +16,7 @@ Every model round (the sub-agent's too) is metered into the turn's ToolContext.m
 """
 
 import json
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Literal
@@ -23,7 +24,7 @@ from typing import Literal
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
 from langchain_core.tools import BaseTool, StructuredTool
 
-from ai_decision_arena import knowledge, memory, skills
+from ai_decision_arena import knowledge, memory, skills, tool_log
 from ai_decision_arena.pricing import tokens_from_langchain
 from ai_decision_arena.research.search import search_one
 from ai_decision_arena.schemas import SearchQuery
@@ -113,11 +114,17 @@ def ask_researcher_tool(ctx: ToolContext) -> BaseTool:
 
 
 def chat_tools(ctx: ToolContext) -> list[BaseTool]:
-    """The Ask-mode tools. load_skill comes back in M11, when builder skills replace the old health skills."""
-    return [search_knowledge_tool(ctx), web_search_tool(ctx), remember_fact_tool(ctx), ask_researcher_tool(ctx)]
+    """The Ask-mode tools."""
+    return [search_knowledge_tool(ctx), web_search_tool(ctx), remember_fact_tool(ctx), load_skill_tool(ctx),
+            ask_researcher_tool(ctx)]
 
 
 # --- the tool loop -----------------------------------------------------------------------------------
+
+def _call_target(args: dict) -> str:
+    """What a chat tool call was about, for the log: the query / question / fact (no tool output)."""
+    return " · ".join(f"{k}={v}" for k, v in args.items() if isinstance(v, str))
+
 
 def run_tools(message: AIMessage, tools: list[BaseTool], ctx: ToolContext) -> list[ToolMessage]:
     """Run every tool call of one model message, in order. Unknown tools get an error message back."""
@@ -126,10 +133,22 @@ def run_tools(message: AIMessage, tools: list[BaseTool], ctx: ToolContext) -> li
     for call in message.tool_calls:
         ctx.used.append(call["name"])
         tool = by_name.get(call["name"])
+        started = time.monotonic()
         if tool is None:
-            results.append(ToolMessage(content=f"Unknown tool {call['name']!r}.", tool_call_id=call["id"]))
+            result = ToolMessage(content=f"Unknown tool {call['name']!r}.", tool_call_id=call["id"], status="error")
         else:
-            results.append(tool.invoke(call))             # a ToolCall in → a ToolMessage out
+            try:
+                result = tool.invoke(call)                # a ToolCall in → a ToolMessage out
+            except Exception as exc:                      # not a ToolException: logged, then raised as before
+                tool_log.record(ctx.thread_id or "", "chat", call["name"], target=_call_target(call.get("args") or {}),
+                                ok=False, reason=f"{type(exc).__name__}: {exc}"[:300],
+                                duration_seconds=round(time.monotonic() - started, 3))
+                raise
+        results.append(result)
+        failed = getattr(result, "status", "success") == "error"
+        tool_log.record(ctx.thread_id or "", "chat", call["name"], target=_call_target(call.get("args") or {}),
+                        ok=not failed, reason=str(result.content)[:300] if failed else None,
+                        duration_seconds=round(time.monotonic() - started, 3))
     return results
 
 

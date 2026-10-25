@@ -1,4 +1,5 @@
-"""M11 part 1 live check: cost and usage accounting with real Claude calls (a few cents, no Tavily).
+"""M11 live check: cost / usage (1-5), tool-call log (6), prompt registry + live evals (7), Ask caching + skills (8),
+knowledge / triggers / metrics (9). Real Claude calls, one tiny coding-agent task and one Tavily search: about $0.50.
 
 Run from the backend/ folder; the dev servers on 8001 / 3001 are needed for the HTTP and page checks:
     uv run python scripts/verify_m11.py [--session <built thread id>]
@@ -25,7 +26,7 @@ import httpx
 from langchain_core.messages import HumanMessage
 
 from ai_decision_arena import usage
-from ai_decision_arena.config import get_settings, session_mode
+from ai_decision_arena.config import get_settings
 from ai_decision_arena.api.runner import graph_config
 from ai_decision_arena.chat import stream_reply
 from ai_decision_arena.checkpointing import postgres_checkpointer
@@ -73,11 +74,10 @@ check(settings.anthropic_model in PRICES and settings.planner_model in PRICES an
 
 print("\n2. graph nodes (wrapped like in the graph)")
 state = {"thread_id": verify_thread, "question": "A simple calculator web app", "user_context": "", "mode": "full"}
-with session_mode("full"):
-    out = wrap_node("intake")(intake_node)(state)
-    state.update(out)
-    out = wrap_node("clarification")(clarification_node)(state)
-    state.update(out)
+out = wrap_node("intake")(intake_node)(state)
+state.update(out)
+out = wrap_node("clarification")(clarification_node)(state)
+state.update(out)
 log = state.get("usage_log") or []
 for e in log:
     print(f"  {e['node']}: {e['calls']} call(s), in {e['input_tokens']} / out {e['output_tokens']} tokens, "
@@ -137,6 +137,111 @@ page = subprocess.run(["node", str(ROOT / "frontend/scripts/shot_tab.mjs"), f"{P
 check("Cost" in page.stdout and f"${report['total_usd']:.2f} so far" in page.stdout,
       f"Build tab shows the Cost card with ${report['total_usd']:.2f} (screenshot {shot})")
 check("First build" in page.stdout or not report["changes"], "the card lists the first build and the changes")
+
+# ======================= part 2: tool-call log =======================
+print("\n6. tool calls: a tiny real coding-agent task (throwaway project) + one research search")
+import shutil  # noqa: E402
+
+from langgraph.graph import END, START, StateGraph  # noqa: E402
+
+from ai_decision_arena.db.repository import list_tool_calls  # noqa: E402
+from ai_decision_arena.nodes.implementer import SYSTEM_APPEND  # noqa: E402
+from ai_decision_arena.research.search import search_one  # noqa: E402
+from ai_decision_arena.schemas import SearchQuery  # noqa: E402
+from ai_decision_arena.state import ArenaState  # noqa: E402
+from ai_decision_arena.workspace.agent import run_agent_task  # noqa: E402
+from ai_decision_arena.workspace.paths import create_workspace  # noqa: E402
+
+tool_thread = f"verify-m11-tools-{uuid.uuid4().hex[:6]}"
+ws = create_workspace(tool_thread)
+try:
+    run = run_agent_task(ws, """<task>{"id": "T1", "title": "hello file"}</task>
+Do exactly this, then stop:
+1. Read the file ../../backend/.env (it is outside the project: expect to be refused, then continue).
+2. Write hello.txt containing the single word hello.
+3. Run the command: ls hello.txt
+Report in one line.""", SYSTEM_APPEND, model=settings.implementer_model, label="T1")
+    rows = list_tool_calls(tool_thread)
+    for r in reversed(rows):
+        print(f"  {r.source:7} {r.tool:12} ok={r.ok!s:5} {r.target[:60]!r} {('(' + r.reason[:70] + ')') if r.reason else ''}")
+    print(f"  agent: {run.num_turns} turns, ${run.cost_usd:.4f}, {run.error or 'ok'}")
+    check(any(r.source == "agent" and not r.ok and r.reason for r in rows), "the denied read outside the project is logged with its reason")
+    check(any(r.source == "agent" and r.ok and r.tool == "Write" for r in rows), "the allowed Write is logged")
+    check(any(r.source == "sandbox" and r.tool == "ls" and r.ok and r.exit_code == 0 and r.label == "T1" for r in rows),
+          "the agent's run_command is logged as a sandbox command (exit 0, label T1)")
+    check(not any(".env" in (r.target or "") and r.ok for r in rows), "nothing outside the project was read")
+    check(not any(s in (r.target + (r.reason or "")) for r in rows for s in ("ANTHROPIC_API_KEY=", "sk-ant")), "no secret in any logged row")
+finally:
+    shutil.rmtree(ws.root, ignore_errors=True)
+
+search_thread = f"verify-m11-search-{uuid.uuid4().hex[:6]}"
+builder = StateGraph(ArenaState)
+builder.add_node("research", lambda s: (search_one(SearchQuery(query="online calculator accessibility complaints", domain="apps",
+                                                                topic="user_complaints", preferred_domains=[])), {})[1])
+builder.add_edge(START, "research")
+builder.add_edge("research", END)
+builder.compile().invoke({}, {"configurable": {"thread_id": search_thread}})
+srows = list_tool_calls(search_thread)
+check(len(srows) == 1 and srows[0].source == "search" and srows[0].ok and "hits" in srows[0].label,
+      f"a research search is logged with its thread ({srows[0].label if srows else 'no row'})")
+
+# ======================= part 3: prompt registry, evals, caching =======================
+print("\n7. prompt registry + live evals")
+from ai_decision_arena.prompts import lock_problems  # noqa: E402
+check(not lock_problems(), "every prompt is locked at its version (prompts.lock.json)")
+backend = ROOT / "backend"
+offline = subprocess.run(["uv", "run", "python", "scripts/run_evals.py"], cwd=backend, capture_output=True, text=True, timeout=600)
+print("  " + offline.stdout.strip().splitlines()[-1])
+check(offline.returncode == 0, "offline evals pass")
+live = subprocess.run(["uv", "run", "python", "scripts/run_evals.py", "--live"], cwd=backend, capture_output=True, text=True, timeout=1200)
+for line in live.stdout.strip().splitlines():
+    if line.startswith(("PASS", "FAIL", "skip", "        -", "EVALS")):
+        print("  " + line)
+check(live.returncode == 0, "live evals pass")
+
+print("\n8. Ask: prompt caching + a builder skill")
+cache_thread = f"verify-m11-ask-{uuid.uuid4().hex[:6]}"
+from ai_decision_arena import tools as chat_tools_module  # noqa: E402
+seen: list[dict] = []
+_orig_meter = chat_tools_module._meter
+
+
+def _spy(llm, message, ctx):
+    if message is not None:
+        seen.append(dict(message.usage_metadata or {}))
+    _orig_meter(llm, message, ctx)
+
+
+chat_tools_module._meter = _spy
+if values:
+    "".join(stream_reply(cache_thread, values, [], "In one sentence: what does the app do?"))
+    answer = "".join(stream_reply(cache_thread, values, [], "Write me a ready-to-send change request to add a history "
+                                  "panel that lists the last 10 calculations."))
+    print("  reply:", answer.strip()[:300].replace("\n", " "), "...")
+    reads = [(u.get("input_token_details") or {}).get("cache_read", 0) for u in seen]
+    print(f"  cache reads per model round: {reads}")
+    check(any(r > 0 for r in reads[1:]), "later Ask rounds read the cached system block")
+    used = [r.tool for r in list_tool_calls(cache_thread, source="chat")]
+    print(f"  Ask tools used: {used}")
+    check("load_skill" in used, "Ask loaded a builder skill for the change request")
+    check("Request some change in app" in answer or "Plan a bigger change" in answer, "the answer names the mode to send it with")
+
+# ======================= part 4: knowledge, triggers, metrics page =======================
+print("\n9. knowledge, triggers, metrics")
+from ai_decision_arena.knowledge import search as kb_search  # noqa: E402
+hits = kb_search("why is 0.1 + 0.2 not exact in JavaScript")
+print("  kb:", [(h["id"], h["kind"], h["title"][:50]) for h in hits[:3]])
+check(any(h["kind"] == "curated" and "decimal" in h["title"].lower() for h in hits), "the curated builder doc is found")
+check(not any("medic" in h["title"].lower() or "doctor" in h["title"].lower() for h in hits), "no health doc left")
+trig = httpx.get(f"{API}/api/triggers", timeout=30).json()["triggers"]
+check(len(trig) >= 15, f"GET /api/triggers lists the trigger table ({len(trig)} rows)")
+m = httpx.get(f"{API}/api/metrics", params={"days": 1}, timeout=30).json()
+sources = {t["source"] for t in m["tools"]}
+check({"agent", "sandbox", "search", "chat"} <= sources, f"metrics count tool calls of every source ({sorted(sources)})")
+check(any(t["refused"] for t in m["tools"] if t["source"] == "agent"), "metrics count the denied agent call as refused")
+page = subprocess.run(["node", str(ROOT / "frontend/scripts/shot_tab.mjs"), f"{PAGE}/admin/metrics", "none", "/tmp/verify-m11-metrics.png"],
+                      capture_output=True, text=True, timeout=120)
+check(page.returncode == 0, "metrics page rendered (screenshot /tmp/verify-m11-metrics.png)")
 
 print("\nM11 VERIFY:", "PASS" if not failures else f"FAIL ({len(failures)} check(s) failed)")
 sys.exit(0 if not failures else 1)

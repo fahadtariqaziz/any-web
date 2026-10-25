@@ -29,7 +29,6 @@ Every edge is "guarded": if the state carries an error, the graph goes straight 
 retried here: every LLM call already retries and falls back to a second model (llm.py).
 
 Risk flags never change routing: they are recorded and shown, and the Proposer / Judge take them into account.
-Quick sessions run the SAME nodes with the quick settings (fewer searches, one proposal, no loops); nothing is skipped.
 """
 
 from typing import Callable, Literal

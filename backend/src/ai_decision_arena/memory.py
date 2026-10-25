@@ -1,17 +1,22 @@
-"""Long-term memory (LTM): what the agents remember about a patient from one chat to the next.
+"""Long-term memory (LTM): what the builder remembers about a user from one project to the next (spec §10.6).
 
 Short-term memory is the graph state of ONE session (state.py + the Postgres checkpoint). Long-term memory
 lives in the `user_memories` table and is keyed by user_id: an anonymous random id the browser keeps
-in localStorage and sends as the X-User-Id header (no login, so "same browser = same patient").
+in localStorage and sends as the X-User-Id header (no login, so "same browser = same user").
 
 Written:
-- at the end of every session with a user_id (completion): condition, profile facts and constraints, by
-  Python, no LLM (remember_session);
-- during the chat, when Claude calls the remember_fact tool (tools.py).
+- at the end of every session with a user_id (completion): the project's name, profile facts and constraints, by
+  Python, no LLM (remember_session). Each fact is prefixed with its project ("[project: ...]"), so a later project
+  does not mistake another project's budget or audience for its own (spec: "do not mix unrelated project memories").
+  When the same project completes again (reopened, changed), its earlier session facts are REPLACED: an approved
+  change invalidates what was remembered before;
+- in Ask mode, when Claude calls the remember_fact tool (tools.py): lasting preferences about the user (stack,
+  budget, team), not tied to one project.
 Read:
 - when a session starts (API → state["user_memories"]): intake and clarification see them, so a returning
-  patient is not asked again what they already told us;
-- by the chat agent on every turn (fresh from the database, so facts saved a minute ago are included).
+  user is not asked again what they already told us;
+- by the Ask agent on every turn (fresh from the database, so facts saved a minute ago are included).
+Deleted: "Forget me" (DELETE /api/memories) removes everything of the browser's user id.
 
 Memory is a convenience: a database error never breaks a session or a chat turn, it only means "no memories".
 """
@@ -45,7 +50,7 @@ def load(user_id: str | None) -> list[str]:
 
 
 def remember(user_id: str | None, facts: list[str], source: str, thread_id: str | None = None) -> int:
-    """Save facts (trimmed, de-duplicated). Returns how many were offered; 0 without a patient id."""
+    """Save facts (trimmed, de-duplicated). Returns how many were offered; 0 without a user id."""
     clean = list(dict.fromkeys(f.strip()[:MAX_FACT_CHARS] for f in facts if f and f.strip()))
     if not user_id or not clean:
         return 0
@@ -62,19 +67,26 @@ def forget(user_id: str) -> int:
 
 
 def session_facts(state: ArenaState) -> list[str]:
-    """Stable facts from a finished session, worth knowing next time (no symptoms: they change)."""
-    facts = []
-    if state.get("project_name"):
-        facts.append(f"project: {state['project_name']}")
+    """Stable facts of a finished project, each labelled with the project they belong to."""
+    name = (state.get("project_name") or "unnamed project").strip()[:80]
+    tag = f"[project: {name}]"
+    facts = [f"{tag} built this project" + (f" ({state['project_category']})" if state.get("project_category") else "")]
     for key, value in (state.get("project_profile") or {}).items():
-        facts.append(f"{key}: {value}")
+        facts.append(f"{tag} {key}: {value}")
     for key, value in (state.get("constraints") or {}).items():
-        facts.append(f"{key} (constraint): {value}")
+        facts.append(f"{tag} {key} (constraint): {value}")
     return facts[:MAX_SESSION_FACTS]
 
 
 def remember_session(state: ArenaState, thread_id: str) -> int:
-    return remember(state.get("user_id"), session_facts(state), "onboarding", thread_id)
+    """Replace this project's earlier session facts with the current ones (a reopened project may have changed)."""
+    user_id = state.get("user_id")
+    if user_id and thread_id:
+        try:
+            delete_memories(user_id, thread_id=thread_id, source="onboarding")
+        except Exception:                                # noqa: BLE001 - see module docstring
+            log.exception("could not replace the session facts of %s", thread_id)
+    return remember(user_id, session_facts(state), "onboarding", thread_id)
 
 
 def memories_block(facts: list[str]) -> str:

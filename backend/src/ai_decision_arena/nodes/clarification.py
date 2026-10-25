@@ -37,9 +37,10 @@ the user must answer questions, and write those questions.
 
 FIRST ROUND (no previous answers yet): ask 4-6 short questions so the research and the solution fit THIS project.
 Cover, unless already stated: (1) who the users are and what problem they face today, (2) the main objective or
-outcome the user wants, (3) the must-have features for a first version, (4) platform and constraints (web or mobile,
-technology preferences, budget, timeline, hosting, compliance), (5) existing alternatives they know or use and what
-is wrong with them, (6) how they will judge success. Skip anything already answered.
+outcome the user wants, (3) the must-have features for a first version, (4) the platform (web, mobile, desktop),
+(5) the ONE constraint that matters most for this idea (a technology preference, budget, deadline, hosting or
+compliance: choose one, do not list them), (6) existing alternatives they know or use and what is wrong with them,
+(7) how they will judge success. Pick the most useful within the limit; skip anything already answered.
 
 LATER ROUNDS (at most {max_rounds} rounds in total): ask again ONLY if an answer revealed something that materially
 changes the research or the solution (a different audience, a regulated domain, a platform change, a contradiction
@@ -56,6 +57,8 @@ Rules:
 - At most {max_questions} questions per round, in plain language. ONE question = ONE answer: never pack several
   sub-questions into one. If a topic has several sub-questions, ask only the single most useful one, with example
   answers in brackets.
+- Never join separate topics in one question as a list ("technology, hosting, budget or timeline preferences?"):
+  those are four questions. Ask the one that matters most, or ask them separately within the limit.
 - Questions must be specific to this idea (name the product type, the audience, the feature), never generic.
 - Never ask about something the user already stated or already answered, including facts in
   <remembered_from_earlier_sessions> (a returning user): at most confirm one that matters and may have changed.

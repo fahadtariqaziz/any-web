@@ -1,0 +1,71 @@
+{
+ "prompt": "clarification",
+ "node": "clarification",
+ "modes": [
+  "offline",
+  "live"
+ ],
+ "source": "Handoff section 16 (observation): clarification sometimes packs 'budget, launch date, or existing assets' into one question.",
+ "input": {
+  "state": {
+   "thread_id": "eval",
+   "mode": "full",
+   "question": "A simple calculator web app",
+   "user_context": "",
+   "project_name": "simple calculator web app",
+   "project_category": "web_app",
+   "idea_summary": "The user wants a simple calculator that runs in a web browser.",
+   "project_profile": {},
+   "requested_features": {},
+   "constraints": {},
+   "missing_information": [
+    "target users",
+    "operations needed",
+    "platform / devices"
+   ],
+   "risk_flags": [],
+   "withdrawn_risk_flags": [],
+   "clarification_answers": {},
+   "assumptions": [],
+   "clarification_round_count": 0,
+   "research_retry_count": 0,
+   "debate_round": 0,
+   "unresolved_questions": []
+  }
+ },
+ "checks": [
+  {
+   "on": "request",
+   "check": "contains",
+   "text": "A simple calculator web app",
+   "why": "the user's own words reach the agent"
+  },
+  {
+   "on": "output",
+   "path": "clarification_questions",
+   "check": "len_between",
+   "min": 3,
+   "max": 6,
+   "live_only": true
+  },
+  {
+   "on": "output",
+   "path": "clarification_questions",
+   "check": "each_max_count",
+   "pattern": "\\?",
+   "max": 1,
+   "why": "one question per item",
+   "live_only": true
+  },
+  {
+   "on": "output",
+   "path": "clarification_questions",
+   "check": "llm_judge",
+   "each": true,
+   "expect": false,
+   "live_only": true,
+   "question": "Does this question pack a LIST of three or more separate topics into one question (e.g. 'technology, hosting, budget or timeline preferences?'), so that one answer cannot cover it? One topic with a natural follow-up ('who will use it and what for'), answer options for one topic ('desktop, phone, or both?') or examples in brackets do NOT count.",
+   "why": "one question per topic (no packed topic lists)"
+  }
+ ]
+}

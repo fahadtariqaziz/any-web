@@ -1,0 +1,3 @@
+{"prompt": "implementer", "node": null, "modes": ["offline"],
+ "source": "M11: the coding agent gets skills picked by Python for the project's stack.",
+ "checks": [{"on": "prompt", "prompt": "implementer", "check": "contains", "text": "<skills>"}]}

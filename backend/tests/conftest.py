@@ -31,22 +31,8 @@ from ai_decision_arena.config import get_settings  # noqa: E402
 from ai_decision_arena.pricing import Tokens  # noqa: E402
 from ai_decision_arena.usage import record  # noqa: E402
 
-# Modules that did `from ai_decision_arena.llm import call_structured`: each holds its own reference.
-LLM_USERS = [
-    "ai_decision_arena.nodes.intake",
-    "ai_decision_arena.nodes.clarification",
-    "ai_decision_arena.nodes.proposer",
-    "ai_decision_arena.nodes.critic",
-    "ai_decision_arena.nodes.judge",
-    "ai_decision_arena.nodes.evidence_checker",
-    "ai_decision_arena.nodes.final_report",
-    "ai_decision_arena.nodes.brief_writer",
-    "ai_decision_arena.nodes.brief_validator",
-    "ai_decision_arena.nodes.brief_review",
-    "ai_decision_arena.nodes.planner",
-    "ai_decision_arena.research.planner",
-    "ai_decision_arena.research.extractor",
-]
+# Modules that call call_structured by name (one list for tests, evals and fake_api: evals.LLM_USERS).
+from ai_decision_arena.evals import LLM_USERS  # noqa: E402
 
 PROPOSAL_ID_RE = re.compile(r'<proposal id="(proposal_[a-c])"')
 EVIDENCE_ID_RE = re.compile(r'<item id="(ev_\d+)"')

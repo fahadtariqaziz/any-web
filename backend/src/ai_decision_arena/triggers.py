@@ -1,92 +1,63 @@
-"""Triggers: what starts an agent besides a user typing.
+"""Triggers: what makes the builder act, in one table (spec §10.8 "explicit conditions for transitions"; M11).
 
-1. User triggers (already there): POST /api/decisions starts onboarding, /resume continues it, a chat message
-   starts a chat turn.
-2. Scheduled trigger (this module): a background scheduler inside the API process looks every
-   CHECK_IN_INTERVAL_SECONDS for project chats that have been quiet for CHECK_IN_QUIET_HOURS and lets the
-   chat agent write ONE short check-in ("How did the night-shift meals go?"). It shows up in the chat as a
-   normal assistant message (kind "check_in"). A chat whose last message is already a check-in is skipped.
-3. Manual trigger: POST /api/triggers/check-ins runs the same job now (for testing: quiet_hours=0).
-4. Event trigger: a finished session (completion) saves its evidence to the knowledge base and its facts to
-   long-term memory (db/repository.py, memory.py).
-
-Cost guardrail: at most CHECK_IN_MAX_PER_RUN check-ins per run. CHECK_INS_ENABLED=false turns the scheduler off.
+`TRIGGERS` lists every event → condition → action of the platform and where it is implemented. The graph's own
+transitions are decided by pure-Python route functions (graph.py) on the checkpointed state, never by an LLM alone;
+the human pauses are interrupts (section 5 of handoff.md). Two triggers run without a user:
+- the idle-preview stop: a thread in the API process (workspace/processes.IdleStopper) stops dev servers nobody
+  looked at for PREVIEW_IDLE_MINUTES; `run_idle_previews()` runs the same job on demand (POST /api/triggers/idle-previews);
+- startup reconcile: the API adopts dev servers that survived a restart and kills sandbox commands whose owner died.
+(The health app's scheduled "check-in" chat messages were retired in M11: an app builder has no reason to message
+a quiet user.)
 """
 
 import logging
-import threading
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-
-from ai_decision_arena.api.runner import graph_config
-from ai_decision_arena.chat import SYSTEM_PROMPT, build_context
 from ai_decision_arena.config import get_settings
-from ai_decision_arena.db.repository import add_chat_message, list_chat_messages, quiet_chats
-from ai_decision_arena.llm import get_llm
 
 log = logging.getLogger(__name__)
 
-CHECK_IN_TOKENS = 300
-CHECK_IN_INSTRUCTION = """(System trigger, not a message from the user.) The user has not written for a while.
-Write ONE short, warm check-in message to them (2-3 sentences): refer to something specific from your conversation or
-their plan (a meal idea, a habit they wanted to try, a question for their doctor), ask how it is going, and invite
-them to share. No new advice, no lists, no disclaimers, no tools."""
+TRIGGERS: list[dict] = [
+    {"event": "new prompt", "condition": "it describes an app / website (intake)", "action": "clarification",
+     "where": "POST /api/decisions → intake → route_after_clarification"},
+    {"event": "clarification decided", "condition": "material requirements missing, rounds left (≤ 3)",
+     "action": "pause for answers", "where": "clarification → await_clarification"},
+    {"event": "requirements clear", "condition": "no question left or rounds used", "action": "research (3 domains)",
+     "where": "route_after_clarification"},
+    {"event": "research done", "condition": "always", "action": "proposer → critic → judge", "where": "graph edges"},
+    {"event": "judge verdict", "condition": "more research / clarification asked AND loops_allowed (rounds, time, "
+     "LLM budget)", "action": "research or clarification, else evidence check", "where": "route_after_judge, limits.py"},
+    {"event": "evidence checked", "condition": "material gap AND loops_allowed", "action": "research, else brief",
+     "where": "route_after_evidence_checker"},
+    {"event": "brief validated", "condition": "revise ≤ max_brief_revisions / clarify if loops allowed / approve",
+     "action": "rewrite, clarification, or pause for review", "where": "route_after_brief_validator"},
+    {"event": "brief review reply", "condition": "approve (hash of the reviewed text) / change + target "
+     "(wording-only once built or after max_review_rounds)", "action": "planner, or the target node",
+     "where": "await_brief_review → brief_review_router"},
+    {"event": "plan review reply", "condition": "approve (plan AND brief hashes) / change (≤ max_plan_revisions)",
+     "action": "implementer, or planner", "where": "plan_review_router, route_after_plan_review"},
+    {"event": "task attempt finished", "condition": "tasks pending AND agent budget left", "action": "next task, "
+     "else build check", "where": "route_after_implementer"},
+    {"event": "build check failed", "condition": "fix rounds left AND agent budget left", "action": "fix task F<n>, "
+     "else preview anyway", "where": "route_after_build_check"},
+    {"event": "build check done", "condition": "always", "action": "(re)start the preview, pause for changes",
+     "where": "preview → await_change_request"},
+    {"event": "change pause reply", "condition": "change (≤ max_change_requests) / replan / finish",
+     "action": "task C<n> / brief first then plan extension / completion", "where": "change_request_router"},
+    {"event": "reopen", "condition": "finished AND built", "action": "same as a change pause reply",
+     "where": "POST /resume {type: reopen}"},
+    {"event": "node raised", "condition": "any error stored", "action": "completion (failed)", "where": "guarded edges"},
+    {"event": "interrupted run (restart)", "condition": "checkpoint has a next node", "action": "resume without "
+     "repeating finished steps", "where": "POST /resume {type: continue}"},
+    {"event": "preview idle", "condition": f"no GET /preview for preview_idle_minutes", "action": "stop the dev server",
+     "where": "IdleStopper thread / POST /api/triggers/idle-previews"},
+    {"event": "API start", "condition": "always", "action": "adopt live dev servers, kill orphaned commands",
+     "where": "ProcessManager.reconcile (lifespan)"},
+]
 
 
-def write_check_in(graph, thread_id: str) -> str | None:
-    """One check-in for one chat. Returns the text, or None if the chat has no report (nothing to refer to)."""
-    state = graph.get_state(graph_config(thread_id)).values or {}
-    if not state.get("final_report"):
-        return None
-    history = [m for m in list_chat_messages(thread_id)][-10:]
-    messages = [SystemMessage(content=SYSTEM_PROMPT.replace("{context}", build_context(state)))]
-    # The conversation must start with a user turn: the onboarding summary stands in for it (it is in the context).
-    messages.append(HumanMessage(content="(Onboarding finished; the summary above was shown to the user.)"))
-    for m in history:
-        messages.append(HumanMessage(content=m.content) if m.role == "user" else AIMessage(content=m.content))
-    messages.append(HumanMessage(content=CHECK_IN_INSTRUCTION))
-    llm = get_llm(CHECK_IN_TOKENS, model=get_settings().chat_model)
-    text = llm.invoke(messages, config={"run_name": "check_in_trigger", "metadata": {"thread_id": thread_id}}).text.strip()
-    if text:
-        add_chat_message(thread_id, "assistant", text, kind="check_in")
-    return text or None
-
-
-def run_check_ins(graph, quiet_hours: float | None = None, thread_id: str | None = None) -> list[str]:
-    """Write check-ins for quiet chats (or for one given chat). Returns the thread ids that got one."""
-    settings = get_settings()
-    if thread_id:
-        candidates = [thread_id]
-    else:
-        hours = settings.check_in_quiet_hours if quiet_hours is None else quiet_hours
-        candidates = quiet_chats(hours, settings.check_in_max_per_run)
-    done = []
-    for tid in candidates:
-        try:
-            if write_check_in(graph, tid):
-                done.append(tid)
-        except Exception:                                # noqa: BLE001 - one bad chat must not stop the others
-            log.exception("check-in failed for %s", tid)
-    if done:
-        log.info("check-ins written: %s", done)
-    return done
-
-
-class CheckInScheduler:
-    """A daemon thread: run_check_ins every interval until stop(). Event.wait() = a sleep that stop() can cut short."""
-
-    def __init__(self, graph):
-        self.graph = graph
-        self._stop = threading.Event()
-        self._thread = threading.Thread(target=self._loop, name="check-in-scheduler", daemon=True)
-
-    def start(self) -> None:
-        self._thread.start()
-
-    def stop(self) -> None:
-        self._stop.set()
-
-    def _loop(self) -> None:
-        interval = get_settings().check_in_interval_seconds
-        while not self._stop.wait(interval):             # first run after one interval, not at startup
-            run_check_ins(self.graph)
+def run_idle_previews(manager, idle_minutes: float | None = None) -> list[str]:
+    """Stop the previews idle for `idle_minutes` (default PREVIEW_IDLE_MINUTES) now; returns their session ids."""
+    stopped = manager.stop_idle(idle_minutes if idle_minutes is not None else get_settings().preview_idle_minutes)
+    if stopped:
+        log.info("idle previews stopped on demand: %s", stopped)
+    return stopped

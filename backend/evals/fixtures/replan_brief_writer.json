@@ -1,0 +1,1634 @@
+{
+ "active_seconds": 0.697,
+ "assumptions": [
+  "Assumed a web app without user accounts."
+ ],
+ "brief": {
+  "architecture": {
+   "components": [
+    {
+     "name": "Frontend",
+     "responsibility": "UI and storage."
+    }
+   ],
+   "data_flow": "Everything stays in the browser.",
+   "key_decisions": [
+    {
+     "evidence_ids": [],
+     "label": "recommendation",
+     "text": "No backend in the first version."
+    }
+   ],
+   "overview": {
+    "evidence_ids": [],
+    "label": "recommendation",
+    "text": "A static single-page app storing data in the browser."
+   },
+   "technologies": [
+    {
+     "evidence_ids": [],
+     "label": "recommendation",
+     "name": "Next.js",
+     "purpose": "UI framework.",
+     "required_by_user": false
+    }
+   ]
+  },
+  "constraints_and_risks": {
+   "assumptions": [
+    "No accounts."
+   ],
+   "constraints": [],
+   "risks": [
+    {
+     "category": "operational",
+     "evidence_ids": [],
+     "mitigation": "Export button.",
+     "risk": "Data loss when the browser is cleared."
+    }
+   ],
+   "unresolved_questions": [
+    "Is mobile needed?"
+   ]
+  },
+  "generated_at": "2026-10-25T11:11:35.070406Z",
+  "problem_statement": {
+   "consequences": [
+    {
+     "evidence_ids": [],
+     "label": "assumption",
+     "text": "Habits are abandoned."
+    }
+   ],
+   "current_alternatives": [
+    {
+     "evidence_ids": [
+      "ev_001"
+     ],
+     "label": "research_backed",
+     "text": "Generic habit apps with sync problems."
+    }
+   ],
+   "gap": {
+    "evidence_ids": [
+     "ev_001"
+    ],
+    "label": "research_backed",
+    "text": "No simple offline option."
+   },
+   "indicators": [],
+   "statement": {
+    "evidence_ids": [
+     "ev_001"
+    ],
+    "label": "research_backed",
+    "text": "Students lose track of daily habits."
+   },
+   "who_and_context": {
+    "evidence_ids": [],
+    "label": "user_provided",
+    "text": "Students with irregular schedules."
+   }
+  },
+  "project_name": "a simple calculator web app",
+  "project_overview": {
+   "audience": [
+    {
+     "evidence_ids": [],
+     "label": "user_provided",
+     "text": "University students"
+    }
+   ],
+   "context": {
+    "evidence_ids": [],
+    "label": "assumption",
+    "text": "Self-organisation during term time."
+   },
+   "description": "A habit tracker for students.",
+   "proposed_name": ""
+  },
+  "proposed_solution": {
+   "future_enhancements": [
+    "sharing"
+   ],
+   "how_it_addresses_problem": {
+    "evidence_ids": [],
+    "label": "recommendation",
+    "text": "An offline-first tracker removes the sync failure."
+   },
+   "mvp_features": [
+    "track habits",
+    "daily reminder",
+    "streaks"
+   ],
+   "user_journey": [
+    "open the app",
+    "tick a habit",
+    "see the streak"
+   ],
+   "why_this_approach": [
+    {
+     "evidence_ids": [],
+     "label": "recommendation",
+     "text": "Simpler than the alternatives."
+    }
+   ]
+  },
+  "references": [
+   {
+    "cited_in": [
+     "problem_statement",
+     "research_findings"
+    ],
+    "domain": "apps",
+    "evidence_id": "ev_001",
+    "number": 1,
+    "source_type": "review_site",
+    "title": "apps source 0-0",
+    "url": "https://example.org/apps/0/0",
+    "verification_status": "verified"
+   }
+  ],
+  "requirements": {
+   "acceptance_criteria": [
+    "Ticking a habit updates the streak."
+   ],
+   "functional": [
+    {
+     "evidence_ids": [],
+     "label": "user_provided",
+     "text": "Users can add and tick habits."
+    }
+   ],
+   "integrations_and_data": [],
+   "non_functional": [
+    {
+     "category": "reliability",
+     "evidence_ids": [],
+     "label": "recommendation",
+     "text": "Works offline."
+    }
+   ],
+   "user_roles": []
+  },
+  "research_findings": {
+   "apps_and_feedback": [
+    {
+     "evidence_ids": [
+      "ev_001"
+     ],
+     "label": "research_backed",
+     "text": "Users complain about sync."
+    }
+   ],
+   "evidence_gaps": [
+    "pricing"
+   ],
+   "feasibility_and_implementations": [
+    {
+     "evidence_ids": [
+      "ev_001"
+     ],
+     "label": "research_backed",
+     "text": "Static web apps can work offline."
+    }
+   ],
+   "limitations_and_opportunity": [
+    {
+     "evidence_ids": [
+      "ev_001"
+     ],
+     "label": "research_backed",
+     "text": "Offline-first is underserved."
+    }
+   ],
+   "papers_and_literature": []
+  },
+  "revision": 0,
+  "scope": {
+   "deliverables": [
+    "web app"
+   ],
+   "dependencies": [],
+   "in_scope": [
+    "habit tracking"
+   ],
+   "out_of_scope": [
+    "accounts"
+   ]
+  },
+  "success_criteria": [
+   {
+    "basis": "none",
+    "evaluation_method": "Local usage counter.",
+    "evidence_ids": [],
+    "metric": "Habits ticked per week",
+    "target": null
+   }
+  ]
+ },
+ "brief_approved_at": null,
+ "brief_approved_hash": null,
+ "brief_feedback": [
+  {
+   "action": "approve",
+   "at": "2026-10-25T11:11:35+00:00",
+   "feedback": "",
+   "round": 1,
+   "target": "auto"
+  },
+  {
+   "action": "request_changes",
+   "at": "2026-10-25T11:11:35+00:00",
+   "feedback": "Make it a scientific calculator as well: sin, cos, tan, log, ln, square root, powers.",
+   "round": 1,
+   "source": "change_request",
+   "target": "wording"
+  }
+ ],
+ "brief_markdown": "# A simple calculator web app\n*Problem statement and solution brief \u00b7 draft 1 \u00b7 2026-10-25*\n\n> Each statement says where it comes from: **verified** (checked against its source) \u00b7 **research** (from the research) \u00b7 **you said** \u00b7 **recommended** (our recommendation) \u00b7 **assumption** (not confirmed). Numbers link to the references.\n\n## 1. Project overview\nA habit tracker for students.\n\n- **Users:** University students _(you said)_\n- **Context:** Self-organisation during term time. _(assumption)_\n\n## 2. Problem statement\nStudents lose track of daily habits. _(research [[1]](https://example.org/apps/0/0))_\n\n- **Who and where:** Students with irregular schedules. _(you said)_\n- **Today:** Generic habit apps with sync problems. _(research [[1]](https://example.org/apps/0/0))_\n- **Gap:** No simple offline option. _(research [[1]](https://example.org/apps/0/0))_\n- **If unresolved:** Habits are abandoned. _(assumption)_\n\n## 3. Research findings and evidence\n\n**Existing apps and user feedback**\n\n- Users complain about sync. _(research [[1]](https://example.org/apps/0/0))_\n\n**Papers and technical literature**\n\n- No usable evidence found in this domain.\n\n**Feasibility and implementations**\n\n- Static web apps can work offline. _(research [[1]](https://example.org/apps/0/0))_\n\n**Limitations of existing solutions and the opportunity**\n\n- Offline-first is underserved. _(research [[1]](https://example.org/apps/0/0))_\n\n**Evidence gaps:** pricing\n\n## 4. Proposed solution\nAn offline-first tracker removes the sync failure. _(recommended)_\n\n- **First version (MVP):** track habits \u00b7 daily reminder \u00b7 streaks\n- **Later:** sharing\n- **User journey:** open the app \u2192 tick a habit \u2192 see the streak\n- **Why this approach:** Simpler than the alternatives. _(recommended)_\n\n## 5. Functional and non-functional requirements\n\n**Functional**\n\n- Users can add and tick habits. _(you said)_\n\n**Non-functional**\n\n- Reliability: Works offline. _(recommended)_\n\n**Acceptance criteria**\n\n- Ticking a habit updates the streak.\n\n## 6. Proposed architecture and technology\nA static single-page app storing data in the browser. _(recommended)_\n\n- **Frontend:** UI and storage.\n- **Data flow:** Everything stays in the browser.\n- **Technology:** Next.js (recommended): UI framework. _(recommended)_\n- **Decision:** No backend in the first version. _(recommended)_\n\n## 7. Scope and deliverables\n- **In scope:** habit tracking\n- **Out of scope:** accounts\n- **Deliverables:** web app\n\n## 8. Success criteria\n\n| Outcome | Target | How it is measured |\n|---|---|---|\n| Habits ticked per week | no target yet (no baseline) | Local usage counter. |\n\n## 9. Constraints, assumptions and risks\n- **Assumption:** No accounts.\n- **Open question:** Is mobile needed?\n- **Risk (operational):** Data loss when the browser is cleared. **Mitigation:** Export button.\n\n## 10. References\n1. [apps source 0-0](https://example.org/apps/0/0) \u00b7 Existing apps and user feedback \u00b7 verified\n\n_Statements marked verified or research cite these sources; statements marked recommended or assumption are the agents' judgement, not sourced facts._\n\n---\n## Appendix\n\n### B. Alternatives considered\n- **Differentiated product** (score 6.0/10): A solution.\n",
+ "brief_review_round_count": 0,
+ "brief_review_route": "wording",
+ "brief_revision_count": 0,
+ "brief_validation": {
+  "brief_generated_at": "2026-10-25T11:11:35.070406Z",
+  "checks": [
+   {
+    "check_id": "det_known_evidence_ids",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "deterministic"
+   },
+   {
+    "check_id": "det_cited_labels_have_evidence",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "deterministic"
+   },
+   {
+    "check_id": "det_targets_have_basis",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "deterministic"
+   },
+   {
+    "check_id": "det_sections_present",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "deterministic"
+   },
+   {
+    "check_id": "det_no_unknown_urls",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "deterministic"
+   },
+   {
+    "check_id": "det_word_budget",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "deterministic"
+   },
+   {
+    "check_id": "problem_clear_and_consistent",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "llm"
+   },
+   {
+    "check_id": "solution_not_a_copy",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "llm"
+   },
+   {
+    "check_id": "recommendations_supported",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "llm"
+   },
+   {
+    "check_id": "technically_plausible",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "llm"
+   },
+   {
+    "check_id": "scope_separates_mvp",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "llm"
+   },
+   {
+    "check_id": "success_criteria_measurable",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "llm"
+   },
+   {
+    "check_id": "risks_and_questions_disclosed",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "llm"
+   },
+   {
+    "check_id": "claims_have_sources",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "llm"
+   },
+   {
+    "check_id": "concise_consistent_readable",
+    "fix_instruction": "",
+    "issue": "",
+    "passed": true,
+    "severity": "low",
+    "source": "llm"
+   }
+  ],
+  "clarification_questions": [],
+  "llm_summary": "Good brief.",
+  "open_issues": [],
+  "reason": "The brief passed validation.",
+  "revision": 0,
+  "validated_at": "2026-10-25T11:11:35.071485Z",
+  "verdict": "approve",
+  "word_budget": 900,
+  "word_count": 256
+ },
+ "build_fix_round": 0,
+ "build_results": {
+  "at": "2026-10-25T11:11:35+00:00",
+  "passed": true,
+  "round": 2,
+  "steps": [
+   {
+    "command": "ls package.json",
+    "exit_code": 0,
+    "ok": true,
+    "output": "package.json",
+    "phase": "test",
+    "summary": "exit 0 in 0.0s"
+   }
+  ]
+ },
+ "change_requests": [
+  {
+   "action": "change",
+   "at": "2026-10-25T11:11:35+00:00",
+   "request": "Add a percent key (%): 430 - 20% = 344 and 430 + 20% = 516.",
+   "round": 1
+  },
+  {
+   "action": "replan",
+   "at": "2026-10-25T11:11:35+00:00",
+   "request": "Make it a scientific calculator as well: sin, cos, tan, log, ln, square root, powers.",
+   "round": 2
+  }
+ ],
+ "change_route": "replan",
+ "checker_verdict": {
+  "claims_checked": 1,
+  "decision": "proceed",
+  "material_gaps": [],
+  "reason": "All material claims are supported.",
+  "summary": "Well supported."
+ },
+ "clarification_answers": {
+  "Which features must the first version have?": "Keep it simple: a browser calculator for everyone.",
+  "Who are the main users of this app?": "Keep it simple: a browser calculator for everyone."
+ },
+ "clarification_questions": [],
+ "clarification_reason": "enough information",
+ "clarification_round_count": 1,
+ "conflicting_claims": [],
+ "constraints": {},
+ "criticisms": [
+  {
+   "overall_assessment": "Reasonable.",
+   "points": [
+    {
+     "basis": "engineering_judgement",
+     "category": "missing_consideration",
+     "evidence_ids": [],
+     "is_verified_problem": false,
+     "issue": "No onboarding step.",
+     "severity": "low",
+     "suggested_improvement": "Add a first-run guide."
+    }
+   ],
+   "proposal_id": "proposal_a"
+  },
+  {
+   "overall_assessment": "Reasonable.",
+   "points": [
+    {
+     "basis": "engineering_judgement",
+     "category": "missing_consideration",
+     "evidence_ids": [],
+     "is_verified_problem": false,
+     "issue": "No onboarding step.",
+     "severity": "low",
+     "suggested_improvement": "Add a first-run guide."
+    }
+   ],
+   "proposal_id": "proposal_b"
+  }
+ ],
+ "current_node": "change_request_router",
+ "current_task_id": "C1",
+ "debate_round": 1,
+ "domain_summaries": {
+  "apps": "What this domain says.\nOpportunity: Nobody does offline well.",
+  "papers": "What this domain says.\nOpportunity: Nobody does offline well.",
+  "tech": "What this domain says.\nOpportunity: Nobody does offline well."
+ },
+ "evidence": [
+  {
+   "claims_supported": [
+    "claim 0"
+   ],
+   "domain": "apps",
+   "evidence_id": "ev_001",
+   "evidence_strength": "unknown",
+   "feedback_context": {
+    "context": "",
+    "experience_described": "sync keeps failing",
+    "feedback_type": "complaint",
+    "is_recurring": false,
+    "product": "SomeApp",
+    "relevant_to_idea": true
+   },
+   "is_direct_quote": false,
+   "limitations": [],
+   "published_at": null,
+   "relevance_score": 0.8,
+   "relevant_excerpt": "Paraphrased finding from source 0.",
+   "reliability_notes": "test source",
+   "retrieved_at": "2026-10-25T11:11:35.065275Z",
+   "sentiment": "negative",
+   "source_title": "apps source 0-0",
+   "source_type": "review_site",
+   "source_url": "https://example.org/apps/0/0",
+   "verification_status": "verified"
+  },
+  {
+   "claims_supported": [
+    "claim 1"
+   ],
+   "domain": "apps",
+   "evidence_id": "ev_002",
+   "evidence_strength": "unknown",
+   "feedback_context": {
+    "context": "",
+    "experience_described": "sync keeps failing",
+    "feedback_type": "complaint",
+    "is_recurring": false,
+    "product": "SomeApp",
+    "relevant_to_idea": true
+   },
+   "is_direct_quote": false,
+   "limitations": [],
+   "published_at": null,
+   "relevance_score": 0.8,
+   "relevant_excerpt": "Paraphrased finding from source 1.",
+   "reliability_notes": "test source",
+   "retrieved_at": "2026-10-25T11:11:35.065275Z",
+   "sentiment": "negative",
+   "source_title": "apps source 0-1",
+   "source_type": "review_site",
+   "source_url": "https://example.org/apps/0/1",
+   "verification_status": "pending"
+  },
+  {
+   "claims_supported": [
+    "claim 0"
+   ],
+   "domain": "papers",
+   "evidence_id": "ev_003",
+   "evidence_strength": "unknown",
+   "feedback_context": null,
+   "is_direct_quote": false,
+   "limitations": [],
+   "published_at": null,
+   "relevance_score": 0.8,
+   "relevant_excerpt": "Paraphrased finding from source 0.",
+   "reliability_notes": "test source",
+   "retrieved_at": "2026-10-25T11:11:35.065275Z",
+   "sentiment": null,
+   "source_title": "papers source 1-0",
+   "source_type": "research_paper",
+   "source_url": "https://example.org/papers/1/0",
+   "verification_status": "pending"
+  },
+  {
+   "claims_supported": [
+    "claim 1"
+   ],
+   "domain": "papers",
+   "evidence_id": "ev_004",
+   "evidence_strength": "unknown",
+   "feedback_context": null,
+   "is_direct_quote": false,
+   "limitations": [],
+   "published_at": null,
+   "relevance_score": 0.8,
+   "relevant_excerpt": "Paraphrased finding from source 1.",
+   "reliability_notes": "test source",
+   "retrieved_at": "2026-10-25T11:11:35.065275Z",
+   "sentiment": null,
+   "source_title": "papers source 1-1",
+   "source_type": "research_paper",
+   "source_url": "https://example.org/papers/1/1",
+   "verification_status": "pending"
+  },
+  {
+   "claims_supported": [
+    "claim 0"
+   ],
+   "domain": "tech",
+   "evidence_id": "ev_005",
+   "evidence_strength": "unknown",
+   "feedback_context": null,
+   "is_direct_quote": false,
+   "limitations": [],
+   "published_at": null,
+   "relevance_score": 0.8,
+   "relevant_excerpt": "Paraphrased finding from source 0.",
+   "reliability_notes": "test source",
+   "retrieved_at": "2026-10-25T11:11:35.065275Z",
+   "sentiment": null,
+   "source_title": "tech source 2-0",
+   "source_type": "source_repository",
+   "source_url": "https://example.org/tech/2/0",
+   "verification_status": "pending"
+  },
+  {
+   "claims_supported": [
+    "claim 1"
+   ],
+   "domain": "tech",
+   "evidence_id": "ev_006",
+   "evidence_strength": "unknown",
+   "feedback_context": null,
+   "is_direct_quote": false,
+   "limitations": [],
+   "published_at": null,
+   "relevance_score": 0.8,
+   "relevant_excerpt": "Paraphrased finding from source 1.",
+   "reliability_notes": "test source",
+   "retrieved_at": "2026-10-25T11:11:35.065275Z",
+   "sentiment": null,
+   "source_title": "tech source 2-1",
+   "source_type": "source_repository",
+   "source_url": "https://example.org/tech/2/1",
+   "verification_status": "pending"
+  }
+ ],
+ "evidence_gaps": [],
+ "final_report": {
+  "alternatives": [
+   {
+    "critic_key_objections": [
+     "[low/missing_consideration] No onboarding step."
+    ],
+    "is_winner": false,
+    "key_evidence": [
+     {
+      "evidence_id": "ev_001",
+      "title": "apps source 0-0",
+      "url": "https://example.org/apps/0/0",
+      "verification_status": "verified"
+     }
+    ],
+    "proposal": {
+     "architecture": {
+      "ai_components": "none",
+      "backend": "none (static)",
+      "database": "localStorage",
+      "external_services": [],
+      "frontend": "Next.js"
+     },
+     "assumptions": [],
+     "benefits": [
+      "simple"
+     ],
+     "core_features": [
+      "track habits",
+      "daily reminder"
+     ],
+     "difficulty": "low",
+     "drawbacks_risks": [
+      "no sync"
+     ],
+     "evidence_gaps": [],
+     "feasibility_notes": "Feasible.",
+     "future_features": [
+      "sharing"
+     ],
+     "how_it_beats_alternatives": "Works offline.",
+     "name": "Differentiated product",
+     "problem_addressed": "Students lose track of their habits.",
+     "proposal_id": "proposal_b",
+     "round": 1,
+     "security_privacy_notes": "none needed",
+     "summary": "A solution.",
+     "supporting_evidence_ids": [
+      "ev_001"
+     ],
+     "target_users": "students",
+     "technologies": [
+      "Next.js (user prefers it)"
+     ],
+     "user_journey": [
+      "open the app",
+      "tick a habit"
+     ]
+    },
+    "score": {
+     "confidence": "medium",
+     "confidence_reason": "test",
+     "criterion_scores": [
+      {
+       "criterion": "requirements_alignment",
+       "explanation": "test",
+       "score": 6.0
+      },
+      {
+       "criterion": "problem_relevance",
+       "explanation": "test",
+       "score": 6.0
+      },
+      {
+       "criterion": "evidence_quality",
+       "explanation": "test",
+       "score": 6.0
+      },
+      {
+       "criterion": "feasibility",
+       "explanation": "test",
+       "score": 6.0
+      },
+      {
+       "criterion": "completeness",
+       "explanation": "test",
+       "score": 6.0
+      }
+     ],
+     "key_benefits": [
+      "simple"
+     ],
+     "key_drawbacks": [
+      "no sync"
+     ],
+     "proposal_id": "proposal_b",
+     "remaining_risks": [],
+     "supporting_evidence_ids": [],
+     "weighted_total": 6.0
+    },
+    "verification_counts": {},
+    "verification_notes": []
+   }
+  ],
+  "assumptions": [
+   "Assumed a web app without user accounts."
+  ],
+  "clarifications": {
+   "Which features must the first version have?": "Keep it simple: a browser calculator for everyone.",
+   "Who are the main users of this app?": "Keep it simple: a browser calculator for everyone."
+  },
+  "confirmed_profile": {
+   "audience": "university students"
+  },
+  "constraints": {},
+  "disclaimer": "This report summarises web research retrieved automatically: existing products and their users' feedback, papers and technical literature, and technical documentation and repositories. Claims are labelled by how well their sources support them. It is a starting point for planning, not a guarantee of feasibility or demand.",
+  "generated_at": "2026-10-25T11:11:35.068954Z",
+  "is_conditional": false,
+  "next_steps": [
+   "Confirm the platform."
+  ],
+  "no_winner_reason": "",
+  "original_question": "A simple calculator web app",
+  "overview": "Overview.",
+  "project_name": "a simple calculator web app",
+  "requested_features": {},
+  "research_methodology": "3 web searches in three domains (existing apps and user feedback, research papers, technical feasibility) over 1 research pass(es); 6 sources kept (2 apps, 2 papers, 2 tech), 0 rejected with a stated reason. 1 debate round(s): a Proposer designed solutions from the evidence, a Critic challenged each against all evidence, and a Judge scored them on a weighted rubric; the best proposal was kept. 1 factual claim(s) of the winning proposal were checked against their cited evidence.",
+  "risk_flags": [],
+  "uncertainties": [],
+  "unresolved_questions": [],
+  "unsupported_claims": [],
+  "why_this_solution": [
+   "works offline"
+  ],
+  "winner": {
+   "critic_key_objections": [
+    "[low/missing_consideration] No onboarding step."
+   ],
+   "is_winner": true,
+   "key_evidence": [
+    {
+     "evidence_id": "ev_001",
+     "title": "apps source 0-0",
+     "url": "https://example.org/apps/0/0",
+     "verification_status": "verified"
+    }
+   ],
+   "proposal": {
+    "architecture": {
+     "ai_components": "none",
+     "backend": "none (static)",
+     "database": "localStorage",
+     "external_services": [],
+     "frontend": "Next.js"
+    },
+    "assumptions": [],
+    "benefits": [
+     "simple"
+    ],
+    "core_features": [
+     "track habits",
+     "daily reminder"
+    ],
+    "difficulty": "low",
+    "drawbacks_risks": [
+     "no sync"
+    ],
+    "evidence_gaps": [],
+    "feasibility_notes": "Feasible.",
+    "future_features": [
+     "sharing"
+    ],
+    "how_it_beats_alternatives": "Works offline.",
+    "name": "Lean first version",
+    "problem_addressed": "Students lose track of their habits.",
+    "proposal_id": "proposal_a",
+    "round": 1,
+    "security_privacy_notes": "none needed",
+    "summary": "A solution.",
+    "supporting_evidence_ids": [
+     "ev_001"
+    ],
+    "target_users": "students",
+    "technologies": [
+     "Next.js (user prefers it)"
+    ],
+    "user_journey": [
+     "open the app",
+     "tick a habit"
+    ]
+   },
+   "score": {
+    "confidence": "medium",
+    "confidence_reason": "test",
+    "criterion_scores": [
+     {
+      "criterion": "requirements_alignment",
+      "explanation": "test",
+      "score": 8.0
+     },
+     {
+      "criterion": "problem_relevance",
+      "explanation": "test",
+      "score": 8.0
+     },
+     {
+      "criterion": "evidence_quality",
+      "explanation": "test",
+      "score": 8.0
+     },
+     {
+      "criterion": "feasibility",
+      "explanation": "test",
+      "score": 8.0
+     },
+     {
+      "criterion": "completeness",
+      "explanation": "test",
+      "score": 8.0
+     }
+    ],
+    "key_benefits": [
+     "simple"
+    ],
+    "key_drawbacks": [
+     "no sync"
+    ],
+    "proposal_id": "proposal_a",
+    "remaining_risks": [],
+    "supporting_evidence_ids": [],
+    "weighted_total": 8.0
+   },
+   "verification_counts": {
+    "verified": 1
+   },
+   "verification_notes": [
+    "verified: Users complain about sync."
+   ]
+  },
+  "withdrawn_risk_flags": []
+ },
+ "idea_summary": "The user wrote: A simple calculator web app",
+ "implementation_cost_usd": 0.03,
+ "implementation_log": [
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "attempt": 1,
+   "cost_usd": 0.01,
+   "ok": true,
+   "status": "done",
+   "summary": "verify 1/1",
+   "task_id": "T1"
+  },
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "attempt": 1,
+   "cost_usd": 0.01,
+   "ok": true,
+   "status": "done",
+   "summary": "verify 1/1",
+   "task_id": "T2"
+  },
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "attempt": 1,
+   "cost_usd": 0.01,
+   "ok": true,
+   "status": "done",
+   "summary": "verify 1/1",
+   "task_id": "C1"
+  }
+ ],
+ "implementation_plan": {
+  "ai_components": "none",
+  "api_endpoints": [],
+  "architecture": "One page, local storage.",
+  "backend_services": [],
+  "commands": {
+   "build": [],
+   "dev": "python3 -m http.server {port} --bind 127.0.0.1",
+   "install": [],
+   "test": [
+    "ls package.json"
+   ]
+  },
+  "data_model": "localStorage: habits[]",
+  "dependencies": [
+   "vitest: tests"
+  ],
+  "feature_coverage": [
+   {
+    "feature": "track habits",
+    "task_ids": [
+     "T2"
+    ]
+   },
+   {
+    "feature": "daily reminder",
+    "task_ids": [
+     "T2"
+    ]
+   },
+   {
+    "feature": "streaks",
+    "task_ids": [
+     "T2"
+    ]
+   }
+  ],
+  "frontend_components": [
+   "HabitList: shows habits"
+  ],
+  "integrations": [],
+  "phases": [
+   {
+    "goal": "Project runs.",
+    "id": "P1",
+    "name": "Setup"
+   },
+   {
+    "goal": "MVP works.",
+    "id": "P2",
+    "name": "Features"
+   }
+  ],
+  "project_structure": [
+   "src/main.js: entry"
+  ],
+  "risks_and_decisions": [
+   "localStorage can be cleared"
+  ],
+  "summary": "A static habit tracker.",
+  "tasks": [
+   {
+    "acceptance_criteria": [
+     "npm test passes"
+    ],
+    "depends_on": [],
+    "description": "Vite + vitest.",
+    "files": [
+     "package.json",
+     "src/main.js"
+    ],
+    "id": "T1",
+    "phase": "P1",
+    "title": "Scaffold the project",
+    "verify_commands": [
+     "ls package.json src/main.js"
+    ]
+   },
+   {
+    "acceptance_criteria": [
+     "ticking updates streak"
+    ],
+    "depends_on": [
+     "T1"
+    ],
+    "description": "Add and tick habits.",
+    "files": [
+     "src/habits.js"
+    ],
+    "id": "T2",
+    "phase": "P2",
+    "title": "Habit tracking",
+    "verify_commands": [
+     "ls src/habits.js"
+    ]
+   }
+  ],
+  "tech_stack": [
+   "Vite (fast dev server)"
+  ],
+  "testing_strategy": [
+   "unit tests with vitest"
+  ]
+ },
+ "implementation_tasks": [
+  {
+   "attempts": 1,
+   "depends_on": [],
+   "id": "T1",
+   "phase": "P1",
+   "result": {
+    "agent": {
+     "commands": 0,
+     "cost_usd": 0.01,
+     "denied": [],
+     "error": null,
+     "ok": true,
+     "report": "did T1",
+     "seconds": 0.0,
+     "turns": 3
+    },
+    "attempt": 1,
+    "files_changed": [
+     "package.json",
+     "src/main.js"
+    ],
+    "passed": true,
+    "verify": [
+     {
+      "command": "ls package.json src/main.js",
+      "exit_code": 0,
+      "ok": true,
+      "output": "package.json\nsrc/main.js",
+      "summary": "exit 0 in 0.0s"
+     }
+    ]
+   },
+   "status": "done",
+   "title": "Scaffold the project"
+  },
+  {
+   "attempts": 1,
+   "depends_on": [
+    "T1"
+   ],
+   "id": "T2",
+   "phase": "P2",
+   "result": {
+    "agent": {
+     "commands": 0,
+     "cost_usd": 0.01,
+     "denied": [],
+     "error": null,
+     "ok": true,
+     "report": "did T2",
+     "seconds": 0.0,
+     "turns": 3
+    },
+    "attempt": 1,
+    "files_changed": [
+     "src/habits.js"
+    ],
+    "passed": true,
+    "verify": [
+     {
+      "command": "ls src/habits.js",
+      "exit_code": 0,
+      "ok": true,
+      "output": "src/habits.js",
+      "summary": "exit 0 in 0.0s"
+     }
+    ]
+   },
+   "status": "done",
+   "title": "Habit tracking"
+  },
+  {
+   "attempts": 1,
+   "depends_on": [],
+   "id": "C1",
+   "phase": "change",
+   "result": {
+    "agent": {
+     "commands": 0,
+     "cost_usd": 0.01,
+     "denied": [],
+     "error": null,
+     "ok": true,
+     "report": "did C1",
+     "seconds": 0.0,
+     "turns": 3
+    },
+    "attempt": 1,
+    "files_changed": [],
+    "passed": true,
+    "verify": [
+     {
+      "command": "ls package.json",
+      "exit_code": 0,
+      "ok": true,
+      "output": "package.json",
+      "summary": "exit 0 in 0.0s"
+     }
+    ]
+   },
+   "spec": {
+    "acceptance_criteria": [
+     "Add a percent key (%): 430 - 20% = 344 and 430 + 20% = 516."
+    ],
+    "depends_on": [],
+    "description": "The user asked for this change to the running app. Implement it within the approved brief and plan, keep everything else working, and add or update tests for it.\nUser request: Add a percent key (%): 430 - 20% = 344 and 430 + 20% = 516.",
+    "files": [],
+    "id": "C1",
+    "phase": "change",
+    "title": "Change request 1",
+    "verify_commands": [
+     "ls package.json"
+    ]
+   },
+   "status": "done",
+   "title": "Change request 1"
+  }
+ ],
+ "missing_information": [
+  "target users",
+  "must-have features"
+ ],
+ "mode": "full",
+ "models_used": {
+  "implementer": "claude-sonnet-5-5",
+  "planner": "claude-opus-5-5"
+ },
+ "need_clarification": false,
+ "plan_approved_at": null,
+ "plan_approved_hash": null,
+ "plan_feedback": [
+  {
+   "action": "approve",
+   "at": "2026-10-25T11:11:35+00:00",
+   "feedback": "",
+   "round": 1
+  }
+ ],
+ "plan_markdown": "# Implementation plan: A simple calculator web app\n*Plan version 1 \u00b7 written by claude-opus-5-5 from the approved brief*\n\nA static habit tracker.\n\n## Technology\n\n- Vite (fast dev server)\n\n## Architecture\n\nOne page, local storage.\n\n**Data model:** localStorage: habits[]\n\n**Project structure**\n\n- src/main.js: entry\n\n**Dependencies**\n\n- vitest: tests\n\n**Frontend components**\n\n- HabitList: shows habits\n\n## Phases and tasks\n\n### P1. Setup\n*Project runs.*\n\n**T1. Scaffold the project**\n\nVite + vitest.\n\n- Files: `package.json`, `src/main.js`\n- Done when: npm test passes\n- Verified by: `ls package.json src/main.js`\n\n### P2. Features\n*MVP works.*\n\n**T2. Habit tracking** \u00b7 after T1\n\nAdd and tick habits.\n\n- Files: `src/habits.js`\n- Done when: ticking updates streak\n- Verified by: `ls src/habits.js`\n\n## MVP coverage\n\n| MVP feature (approved brief) | Tasks |\n|---|---|\n| track habits | T2 |\n| daily reminder | T2 |\n| streaks | T2 |\n\n## Testing strategy\n\n- unit tests with vitest\n\n## Commands\n\n- Install: none\n- Test: `ls package.json`\n- Build: none\n- Dev server: `python3 -m http.server {port} --bind 127.0.0.1` (listens on `$PORT`)\n\n## Risks and decisions\n\n- localStorage can be cleared\n",
+ "plan_review_route": null,
+ "plan_revision_count": 0,
+ "preview": {
+  "command": "python3 -m http.server 4101 --bind 127.0.0.1",
+  "last_error": null,
+  "last_seen_at": "2026-10-25T11:11:35.783656Z",
+  "log_path": "/private/var/folders/3v/b1n4vq592vn0x83zllnd7yvh0000gn/T/ai-builder-tests-o8o8q34s/eval-calculator/.builder/logs/dev-server.log",
+  "log_tail": "127.0.0.1 - - [25/Oct/2026 16:11:35] \"GET / HTTP/1.1\" 200 -\n",
+  "pid": 28378,
+  "port": 4101,
+  "process_started_at": 1792926695.514206,
+  "ready_at": "2026-10-25T11:11:35.783656Z",
+  "started_at": "2026-10-25T11:11:35.511899Z",
+  "state": "ready",
+  "stopped_at": null,
+  "thread_id": "eval-calculator",
+  "url": "http://localhost:4101"
+ },
+ "project_category": "other",
+ "project_name": "a simple calculator web app",
+ "project_profile": {
+  "audience": "university students"
+ },
+ "prompt_versions": {
+  "brief_validator": 1,
+  "brief_writer": 1,
+  "builder_rules": 1,
+  "clarification": 1,
+  "critic": 1,
+  "evidence_checker": 1,
+  "extractor": 1,
+  "final_report": 1,
+  "intake": 1,
+  "judge": 1,
+  "planner": 1,
+  "proposer": 1,
+  "research_planner": 1
+ },
+ "proposals": [
+  {
+   "architecture": {
+    "ai_components": "none",
+    "backend": "none (static)",
+    "database": "localStorage",
+    "external_services": [],
+    "frontend": "Next.js"
+   },
+   "assumptions": [],
+   "benefits": [
+    "simple"
+   ],
+   "core_features": [
+    "track habits",
+    "daily reminder"
+   ],
+   "difficulty": "low",
+   "drawbacks_risks": [
+    "no sync"
+   ],
+   "evidence_gaps": [],
+   "feasibility_notes": "Feasible.",
+   "future_features": [
+    "sharing"
+   ],
+   "how_it_beats_alternatives": "Works offline.",
+   "name": "Lean first version",
+   "problem_addressed": "Students lose track of their habits.",
+   "proposal_id": "proposal_a",
+   "round": 1,
+   "security_privacy_notes": "none needed",
+   "summary": "A solution.",
+   "supporting_evidence_ids": [
+    "ev_001"
+   ],
+   "target_users": "students",
+   "technologies": [
+    "Next.js (user prefers it)"
+   ],
+   "user_journey": [
+    "open the app",
+    "tick a habit"
+   ]
+  },
+  {
+   "architecture": {
+    "ai_components": "none",
+    "backend": "none (static)",
+    "database": "localStorage",
+    "external_services": [],
+    "frontend": "Next.js"
+   },
+   "assumptions": [],
+   "benefits": [
+    "simple"
+   ],
+   "core_features": [
+    "track habits",
+    "daily reminder"
+   ],
+   "difficulty": "low",
+   "drawbacks_risks": [
+    "no sync"
+   ],
+   "evidence_gaps": [],
+   "feasibility_notes": "Feasible.",
+   "future_features": [
+    "sharing"
+   ],
+   "how_it_beats_alternatives": "Works offline.",
+   "name": "Differentiated product",
+   "problem_addressed": "Students lose track of their habits.",
+   "proposal_id": "proposal_b",
+   "round": 1,
+   "security_privacy_notes": "none needed",
+   "summary": "A solution.",
+   "supporting_evidence_ids": [
+    "ev_001"
+   ],
+   "target_users": "students",
+   "technologies": [
+    "Next.js (user prefers it)"
+   ],
+   "user_journey": [
+    "open the app",
+    "tick a habit"
+   ]
+  }
+ ],
+ "proposer_notes": "",
+ "proposer_status": "ok",
+ "question": "A simple calculator web app",
+ "rejected_sources": [],
+ "requested_features": {},
+ "research_focus": [],
+ "research_queries": [
+  "[apps] a simple calculator web app reviews complaints",
+  "[papers] a simple calculator web app study approaches",
+  "[tech] a simple calculator web app open source implementation"
+ ],
+ "research_retry_count": 0,
+ "research_summary": "## Existing apps and user feedback (reviews, app stores, forums, product documentation)\nWhat this domain says.\nOpportunity: Nobody does offline well.\n\n## Research papers and technical literature (arXiv, ACM, IEEE, journals, authoritative reports)\nWhat this domain says.\nOpportunity: Nobody does offline well.\n\n## Technical feasibility and implementations (repositories, libraries, frameworks, APIs, official docs)\nWhat this domain says.\nOpportunity: Nobody does offline well.",
+ "risk_flags": [],
+ "scores": [
+  {
+   "confidence": "medium",
+   "confidence_reason": "test",
+   "criterion_scores": [
+    {
+     "criterion": "requirements_alignment",
+     "explanation": "test",
+     "score": 8.0
+    },
+    {
+     "criterion": "problem_relevance",
+     "explanation": "test",
+     "score": 8.0
+    },
+    {
+     "criterion": "evidence_quality",
+     "explanation": "test",
+     "score": 8.0
+    },
+    {
+     "criterion": "feasibility",
+     "explanation": "test",
+     "score": 8.0
+    },
+    {
+     "criterion": "completeness",
+     "explanation": "test",
+     "score": 8.0
+    }
+   ],
+   "key_benefits": [
+    "simple"
+   ],
+   "key_drawbacks": [
+    "no sync"
+   ],
+   "proposal_id": "proposal_a",
+   "remaining_risks": [],
+   "supporting_evidence_ids": [],
+   "weighted_total": 8.0
+  },
+  {
+   "confidence": "medium",
+   "confidence_reason": "test",
+   "criterion_scores": [
+    {
+     "criterion": "requirements_alignment",
+     "explanation": "test",
+     "score": 6.0
+    },
+    {
+     "criterion": "problem_relevance",
+     "explanation": "test",
+     "score": 6.0
+    },
+    {
+     "criterion": "evidence_quality",
+     "explanation": "test",
+     "score": 6.0
+    },
+    {
+     "criterion": "feasibility",
+     "explanation": "test",
+     "score": 6.0
+    },
+    {
+     "criterion": "completeness",
+     "explanation": "test",
+     "score": 6.0
+    }
+   ],
+   "key_benefits": [
+    "simple"
+   ],
+   "key_drawbacks": [
+    "no sync"
+   ],
+   "proposal_id": "proposal_b",
+   "remaining_risks": [],
+   "supporting_evidence_ids": [],
+   "weighted_total": 6.0
+  }
+ ],
+ "started_at": "2026-10-25T11:11:35+00:00",
+ "status": "writing_brief",
+ "unresolved_questions": [],
+ "usage_log": [
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "cache_read_tokens": 0,
+   "cache_write_tokens": 0,
+   "calls": 1,
+   "cost_usd": 0.004,
+   "failed_calls": 0,
+   "input_tokens": 1000,
+   "models": {
+    "claude-sonnet-5-5": 1
+   },
+   "node": "intake",
+   "output_tokens": 200,
+   "prompts": {
+    "builder_rules": 1,
+    "intake": 1
+   },
+   "seconds": 0.0,
+   "unpriced_models": []
+  },
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "cache_read_tokens": 0,
+   "cache_write_tokens": 0,
+   "calls": 1,
+   "cost_usd": 0.004,
+   "failed_calls": 0,
+   "input_tokens": 1000,
+   "models": {
+    "claude-sonnet-5-5": 1
+   },
+   "node": "clarification",
+   "output_tokens": 200,
+   "prompts": {
+    "builder_rules": 1,
+    "clarification": 1
+   },
+   "seconds": 0.0,
+   "unpriced_models": []
+  },
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "cache_read_tokens": 0,
+   "cache_write_tokens": 0,
+   "calls": 1,
+   "cost_usd": 0.004,
+   "failed_calls": 0,
+   "input_tokens": 1000,
+   "models": {
+    "claude-sonnet-5-5": 1
+   },
+   "node": "clarification",
+   "output_tokens": 200,
+   "prompts": {
+    "builder_rules": 1,
+    "clarification": 1
+   },
+   "seconds": 0.0,
+   "unpriced_models": []
+  },
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "cache_read_tokens": 0,
+   "cache_write_tokens": 0,
+   "calls": 4,
+   "cost_usd": 0.016,
+   "failed_calls": 0,
+   "input_tokens": 4000,
+   "models": {
+    "claude-sonnet-5-5": 4
+   },
+   "node": "research",
+   "output_tokens": 800,
+   "prompts": {
+    "builder_rules": 1,
+    "extractor": 1,
+    "research_planner": 1
+   },
+   "seconds": 0.0,
+   "unpriced_models": []
+  },
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "cache_read_tokens": 0,
+   "cache_write_tokens": 0,
+   "calls": 1,
+   "cost_usd": 0.004,
+   "failed_calls": 0,
+   "input_tokens": 1000,
+   "models": {
+    "claude-sonnet-5-5": 1
+   },
+   "node": "proposer",
+   "output_tokens": 200,
+   "prompts": {
+    "builder_rules": 1,
+    "proposer": 1
+   },
+   "seconds": 0.0,
+   "unpriced_models": []
+  },
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "cache_read_tokens": 0,
+   "cache_write_tokens": 0,
+   "calls": 2,
+   "cost_usd": 0.008,
+   "failed_calls": 0,
+   "input_tokens": 2000,
+   "models": {
+    "claude-sonnet-5-5": 2
+   },
+   "node": "critic",
+   "output_tokens": 400,
+   "prompts": {
+    "builder_rules": 1,
+    "critic": 1
+   },
+   "seconds": 0.0,
+   "unpriced_models": []
+  },
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "cache_read_tokens": 0,
+   "cache_write_tokens": 0,
+   "calls": 1,
+   "cost_usd": 0.004,
+   "failed_calls": 0,
+   "input_tokens": 1000,
+   "models": {
+    "claude-sonnet-5-5": 1
+   },
+   "node": "judge",
+   "output_tokens": 200,
+   "prompts": {
+    "builder_rules": 1,
+    "judge": 1
+   },
+   "seconds": 0.0,
+   "unpriced_models": []
+  },
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "cache_read_tokens": 0,
+   "cache_write_tokens": 0,
+   "calls": 1,
+   "cost_usd": 0.004,
+   "failed_calls": 0,
+   "input_tokens": 1000,
+   "models": {
+    "claude-sonnet-5-5": 1
+   },
+   "node": "evidence_checker",
+   "output_tokens": 200,
+   "prompts": {
+    "builder_rules": 1,
+    "evidence_checker": 1
+   },
+   "seconds": 0.0,
+   "unpriced_models": []
+  },
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "cache_read_tokens": 0,
+   "cache_write_tokens": 0,
+   "calls": 1,
+   "cost_usd": 0.004,
+   "failed_calls": 0,
+   "input_tokens": 1000,
+   "models": {
+    "claude-sonnet-5-5": 1
+   },
+   "node": "final_report",
+   "output_tokens": 200,
+   "prompts": {
+    "builder_rules": 1,
+    "final_report": 1
+   },
+   "seconds": 0.0,
+   "unpriced_models": []
+  },
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "cache_read_tokens": 0,
+   "cache_write_tokens": 0,
+   "calls": 3,
+   "cost_usd": 0.012,
+   "failed_calls": 0,
+   "input_tokens": 3000,
+   "models": {
+    "claude-sonnet-5-5": 3
+   },
+   "node": "brief_writer",
+   "output_tokens": 600,
+   "prompts": {
+    "brief_writer": 1,
+    "builder_rules": 1
+   },
+   "seconds": 0.0,
+   "unpriced_models": []
+  },
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "cache_read_tokens": 0,
+   "cache_write_tokens": 0,
+   "calls": 1,
+   "cost_usd": 0.004,
+   "failed_calls": 0,
+   "input_tokens": 1000,
+   "models": {
+    "claude-sonnet-5-5": 1
+   },
+   "node": "brief_validator",
+   "output_tokens": 200,
+   "prompts": {
+    "brief_validator": 1,
+    "builder_rules": 1
+   },
+   "seconds": 0.0,
+   "unpriced_models": []
+  },
+  {
+   "at": "2026-10-25T11:11:35+00:00",
+   "cache_read_tokens": 0,
+   "cache_write_tokens": 0,
+   "calls": 1,
+   "cost_usd": 0.008,
+   "failed_calls": 0,
+   "input_tokens": 1000,
+   "models": {
+    "claude-opus-5-5": 1
+   },
+   "node": "planner",
+   "output_tokens": 200,
+   "prompts": {
+    "builder_rules": 1,
+    "planner": 1
+   },
+   "seconds": 0.0,
+   "unpriced_models": []
+  }
+ ],
+ "user_context": "",
+ "verdict": {
+  "clarification_questions": [],
+  "decision": "proceed",
+  "domain_status": {
+   "apps": "sufficient",
+   "papers": "sufficient",
+   "tech": "sufficient"
+  },
+  "material_contradictions": [],
+  "reason": "A over B.\nA defensible best solution exists (proposal_a).",
+  "required_evidence": [],
+  "winning_proposal_id": "proposal_a"
+ },
+ "verification_results": [
+  {
+   "claim": "Users complain about sync.",
+   "evidence_ids": [
+    "ev_001"
+   ],
+   "is_anecdotal": false,
+   "is_material": false,
+   "notes": "test",
+   "proposal_id": "proposal_a",
+   "status": "verified"
+  }
+ ],
+ "withdrawn_risk_flags": [],
+ "workspace_dir": "/private/var/folders/3v/b1n4vq592vn0x83zllnd7yvh0000gn/T/ai-builder-tests-o8o8q34s/eval-calculator"
+}

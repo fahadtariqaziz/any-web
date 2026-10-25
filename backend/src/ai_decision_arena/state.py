@@ -17,8 +17,7 @@ from ai_decision_arena.schemas import WorkflowStatus
 class ArenaState(TypedDict, total=False):
     # --- session ---------------------------------------------------- (API / intake)
     thread_id: str
-    mode: str                            # "full" (admin view: every pause) | "quick" (patient chat: fast settings,
-                                         # ends with onboarding_summary). Set by the API.
+    mode: str                            # "full" (set by the API; old sessions may say "quick": ignored since M11)
     status: WorkflowStatus               # editor warns on typos like "complete"
     current_node: str                    # last node that ran, for the frontend
     started_at: str                      # ISO time, set by intake
@@ -115,12 +114,14 @@ class ArenaState(TypedDict, total=False):
     build_results: dict                  # last build check: {round, passed, steps: [{phase, command, ok, ...}]} (build_check)
     build_fix_round: int                 # fix tasks sent since the last change request                           (build_check)
     preview: dict                        # RuntimeRecord of the dev server + log_tail (processes.py)              (preview)
-    change_requests: list[dict]          # {round, action, request, at} per reply at the preview pause              (await_change_request)
+    change_requests: list[dict]          # {round, action, request, at, task_id?} per reply at the preview pause (await_change_request;
+                                         #   change_request_router adds the C task id of a change since M11)
     change_route: str                    # change | replan | finish                                               (change_request_router)
     completed_at: str
     metrics: dict                        # durations, rounds, counts (completion)
 
     # --- usage and cost (M11) ------------------------------------------------- (nodes/node_wrapper.py)
+    prompt_versions: dict[str, int]      # prompt id -> version, for every prompt a node of this session sent (prompts.py)
     usage_log: list[dict]                # one entry per node run that called a model: {node, at, seconds, calls,
                                          #   failed_calls, models, input/output/cache tokens, cost_usd, unpriced_models,
                                          #   error?}. The coding agent's cost is in implementation_log instead.

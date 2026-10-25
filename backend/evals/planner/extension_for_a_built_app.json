@@ -1,0 +1,10 @@
+{"prompt": "planner", "node": "planner", "modes": ["offline"],
+ "source": "M10 live finding: replanning a built app rewrote the whole plan from T1; it must plan only the new work on top of the built tasks and later changes.",
+ "input": {"fixture": "replan_planner", "state": {"current_node": "brief_review_router", "brief_review_route": "approved"}},
+ "checks": [
+  {"on": "request", "check": "schema", "equals": "PlanExtension"},
+  {"on": "request", "check": "contains", "text": "<built_tasks>"},
+  {"on": "request", "check": "contains", "text": "<later_changes>"},
+  {"on": "request", "check": "contains", "text": "Add a percent key"},
+  {"on": "output", "path": "implementation_tasks.0.status", "check": "equals", "value": "done",
+   "why": "built tasks keep their status"}]}

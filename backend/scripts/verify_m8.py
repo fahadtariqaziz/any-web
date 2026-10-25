@@ -20,7 +20,7 @@ from pathlib import Path
 
 from langgraph.checkpoint.memory import InMemorySaver
 
-from ai_decision_arena.config import REPO_ROOT, get_settings, session_mode
+from ai_decision_arena.config import REPO_ROOT, get_settings
 from ai_decision_arena.graph import build_graph
 from ai_decision_arena.plan import plan_hash, plan_is_approved, render_plan_markdown, tasks_from_plan
 from ai_decision_arena.schemas import ImplementationPlan, PlanCommands, PlanPhase, PlanTask
@@ -94,11 +94,10 @@ thread_id = f"verify-m8-{int(time.time())}"
 config = {"configurable": {"thread_id": thread_id}}
 graph = build_graph(InMemorySaver())
 t0 = time.monotonic()
-with session_mode("full"):
-    graph.update_state(config, values, as_node="plan_review_router")
-    print(f"next node after the approval: {graph.get_state(config).next}")
-    for chunk in graph.stream(None, config, stream_mode="custom"):
-        print("   ", chunk.get("message") if isinstance(chunk, dict) else chunk)
+graph.update_state(config, values, as_node="plan_review_router")
+print(f"next node after the approval: {graph.get_state(config).next}")
+for chunk in graph.stream(None, config, stream_mode="custom"):
+    print("   ", chunk.get("message") if isinstance(chunk, dict) else chunk)
 state = dict(graph.get_state(config).values)
 print(f"\nsession: {time.monotonic() - t0:.0f}s, status {state.get('status')}\n")
 

@@ -78,15 +78,16 @@ def test_full_pipeline_pauses_for_clarification_then_completes(graph, fake_llm, 
     assert "onboarding_summary" not in result
 
 
-def test_quick_mode_runs_every_node_with_one_proposal(graph, fake_llm, fake_search):
+def test_an_old_quick_session_runs_the_full_pipeline(graph, fake_llm, fake_search):
+    """The quick profile was removed in M11: a session whose state still says mode "quick" gets every proposal."""
     config = {"configurable": {"thread_id": "quick-test"}}
     graph.invoke({"question": "A habit tracker app for students", "mode": "quick"}, config)
     result = finish_session(graph, config, answer="")
     assert result["status"] == "completed"
-    assert len(result["proposals"]) == 1
-    assert fake_llm.count("Criticism") == 1               # critic and checker run in quick mode too
+    assert len(result["proposals"]) >= 2
+    assert fake_llm.count("Criticism") == len(result["proposals"])
     assert fake_llm.count("ProposalVerification") == 1
-    assert result["final_report"]["winner"]["proposal"]["proposal_id"] == "proposal_a"
+    assert result["final_report"]["winner"]["proposal"]["proposal_id"].startswith("proposal_")
     assert all(v == "(skipped by user)" for v in result["clarification_answers"].values())
 
 

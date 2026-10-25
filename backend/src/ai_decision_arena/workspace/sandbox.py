@@ -11,7 +11,8 @@ What Python guarantees for every command (the LLM never sets any of this):
   above generated_projects/ (without it `git add/commit` in app/ would write into ai-lab-2's own repo);
 - its own process group, killed on timeout (TERM, then KILL) and after the command ends (no stray children);
 - output: the last `command_output_cap_bytes` of stdout and of stderr;
-- every command (refused ones too) is appended to .builder/logs/commands.jsonl (audit log);
+- every command (refused ones too) is appended to .builder/logs/commands.jsonl (audit log) and logged as a
+  `tool_calls` row (source sandbox, tool_log.py);
 - while it runs, .builder/run/<pid>.json holds its pid + start time AND its owner's (the builder process that ran
   it), so a restarted builder can kill the groups whose owner died mid-command (ProcessManager.reconcile) without
   touching commands another live process (a second worker, a script) is running; pid + start time survive pid reuse.
@@ -37,6 +38,7 @@ from pathlib import Path
 import psutil
 from pydantic import BaseModel, Field
 
+from ai_decision_arena import tool_log
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.schemas import ALLOWED_EXECUTABLES, command_problems
 from ai_decision_arena.workspace.paths import SHARED_DIR, PathError, Workspace, safe_path
@@ -258,6 +260,12 @@ def audit(ws: Workspace, result: CommandResult) -> None:
     ws.logs.mkdir(parents=True, exist_ok=True)
     with (ws.logs / "commands.jsonl").open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(record) + "\n")
+    reason = ("; ".join(result.refused) if result.refused
+              else f"timed out after {result.duration_seconds:.0f}s" if result.timed_out
+              else None if result.ok else f"exit {result.exit_code}")
+    tool_log.record(ws.session_id, "sandbox", (result.argv or ["?"])[0], target=result.command, ok=result.ok,
+                    reason=reason, exit_code=result.exit_code, timed_out=result.timed_out,
+                    duration_seconds=result.duration_seconds, label=result.label)
 
 
 def run(ws: Workspace, command: str | Sequence[str], *, timeout: float | None = None,

@@ -61,12 +61,15 @@ def review_turns(values: dict) -> list[ReviewTurn]:
 
 
 def change_turns(values: dict) -> list[ChangeTurn]:
-    """Change requests, each with the C<n> task the router created for it ("Change request <round>")."""
-    tasks = {t["title"]: t for t in values.get("implementation_tasks", []) if t.get("phase") == "change"}
+    """Change requests, each with the C<n> task the router created for it."""
+    change_tasks = [t for t in values.get("implementation_tasks", []) if t.get("phase") == "change"]
+    by_id, by_title = {t["id"]: t for t in change_tasks}, {t["title"]: t for t in change_tasks}
     costs = {c["round"]: c["total_usd"] for c in session_cost(values)["changes"]}
     turns = []
     for c in values.get("change_requests", []):
-        task = tasks.get(change_task_title(c["round"])) if c["action"] == "change" else None
+        # since M11 the request carries its task id; older sessions are matched by the old title
+        task = (by_id.get(c["task_id"]) if c.get("task_id") else by_title.get(change_task_title(c["round"]))
+                ) if c["action"] == "change" else None
         turns.append(ChangeTurn(round=c["round"], action=c["action"], request=c.get("request", ""), at=c["at"],
                                 task_id=task["id"] if task else None, task_status=task["status"] if task else None,
                                 cost_usd=costs.get(c["round"])))

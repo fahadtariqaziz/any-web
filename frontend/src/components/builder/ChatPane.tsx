@@ -831,7 +831,7 @@ function ChangeItem({ turn }: { turn: ChangeTurn }) {
   return (
     <div className="space-y-2">
       <UserBubble
-        tag={`${turn.action === "change" ? `Change request ${turn.round}` : "Bigger change (new plan)"}${
+        tag={`${turn.action === "change" ? `Change request${turn.task_id ? ` · ${turn.task_id}` : ""}` : "Bigger change (new plan)"}${
           turn.cost_usd ? ` · cost $${turn.cost_usd.toFixed(2)}` : ""
         }`}
       >

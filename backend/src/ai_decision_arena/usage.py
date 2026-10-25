@@ -179,6 +179,9 @@ def session_cost(state: dict) -> dict:
         # usage_log exists only for runs since M11: an older session's LLM spend before that was not measured
         "llm_measured_since": usage_log[0]["at"] if usage_log else None,
         "unpriced_models": sorted({m for e in usage_log for m in e.get("unpriced_models", [])}),
+        "prompt_versions": state.get("prompt_versions") or {},
+        "models_used": sorted({m for e in usage_log for m in e.get("models", {})} | (
+            {(state.get("models_used") or {}).get("implementer")} - {None})),
         "phases": [rounded(p) for p in phases.values()],
         "first_build": rounded(initial),
         "changes": [rounded(c) for c in changes],

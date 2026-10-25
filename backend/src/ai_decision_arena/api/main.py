@@ -17,11 +17,14 @@ Flow:
     GET  /api/decisions/{id}/code         → the generated project's files (JSON, base64) for "Download code"; /code.zip
     GET  /api/decisions/{id}/evidence     → kept evidence with verification status
     GET  /api/decisions/{id}/live         → everything produced so far (case, evidence counts, plans, scores, verdicts)
-    GET  /api/decisions                   → recent sessions (from the app tables); ?mode=quick for the chat list
-    GET  /api/chats/{id}                  → patient chat transcript (api/chat.py)
-    POST /api/chats/{id}/messages         → send a chat message; the reply streams back as text (api/chat.py)
-    GET / DELETE /api/memories            → what the agents remember about this browser's patient (api/memories.py)
-    POST /api/triggers/check-ins          → run the check-in trigger now (api/triggers.py; also runs on a schedule)
+    GET  /api/decisions                   → recent sessions (from the app tables)
+    GET  /api/chats/{id}                  → the builder conversation (api/chat.py)
+    POST /api/chats/{id}/messages         → an Ask-mode question; the reply streams back as text (api/chat.py)
+    GET / DELETE /api/memories            → what the agents remember about this browser's user (api/memories.py)
+    GET  /api/decisions/{id}/usage        → what the session cost (builder AI + coding agent), per stage / change / step
+    GET  /api/decisions/{id}/tool-calls   → the session's tool calls (agent decisions, commands, Ask tools, searches)
+    GET  /api/metrics                     → usage, tool failures and costs across sessions
+    GET  /api/triggers                    → the trigger table; POST /api/triggers/idle-previews stops idle previews now
 
 Status and pending pause are read from the checkpoint (graph.get_state), so they survive a restart.
 """
@@ -56,6 +59,8 @@ from ai_decision_arena.api.schemas import (
     CodeExportResponse,
     ImplementationResponse,
     MetricsResponse,
+    ToolCallList,
+    ToolCallView,
     UsageResponse,
     PreviewResponse,
     ReopenResume,
@@ -87,11 +92,10 @@ from ai_decision_arena.config import get_settings
 from ai_decision_arena.brief import brief_is_approved
 from ai_decision_arena.plan import plan_is_approved
 from ai_decision_arena.db.repository import (agent_cost_since, list_artifacts, list_sessions, save_session_status,
-                                             session_node_cost, usage_metrics)
+                                             list_tool_calls, session_node_cost, tool_metrics, usage_metrics)
 from ai_decision_arena.graph import build_graph
 from ai_decision_arena.llm import resolve_model
 from ai_decision_arena.memory import valid_user_id
-from ai_decision_arena.triggers import CheckInScheduler
 from ai_decision_arena.nodes.delivery import reopen_actions, reopen_update
 from ai_decision_arena.workspace import export as code_export
 from ai_decision_arena.workspace.paths import PathError, workspace_for
@@ -140,13 +144,8 @@ async def lifespan(app: FastAPI):
     app.state.processes.reconcile()
     idle_stopper = IdleStopper(app.state.processes)
     idle_stopper.start()
-    scheduler = CheckInScheduler(graph) if get_settings().check_ins_enabled else None   # scheduled trigger
-    if scheduler:
-        scheduler.start()
     yield
     idle_stopper.stop()
-    if scheduler:
-        scheduler.stop()
     pool.close()
 
 
@@ -207,6 +206,13 @@ def _snapshot(request: Request, thread_id: str):
     return snapshot
 
 
+def display_name(values: dict) -> str | None:
+    """The project's name for headers: the brief's proposed name once there is one (the brief may rename the idea
+    intake named, e.g. "simple calculator web app" -> "Simple calculator web app"), else intake's project_name."""
+    proposed = ((values.get("brief") or {}).get("project_overview") or {}).get("proposed_name", "").strip()
+    return proposed or values.get("project_name")
+
+
 def _run_state(runner: GraphRunner, thread_id: str, snapshot) -> str:
     if runner.is_running(thread_id):
         return "running"
@@ -240,7 +246,7 @@ def _start(runner: GraphRunner, thread_id: str, graph_input) -> None:
 def create_decision(body: CreateDecisionRequest, request: Request,
                     x_user_id: Annotated[str | None, Header(description="Anonymous browser id (long-term memory).")] = None):
     """Create a session and start the graph in the background. Returns at once with the thread_id.
-    With an X-User-Id header, what we remember about this patient goes into the session (memory.py)."""
+    With an X-User-Id header, what we remember about this user goes into the session (memory.py)."""
     thread_id = str(uuid.uuid4())
     user_id = valid_user_id(x_user_id) or ""
     if get_settings().persist_results:
@@ -253,7 +259,7 @@ def create_decision(body: CreateDecisionRequest, request: Request,
 @app.get("/api/decisions", response_model=SessionList, tags=["decisions"])
 def list_decisions(limit: int = 20, mode: Literal["full", "quick"] | None = None):
     """Recent sessions, newest first (from decision_sessions, so only sessions saved with PERSIST_RESULTS=true).
-    mode=quick lists only patient chats, mode=full only admin sessions; no mode lists all."""
+    mode=full / mode=quick (legacy health-app chats) filters; no mode lists all."""
     try:
         rows = list_sessions(limit=max(1, min(limit, 100)), mode=mode)
     except Exception as exc:                        # noqa: BLE001 - the list is a convenience; sessions still work by URL
@@ -300,7 +306,7 @@ def get_decision(thread_id: str, request: Request):
         run_state=run_state,
         workflow_status=values.get("status"),
         question=values.get("question"),
-        project_name=values.get("project_name"),
+        project_name=display_name(values),
         risk_flags=values.get("risk_flags", []),
         pending=pending,
         progress=runner.progress(thread_id),
@@ -477,10 +483,31 @@ def get_metrics(days: int = 7):
     try:
         data = usage_metrics(since)
         agent = agent_cost_since(since)
+        tools = tool_metrics(since)
     except Exception as exc:                        # noqa: BLE001
         logging.getLogger(__name__).exception("could not read metrics")
         raise ApiError(503, "database_unavailable", f"Could not read the metrics: {type(exc).__name__}.") from exc
-    return MetricsResponse(since=since.isoformat(timespec="seconds"), days=days, agent=agent, **data)
+    return MetricsResponse(since=since.isoformat(timespec="seconds"), days=days, agent=agent, tools=tools, **data)
+
+
+@app.get("/api/decisions/{thread_id}/tool-calls", response_model=ToolCallList, tags=["decisions"])
+def get_tool_calls(thread_id: str, request: Request, limit: int = 300,
+                   source: Literal["agent", "sandbox", "chat", "search"] | None = None):
+    """The session's tool calls (agent tool decisions, sandbox commands, Ask tools, searches), newest first."""
+    _snapshot(request, thread_id)                   # 404 for an unknown session
+    if not get_settings().persist_results:
+        return ToolCallList(thread_id=thread_id, calls=[])
+    try:
+        rows = list_tool_calls(thread_id, limit=max(1, min(limit, 2000)), source=source)
+    except Exception as exc:                        # noqa: BLE001
+        logging.getLogger(__name__).exception("could not read tool calls")
+        raise ApiError(503, "database_unavailable", f"Could not read the tool calls: {type(exc).__name__}.") from exc
+    calls = [ToolCallView(source=r.source, tool=r.tool, target=r.target, label=r.label, ok=r.ok, reason=r.reason,
+                          exit_code=r.exit_code, timed_out=r.timed_out, duration_seconds=r.duration_seconds,
+                          at=r.at.isoformat(timespec="seconds")) for r in rows]
+    return ToolCallList(thread_id=thread_id, calls=calls, counts={
+        "total": len(calls), "failed": sum(not c.ok for c in calls),
+        "denied_or_refused": sum(not c.ok and c.exit_code is None and not c.timed_out for c in calls)})
 
 
 def _preview_response(thread_id: str, record: RuntimeRecord) -> PreviewResponse:

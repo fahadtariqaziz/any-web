@@ -1,8 +1,8 @@
-"""The app's own tables (docs/requirements.md §9, adapted to health).
+"""The app's own tables (started from docs/requirements.md §9 of the health app; builder tables since M1).
 
 LangGraph's checkpoint tables hold the graph's working state; these tables hold what we want to
-QUERY: sessions and their status, kept evidence, final reports, (Phase 8) user feedback, and the patient
-chat's messages (chat_messages, written by api/chat.py).
+QUERY: sessions and their status, kept evidence, final reports, user feedback, Ask-mode messages
+(chat_messages, written by api/chat.py), memories, approved brief / plan versions, previews, usage and tool calls.
 We don't copy every state field: the full state stays in the checkpoint, keyed by thread_id.
 
 Schema changes go through Alembic migrations (backend/migrations), never by hand.
@@ -11,7 +11,7 @@ Schema changes go through Alembic migrations (backend/migrations), never by hand
 import uuid
 from datetime import datetime
 
-from sqlalchemy import (CheckConstraint, Computed, DateTime, Double, ForeignKey, Index, Integer, String, Text,
+from sqlalchemy import (Boolean, CheckConstraint, Computed, DateTime, Double, ForeignKey, Index, Integer, String, Text,
                         UniqueConstraint, func, text)
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -30,7 +30,7 @@ class DecisionSession(Base):
     thread_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)   # links to the checkpoints
     user_id: Mapped[str | None] = mapped_column(String(64), index=True)        # anonymous browser id (memory.py)
     question: Mapped[str] = mapped_column(Text)
-    mode: Mapped[str] = mapped_column(String(10), server_default="full", index=True)   # full (admin) / quick (patient chat)
+    mode: Mapped[str] = mapped_column(String(10), server_default="full", index=True)   # full; legacy "quick" rows from the health app
     project_name: Mapped[str | None] = mapped_column(String(200))
     project_category: Mapped[str | None] = mapped_column(String(50))
     status: Mapped[str] = mapped_column(String(40), index=True)                   # a WorkflowStatus value
@@ -58,14 +58,14 @@ class EvidenceRecord(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("decision_sessions.id", ondelete="CASCADE"), index=True)
     evidence_id: Mapped[str] = mapped_column(String(20))
-    domain: Mapped[str] = mapped_column(String(20))           # research / doctor / patient
+    domain: Mapped[str] = mapped_column(String(20))           # apps / papers / tech
     source_url: Mapped[str] = mapped_column(Text)
     source_title: Mapped[str] = mapped_column(Text)
     source_type: Mapped[str] = mapped_column(String(40))
     excerpt: Mapped[str] = mapped_column(Text)
     verification_status: Mapped[str] = mapped_column(String(30))
     retrieved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    details: Mapped[dict] = mapped_column(JSONB, default=dict)     # strength, claims, limitations, patient context...
+    details: Mapped[dict] = mapped_column(JSONB, default=dict)     # strength, claims, limitations, feedback context...
 
     session: Mapped[DecisionSession] = relationship(back_populates="evidence")
 
@@ -102,8 +102,8 @@ class UserFeedback(Base):
 
 
 class ChatMessage(Base):
-    """One message of the patient chat that follows onboarding (quick sessions). The onboarding itself
-    (first message, questions and answers, summary) lives in the checkpoint; only the free chat is here.
+    """One Ask-mode message of the builder chat. The rest of the conversation (first message, answers, reviews,
+    change requests) lives in the checkpoint; only the free Ask exchange is here.
     Linked by thread_id (not a foreign key): the chat works even when PERSIST_RESULTS=false skips the session row."""
 
     __tablename__ = "chat_messages"
@@ -112,14 +112,14 @@ class ChatMessage(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     thread_id: Mapped[str] = mapped_column(String(64), index=True)
     role: Mapped[str] = mapped_column(String(20))
-    kind: Mapped[str] = mapped_column(String(20), server_default="reply")   # "reply" | "check_in" (triggers.py)
+    kind: Mapped[str] = mapped_column(String(20), server_default="reply")   # "reply" ("check_in": retired health trigger)
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class UserMemory(Base):
-    """Long-term memory: one remembered fact about a patient, kept across chats (memory.py).
-    user_id is the anonymous id the browser keeps in localStorage: no login, so "same browser = same patient"."""
+    """Long-term memory: one remembered fact about a user, kept across projects (memory.py).
+    user_id is the anonymous id the browser keeps in localStorage: no login, so "same browser = same user"."""
 
     __tablename__ = "user_memories"
     __table_args__ = (UniqueConstraint("user_id", "fact", name="uq_user_memories_fact"),)
@@ -210,6 +210,29 @@ class UsageEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class ToolCall(Base):
+    """One tool call of the builder's agents (M11 part 2, tool_log.py): coding-agent tool decisions, sandbox commands,
+    Ask tools, research searches. Targets only (path / command / query), never outputs."""
+
+    __tablename__ = "tool_calls"
+    __table_args__ = (Index("ix_tool_calls_at", "at"), CheckConstraint(
+        "source IN ('agent', 'sandbox', 'chat', 'search')", name="ck_tool_calls_source"))
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    thread_id: Mapped[str] = mapped_column(String(64), index=True)
+    source: Mapped[str] = mapped_column(String(10))
+    tool: Mapped[str] = mapped_column(String(64))
+    target: Mapped[str] = mapped_column(Text, default="")
+    label: Mapped[str] = mapped_column(String(64), default="")             # task id / build step / hit count
+    ok: Mapped[bool] = mapped_column(Boolean)
+    reason: Mapped[str | None] = mapped_column(Text)                        # denied / refused / failed because
+    exit_code: Mapped[int | None] = mapped_column(Integer)
+    timed_out: Mapped[bool] = mapped_column(Boolean, default=False)
+    duration_seconds: Mapped[float | None] = mapped_column(Double)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class KnowledgeDoc(Base):
     """The knowledge base (knowledge.py): documents the chat agent can search, with Postgres full-text search.
 
@@ -230,11 +253,11 @@ class KnowledgeDoc(Base):
     key: Mapped[str] = mapped_column(String(200))
     title: Mapped[str] = mapped_column(Text)
     url: Mapped[str | None] = mapped_column(Text)
-    domain: Mapped[str | None] = mapped_column(String(20))      # research / doctor / patient (evidence only)
-    condition: Mapped[str | None] = mapped_column(String(200))
+    domain: Mapped[str | None] = mapped_column(String(20))      # apps / papers / tech (evidence only)
+    topic: Mapped[str | None] = mapped_column(String(200))      # curated: the doc's topic; evidence: the project name
     content: Mapped[str] = mapped_column(Text)
     thread_id: Mapped[str | None] = mapped_column(String(64), index=True)
     search_vector: Mapped[str] = mapped_column(TSVECTOR, Computed(
         "setweight(to_tsvector('english', coalesce(title, '')), 'A') || "
-        "setweight(to_tsvector('english', coalesce(condition, '') || ' ' || content), 'B')", persisted=True))
+        "setweight(to_tsvector('english', coalesce(topic, '') || ' ' || content), 'B')", persisted=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

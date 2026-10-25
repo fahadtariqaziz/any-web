@@ -28,10 +28,10 @@
 | **Concept (decided 2026-10-24)** | An AI application builder like Lovable: the user describes an app or website; the system clarifies, researches, proposes, critiques, judges, writes a validated problem statement + solution brief, gets approval, plans (Opus 5.5), implements (Sonnet 5.5) in an isolated session folder, and shows a live preview beside the chat. |
 | **Where we are** | **M0–M10 done and pushed (2026-10-25; last commit `1a8c0c7` "Frontend UI with live preview."). The pipeline works end to end:** idea → clarification → research (3 domains) → proposals / critic / judge / checker → validated brief → **user approval** → Opus plan → **user approval** → Sonnet coding agent builds task by task (verified by real commands) → build check → **live preview** → change requests → finish. Proven by the M9 E2E over HTTP: a 12-task Opus plan built 12/12 on the first attempt, build + preview + one change request, agent cost $0.74 (section 14). **M10: the Lovable-style builder UI** is the main UI: `/` = "What do you want to build?" + recent projects, `/c/<id>` = conversation left (questions, review cards, change requests, Ask mode) + live preview / Brief / Plan / Build / Activity right. The admin view (`/admin`, `/decisions/<id>`) stays as the detailed view; both link to each other. Also in M10 (from the user's live browser testing): **Ask about app** (project assistant, never changes anything), **Reopen** a finished project, **Plan a bigger change** = brief edited first → approval → a **plan extension** with only the new tasks → approval → only those tasks built, resizable chat | preview split, **Download code** (folder picker / zip). Proven live on the reference calculator: 24/24 tasks, build check 4 passed, scientific results checked independently (section 14). |
 | **Milestones** | M0 harness · M1 intake + clarification · M2 research · M3 debate · M4 brief writer + validator · M5 brief review · M6 Opus planner + plan review · M7 workspace / sandbox / processes · M8 coding agent (Claude Agent SDK) · M9 build check / preview / change requests · M10 Lovable UI. Details: section 8 (✅ blocks), section 14 (progress log with real numbers), section 12 (decisions). |
-| **Next milestone** | **M11 — Platform hardening** (section 8), done in parts, each verified and committed by the user. **Part 1 (cost + usage) done 2026-10-25, waiting for the user's commit**: every builder model call is metered (tokens + USD per node run in `usage_log`, `usage_events` table), session LLM budget, `GET /usage` (per stage / first build / each change / step), `GET /api/metrics`, Cost card in the Build tab, cost per change in the chat; `verify_m11.py` PASS. Next parts: `tool_calls` log, prompt registry + evals, builder knowledge / skills / cleanup, then a brand-new idea end to end (never done since M10). |
+| **Next milestone** | **M11 — Platform hardening: done 2026-10-25 (all four parts), waiting for the user's commit** (part 1 was pushed as `5562c8b`). Cost / usage per node and change + budgets; `tool_calls` log; prompt registry + lock + 13 eval cases (offline + live, LLM-judged where a regex cannot tell); Ask prompt caching; builder knowledge + skills; project-scoped memory; trigger table; quick profile and health leftovers removed; `/admin/metrics`. Next: **M12** (Docker runtime, optional) and the first brand-new idea end to end in the builder UI (~$2–3, ask first). |
 | **Models (verified 2026-10-24 via `client.models.list()`)** | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` are all available to the key in `backend/.env`. Configured default: `ANTHROPIC_MODEL=claude-sonnet-5-5`. |
-| **Environment (verified 2026-10-24/25)** | macOS, zsh · uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head `a5b6c7d8e9f0` (M11 `usage_events`) · `claude-agent-sdk` 0.2.174 (ships its own Claude Code CLI 2.1.310) · `psutil` 7.2 · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are the original ai-lab** → ai-lab-2 runs on **8001/3001** (the user starts them with `--reload`; section 11) · previews use ports **4100–4199** · generated apps in `generated_projects/` (git-ignored). |
-| **Tests** | `bash backend/scripts/verify_m0.sh` = 244 pytest + eslint + tsc, ~30 s. Offline: fake LLM, fake Tavily, `FakeAgent` for the coding agent, in-memory checkpoints, no DB; but sandbox commands, git and dev servers (`python3 -m http.server {port}`) run for REAL under tmp dirs. Live checks: `backend/scripts/verify_m1..m11.py` (real APIs, node level; m10 = UI contract + rendered page) and `scripts/api_flow.py --auto` (full HTTP E2E); what each needs, writes and costs: section 11. No frontend unit tests (lint + tsc + `next build` + headless-Chrome DOM checks + the user's browser check). Free UI walk-through of every pause: `scripts/fake_api.py` (section 11). |
+| **Environment (verified 2026-10-24/25)** | macOS, zsh · uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head `c7d8e9f0a1b2` (M11: `usage_events`, `tool_calls`, `knowledge_docs.topic`) · `claude-agent-sdk` 0.2.174 (ships its own Claude Code CLI 2.1.310) · `psutil` 7.2 · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are the original ai-lab** → ai-lab-2 runs on **8001/3001** (the user starts them with `--reload`; section 11) · previews use ports **4100–4199** · generated apps in `generated_projects/` (git-ignored). |
+| **Tests** | `bash backend/scripts/verify_m0.sh` = 268 pytest (incl. the offline evals) + eslint + tsc, ~40 s. Offline: fake LLM, fake Tavily, `FakeAgent` for the coding agent, in-memory checkpoints, no DB; but sandbox commands, git and dev servers (`python3 -m http.server {port}`) run for REAL under tmp dirs. Live checks: `backend/scripts/verify_m1..m11.py` (real APIs, node level; m10 = UI contract + rendered page) and `scripts/api_flow.py --auto` (full HTTP E2E); what each needs, writes and costs: section 11. No frontend unit tests (lint + tsc + `next build` + headless-Chrome DOM checks + the user's browser check). Free UI walk-through of every pause: `scripts/fake_api.py` (section 11). |
 
 ---
 
@@ -104,9 +104,10 @@ ai-lab-2/
 ├── generated_projects/             # git-ignored: <thread_id>/{app,.builder}, .shared/ (tool links + package caches)
 ├── backend/
 │   ├── .env (not in git; template .env.example), pyproject.toml, uv.lock, alembic.ini, Dockerfile
-│   ├── migrations/versions/        # Alembic migrations (10 so far; head a5b6c7d8e9f0 = usage_events)
-│   ├── knowledge/*.md              # curated knowledge docs (STILL health: emergency signs, medication... M11 replaces)
-│   ├── skills/*/SKILL.md           # chat skills (STILL health: meal-planning, habit-coaching... M11 replaces)
+│   ├── migrations/versions/        # Alembic migrations (12 so far; head c7d8e9f0a1b2 = knowledge_docs.topic)
+│   ├── knowledge/*.md              # curated builder docs (M11: builder process, decimals, node --test, Vite, a11y, secrets)
+│   ├── skills/*/SKILL.md           # builder skills (M11): audience ask (3, load_skill) / agent (4, picked by stack)
+│   ├── evals/<prompt>/*.json       # prompt eval cases (M11) + evals/fixtures/*.json (fake-pipeline states)
 │   ├── .cache/*.json               # cached real states for the verify scripts (git-ignored; section 11)
 │   ├── scripts/                    # run_graph, run_intake, run_research, api_flow (HTTP end to end), check_env, draw_graph,
 │   │                               #   probe_schema (grammar limit), load_knowledge, print_helpers, verify_m0.sh, verify_m1..m10.py,
@@ -117,7 +118,8 @@ ai-lab-2/
 │   │                               #   test_implementer, test_delivery, test_pipeline_fake, test_api (TestClient), test_usage
 │   └── src/ai_decision_arena/      # package name kept (rename = churn, no value now)
 │       ├── graph.py, state.py, schemas.py (~1200 lines), config.py, limits.py, prompting.py, llm.py, progress.py,
-│       │   pricing.py (price table, tokens → USD), usage.py (UsageMeter, usage_log, session_cost) — M11
+│       │   pricing.py (price table, tokens → USD), usage.py (UsageMeter, usage_log, session_cost), tool_log.py
+│       │   (tool_calls), prompts.py + prompts.lock.json (registry), evals.py (eval cases), triggers.py (TRIGGERS) — M11
 │       ├── brief.py (brief references / labels / rendering / deterministic checks), plan.py (plan checks / rendering / hashes)
 │       ├── nodes/  intake, clarification, research, proposer, critic, judge, evidence_checker, final_report (+ completion),
 │       │           brief_writer, brief_validator, brief_review (await + router), planner (+ await + router), implementer, delivery (build_check, preview,
@@ -126,7 +128,7 @@ ai-lab-2/
 │       ├── workspace/  paths (session folders, safe_path, tool_path_problem), sandbox (one command), processes (dev
 │       │               servers, M7), agent (Claude Agent SDK adapter, M8)
 │       ├── chat.py (Ask mode: project assistant), tools.py, researcher.py, skills.py, knowledge.py, memory.py, triggers.py, checkpointing.py
-│       ├── db/  engine, models (10 tables), repository
+│       ├── db/  engine, models (11 tables), repository
 │       └── api/  main (decisions endpoints), runner (background threads), chat (transcript + Ask), memories, triggers, schemas, errors
 └── frontend/src/
     ├── app/(chat)/   `/` (NewProject) and `/c/[threadId]` (BuilderView) — the Lovable-style builder (BuilderShell layout)
@@ -155,32 +157,21 @@ ai-lab-2/
 - Chat tool loop (`tools.stream_with_tools`, bounded rounds), research sub-agent (`researcher.py`), skills loader, knowledge base (Postgres FTS), long-term memory keyed by a browser id, scheduled trigger thread.
 - Frontend: polling hook, resume flow, discriminated `pending` payloads, stepper derived from status, live snapshot tabs.
 
-### 2.5 Health-app leftovers still in the code (checked 2026-10-25, after M10)
-Everything on the main path (prompts, schemas, state, DB columns, research domains, rubric, admin UI, builder UI, Ask
-mode: chat / tools / researcher prompts) was converted in M1–M10. Still health-flavoured, all OFF the build path:
-- `backend/knowledge/*.md` (emergency-warning-signs, medication-safety...): still loaded in `knowledge_docs` (kind
-  `curated`) but **not searchable** since M10 (`knowledge.INCLUDE_CURATED = False`) → M11 replaces them with builder
-  docs and turns it back on.
-- `backend/skills/*` (meal-planning, habit-coaching, emotional-support, explaining-test-results): the chat no longer
-  offers `load_skill` / the skills block (M10) → M11 builder skills.
-- `triggers.py` check-ins for quiet **quick** chats (`QUIET_CHATS_SQL` `mode = 'quick'`): the UI no longer starts quick
-  sessions, so it finds only old ones → M11 replaces it with the idle-preview trigger. `memory.py` docstrings say
-  "patient"; `config.py` quick-profile settings (`quick_model`, `QUICK_OVERRIDES`) still exist for old sessions → M11.
-- DB: `knowledge_docs.condition` column (feeds a generated FTS column) → M11.
+### 2.5 Health-app leftovers (cleared in M11 part 4, 2026-10-25)
+None on any path: builder knowledge docs and skills replaced the health ones, the check-in trigger and the quick profile
+are gone, `knowledge_docs.condition` is `topic`, "patient" wording is gone from code and API (`missing_user_id`).
+What remains on purpose: old DB rows / checkpoints with `mode = "quick"` (read, never started; `GET /api/decisions?mode=quick`
+still filters them), `chat_messages.kind = "check_in"` rows of old chats, the package name `ai_decision_arena`, and the
+history docs in `docs/`.
 
 ### 2.6 Gaps still open (planned)
-Prompt registry / versions, eval cases, `tool_calls` table, builder knowledge + skills, idle trigger beyond previews
-(M11, parts 2–4) · Docker runtime per session (M12). (Per-node token + USD accounting: done in M11 part 1.)
-No prompt caching yet: one Ask reply costs ~$0.05 (brief + plan + build context resent each time, measured); the graph
-prompts are one-shot. Candidate for the prompt-registry part (system prompts stable → `cache_control`).
-M10 leftovers (small, pick up in M11): ~~only the coding agent's cost is metered~~ (fixed in M11 part 1: the Build tab's
-Cost card splits builder AI / coding agent per stage and per change; the chat card says "Coding agent, all tasks");
-C-task titles use the change ROUND ("C2 Change request 3"
-when a Finish took round 2; the transcript links tasks by that title, so rename carefully); the chat header keeps the
-intake `project_name` after the brief renamed the project; a coding agent may leave `t.skip(...)` tests behind (seen:
-4 skipped in the calculator) — the build check only counts failures.
-Not planned yet: auth / multi-user isolation of the API (sessions are keyed by thread_id + a browser user id only);
-streaming the brief / plan while they are written.
+Docker runtime per session (M12: memory / CPU / network limits; v1 is host subprocesses). Not planned yet: auth /
+multi-user isolation of the API (sessions are keyed by thread_id + a browser user id only); streaming the brief / plan
+while they are written; subagents beyond the researcher (spec §10.5: a reviewer / debugger subagent is not spawned:
+the retry prompt already carries the failing verify output, and evals have not shown a need; revisit with eval data);
+a vector store for knowledge (full-text search until measured misses); prompt caching for one-shot graph calls (a cache
+write costs 1.25x and nothing reads it back; only Ask is cached). Ask's context is ~27k tokens on a built project
+(measured): trimming it (e.g. the brief's appendix) would cut the first-reply cost.
 
 ---
 
@@ -391,15 +382,15 @@ emptied in the CLI's env).
 | Area | Exists | Improve / introduce (milestone) |
 |---|---|---|
 | **10.1 Hallucination prevention** | Python-owned evidence ids/URLs, quote check, id filtering, critic/judge/checker, assumptions list, unresolved questions | Claim labels + Python-assembled references in the brief; validator rejects unknown ids and unlabelled claims; build/test/preview facts come only from subprocess exit codes and HTTP checks; "not verified" shown in UI (M4, M9, M10) |
-| **10.2 Prompt rot** | Prompts inline in nodes, shared blocks in `prompting.py` | `prompts/` registry: one module per agent with `VERSION`, owner, changelog; `prompt_versions` recorded per session; eval cases per agent in `backend/evals/<agent>/*.json` + `scripts/run_evals.py`; rule: change a prompt → bump version → run its cases (M11) |
-| **10.3 Prompt management** | XML-tag separation of user input / evidence / instructions | Registry above; system prompts stable for prompt caching (`cache_control` on the system block via `ChatAnthropic`); structured outputs everywhere (already); one place for shared rules (`BUILDER_RULES`) (M1, M11) |
-| **10.4 Tool management** | Chat tools with Pydantic schemas, bounded rounds, `<source>` wrapping, `handle_tool_error` | Tool registry (research, workspace, sandbox, preview, knowledge, memory) with schemas, permission boundaries (path guard, allowlist, network only for package installs), timeouts/retries, `tool_calls` log table + LangSmith (M7, M8, M11) |
-| **10.5 Skills & subagents** | `skills/` loader, research sub-agent, lane fan-out | Builder skills (`nextjs-app`, `fastapi-service`, `testing`, `ui-basics`); subagents: `researcher` (exists), `reviewer` (before a task is marked done), `debugger` (on failing verify); spawn only on review/failure, capped; task ownership in `implementation_tasks` (M8, M11) |
-| **10.6 Memory** | STM = state + Postgres checkpoint; LTM = `patient_memories` per browser id; context trimming | Rename to `user_memories` (preferences like preferred stack); approved brief/plan versions in `project_artifacts`; invalidate on re-approval; cap `implementation_log` and summarize old tool results; scope every read by `user_id` + `thread_id` (M1, M8, M11) |
+| **10.2 Prompt rot** | **M11:** `prompts.py` registry (owner nodes, version, changelog per prompt), `prompts.lock.json` hashes + a test that fails on an unversioned change, `prompt_versions` per session, 13 eval cases in `backend/evals/` + `run_evals.py` (offline / `--live`) | more live cases as findings come in |
+| **10.3 Prompt management** | XML-tag separation, structured outputs, shared `BUILDER_RULES` (versioned once); **M11:** Ask's system block prompt-cached (measured ~10x cheaper follow-ups); one-shot graph calls deliberately not cached | trim Ask's ~27k-token context |
+| **10.4 Tool management** | Chat tools with schemas, bounded rounds, `<source>` wrapping; sandbox (allowlist, path guard, timeouts, env scrub) and agent hook (M7/M8); **M11:** every agent decision / command / Ask tool / search in `tool_calls` + `/api/metrics` counters + `/admin/metrics` | network limits (M12) |
+| **10.5 Skills & subagents** | **M11:** builder skills: 3 Ask skills (load on demand), 4 coding-agent skills picked by Python from the plan's stack; researcher sub-agent; task ownership in `implementation_tasks` | reviewer / debugger subagents only if evals show the retry prompt is not enough |
+| **10.6 Memory** | STM = state + checkpoint; LTM = `user_memories` per browser id (remember_fact + session facts); approved versions in `project_artifacts`; **M11:** session facts labelled per project and replaced when the project completes again; "forget me" | retention period / login-based access control |
 | **10.7 Guardrails** | Data-not-instruction tags, `SecretStr`, loop caps, time budget, model fallback, forget-me endpoint, container sandbox for the backend | Workspace path guard, command policy, env scrub, process limits, approval pause for destructive ops, security event log, no secrets in generated code, generated files untrusted in prompts (M7, M8) |
-| **10.8 Triggers / events** | Routing functions, interrupts, `GraphRunner`, check-in scheduler | Explicit transition table (section 4 + 5); scheduler repurposed: stop idle previews, clean orphan processes on startup (M9, M11) |
+| **10.8 Triggers / events** | Routing functions, interrupts, `GraphRunner`; **M11:** `triggers.TRIGGERS` table (`GET /api/triggers`), idle-preview stop (thread + `POST /api/triggers/idle-previews`), startup reconcile; check-ins retired | — |
 | **10.9 Prompting strategy** | Roles, structured schemas, reasoning-first judge, few-shot queries | `BUILDER_RULES`; per-task context only (task + plan excerpt + brief excerpt + file list); stop/escalate rules in implementer; regression cases (M1, M8, M11) |
-| **10.10 Knowledge** | `knowledge_docs` (FTS) with curated docs + session evidence | Curated builder docs (stack cheat-sheets with sources) replace health docs; session evidence kept per `thread_id`; freshness = `retrieved_at` shown; no vector DB until a measured need (M11) |
+| **10.10 Knowledge** | `knowledge_docs` (FTS): **M11:** 6 curated builder docs with sources + every finished session's evidence; Ask searches it first | vector store only on measured misses |
 | **10.11 Evaluation / observability / cost** | LangSmith traces, metrics at completion, progress lines; **M11 part 1:** `usage_log` per node run (tokens + USD from `usage_metadata` × `pricing.PRICES`), `session_llm_budget_usd` stops automatic loops, `usage_events` + `GET /api/metrics` (per node / day / model, node failures), `GET /usage` per session | eval runner + E2E regression script (M11 part 3) |
 
 ---
@@ -577,7 +568,7 @@ requests), context and progress preserved through the session; right = the live 
   accident) / "Request some change in app" / "Plan a bigger change"; the finished note says so; Ask's prompt knows a change reopens the project.
 - **Commit:** `M10: Lovable UI with live preview` (pushed by the user as `1a8c0c7` "Frontend UI with live preview.")
 
-### M11 — Platform hardening (prompts, evals, cost, knowledge, memory, triggers, skills)
+### M11 — Platform hardening (prompts, evals, cost, knowledge, memory, triggers, skills) ✅ done 2026-10-25
 Spec §10.1–10.11 (platform-level requirements; section 7 of this file maps each one to what exists and what to add). They apply to
 the builder itself, **not** to every generated app: a generated project gets only the AI infrastructure its approved requirements need.
 - `prompts/` registry + versions in state/DB; `backend/evals/` cases + `scripts/run_evals.py`; `token_usage`/USD per node + session budget + `/metrics`; `tool_calls` log; curated builder knowledge docs + builder skills (replace health ones); `user_memories`; idle-preview trigger (replaces check-ins); `chat.py` re-pointed as "ask about this project" (optional).
@@ -613,10 +604,45 @@ the builder itself, **not** to every generated app: a generated project gets onl
     (`--reload` watches .py files, not .env), "Change request N · cost $x" in the chat, "Coding agent, all
     tasks $x" instead of the ambiguous "Agent cost". `frontend/scripts/shot_tab.mjs <url> <tab> <png>` = screenshot +
     text of one builder tab.
-  - Part 2 — `tool_calls` log (agent hook decisions + sandbox commands → table, `/api/metrics` failure counters).
-  - Part 3 — prompt registry (VERSION + changelog, versions per session) + eval cases + `run_evals.py`; prompt caching.
-  - Part 4 — builder knowledge docs + skills, idle trigger, removal of the quick profile and health leftovers, M10
-    leftovers; then the first brand-new idea end to end (~$2–3, ask first).
+  - **Part 2 — tool-call log ✅ 2026-10-25.** `tool_log.py`: `record(thread_id, source, tool, target=, ok=, reason=,
+    exit_code=, timed_out=, duration_seconds=, label=)` → `tool_calls` table (best effort, PERSIST only; `set_sink()`
+    for tests). Sources: `agent` (the PreToolUse hook: every coding-agent tool call, allowed or denied + reason),
+    `sandbox` (every command `sandbox.run` runs or refuses: the agent's run_command, verify commands, the build check;
+    `label` = task / build step), `chat` (Ask tools, incl. unhandled tool exceptions, logged then re-raised), `search`
+    (research Tavily calls, thread from the LangGraph config). Targets only (path / command / query), never outputs.
+    `GET /api/decisions/{id}/tool-calls` (newest first, `?source=`), `/api/metrics` `tools` (per source + tool: calls,
+    failed, refused = denied / refused without an exit code, timed out, avg seconds). Node failures are counted also
+    for nodes without model calls (wrap_node writes a usage entry on error). Admin page **/admin/metrics** (tables:
+    totals, by node, tools, by day, models; 24 h / 7 / 30 days).
+  - **Part 3 — prompt registry, evals, caching ✅ 2026-10-25.** `prompts.py` (`REGISTRY`: 19 PromptSpecs = id, module,
+    constants, owner nodes, version, changelog; `BUILDER_RULES` hashed once as its own entry) + `prompts.lock.json`
+    (sha256 per prompt at its version) + `scripts/prompt_versions.py [--update]` (refuses a changed text without a
+    version bump) + `tests/test_prompts.py` (lock consistent, every model-calling node registered, a session records
+    `prompt_versions`, offline evals pass). Sessions record `prompt_versions` (state, usage_log entries, completion
+    metrics, `/usage`). Evals: `evals.py` (case format, checks on the request sent / the output / raises / the prompt
+    text), `backend/evals/<prompt>/*.json` (13 cases from M1–M11 findings), fixtures = real checkpoints of one
+    fake-pipeline run (`scripts/make_eval_fixtures.py` → `evals/fixtures/*.json`), `scripts/run_evals.py [--live]
+    [--prompt id]` (each node runs in a one-node graph so get_config / progress work; live prints the cost from the
+    meter). Prompt caching: Ask's system block (instructions + project context, ~27k tokens) has `cache_control`:
+    measured follow-up input cost ~10x lower. Version bumps so far: implementer v3 (no skipped tests; follow
+    <skills>), proposer v2 (quick rule gone), ask v2 / ask_tools v2 (skills, <cost>), skills v1.
+  - **Part 4 — knowledge, skills, memory, triggers, cleanup ✅ 2026-10-25.** Knowledge: 6 curated builder docs in
+    `backend/knowledge/` (how the builder works, exact decimals, node --test, Vite, accessibility WCAG 2.2, secrets /
+    OWASP), each with its source; `load_curated()` deletes curated rows whose file is gone (the 4 health docs were
+    removed from the DB); `INCLUDE_CURATED = True`; column `knowledge_docs.topic` (migration `c7d8e9f0a1b2`; Postgres
+    rewrote the generated FTS expression). Skills (`skills.py`): `audience: ask` (write-a-change-request,
+    explain-build-results, small-or-bigger-change; `load_skill` back in Ask) and `audience: agent` (testing-discipline
+    `*`, web-ui-basics, node-project-hygiene, python-project-hygiene: picked by Python from the plan's tech stack /
+    dependencies / testing strategy, sent as `<skills>` in the task prompt). Memory: session facts are labelled
+    `[project: <name>]` (no mixing of projects) and a project's earlier session facts are replaced when it completes
+    again (an approved change invalidates them). Triggers: `triggers.TRIGGERS` (18 rows: event, condition, action,
+    where; `GET /api/triggers`), `POST /api/triggers/idle-previews[?idle_minutes=0]`; the check-in scheduler and its
+    settings are gone. Quick profile removed (config, llm note, proposer rule, research quick plan, `session_mode`;
+    `POST /api/decisions` accepts mode "full" only; an old quick session runs the full pipeline). M10 leftovers: change
+    tasks are titled "Change: <request>" and the change request stores its `task_id` (the transcript links by id; old
+    sessions by the old title); the header shows the brief's proposed name; the build check records the test runner's
+    reported `skipped_tests` (badge in the Build card, in Ask's context) and the implementer prompt forbids leaving
+    skips; Ask's context has `<cost>` (totals, per change, limits left).
 
 ### M12 — Optional: Docker runtime per session, session list/resume polish, cleanup CLI
 - **Verify:** `scripts/verify_m12.py` runs one session's dev server in a container (requires the Docker daemon).
@@ -637,7 +663,7 @@ the builder itself, **not** to every generated app: a generated project gets onl
 | Implementation (M8) | task state machine, attempts, budget | trivial plan implemented, verify commands pass |
 | Preview (M9) | ready only after health check, fix-round cap | HTTP 200 from preview URL |
 | UI (M10) | lint, tsc, build | manual E2E checklist |
-| Platform (M11) | prompt registry, cost math (test_usage: prices, token split, meter in threads, every retry billed, node entry on failure, budget, attribution, /usage), eval runner | verify_m11 (token split = API usage, node cost = tokens × price, usage_events, Ask metered, /usage sums, page); eval cases pass |
+| Platform (M11) | test_usage (cost math), test_tool_log (every source logged, outputs never), test_prompts (lock, versions per session, offline evals), test_platform (knowledge, skills, memory, triggers, change ids, skipped tests, Ask context) | verify_m11 sections 1–9 (cost, tool calls with a real agent, live evals, Ask caching + skill, knowledge, triggers, metrics page) |
 
 ---
 
@@ -686,7 +712,9 @@ others are rough guesses from before M11 (re-measure them when you next run them
 | `verify_m8.py` coding agent, 2-task plan | plan cache | a workspace | $0.05 measured, ~30 s |
 | `verify_m9.py` build / preview / change | plan cache | a workspace + project_runtimes row | $0.09–0.10 measured, ~1 min |
 | `verify_m10.py [--session id] [--ask] [--skip-build]` builder UI (35 checks incl. real resize drags and Download-code clicks via `frontend/scripts/check_resize.mjs` / `check_download.mjs`) | dev servers on 8001/3001, one built session, Chrome for the DOM / drag checks | (`--ask`: 2 chat messages in that session) | free (`--ask`: cents, 1 Sonnet call), ~1 min incl. `next build` |
-| `verify_m11.py [--session id]` cost + usage: token split vs the API's own usage, intake + clarification metered, one Ask reply metered (throwaway thread id), `/usage` sums, `/api/metrics`, Cost card on the page | dev servers on 8001/3001, one built session, Chrome | 3 `usage_events` rows under `verify-m11-<hex>` (not the reference project) | measured ~$0.08 (intake $0.008, clarification $0.012, Ask $0.055), ~1 min |
+| `verify_m11.py [--session id]` sections 1–9: cost / usage, tool calls (a tiny real coding-agent task in a throwaway project, deleted after), a Tavily search, prompt lock + offline and live evals, Ask caching + skill, knowledge, triggers, metrics page | dev servers on 8001/3001, one built session, Chrome | usage_events / tool_calls rows under `verify-m11-*` threads (not the reference project) | measured ~$0.45 (agent $0.025, live evals $0.19, Ask ~$0.2), ~6 min |
+| `run_evals.py [--live] [--prompt id]` prompt eval cases | offline: nothing; live: API keys | — | offline free (also in pytest); live measured $0.19 for the 7 live cases (+ Haiku judge calls) |
+| `prompt_versions.py [--update]` / `make_eval_fixtures.py` / `load_knowledge.py` | — / — / DB | prompts.lock.json / evals/fixtures / knowledge_docs | free |
 | `fake_api.py` offline API (port 8002) for UI work | nothing (fake LLM / search / agent from tests/conftest.py, in-memory everything) | a throwaway tmp generated-projects folder | free; a full session in seconds |
 | `api_flow.py --auto [--change "..."]` full E2E over HTTP | dev servers on 8001/3001 | a real session | agent $0.74 measured + research/brief/plan LLM calls (unmetered, guess $1–2); ~15 min active |
 
@@ -730,6 +758,15 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 - 2026-10-24: Standard test idea for every live verify and the first end-to-end builds: **"A simple calculator web app"** (user's call: if the smallest project builds, bigger ones follow).
 - 2026-10-24 (M1): risk flags are informational only; `limits.loops_allowed` no longer blocks on them. `max_clarification_rounds` = 3.
 - 2026-10-24 (M3): one Proposer call makes 2–3 proposals over ALL evidence; one Critic call per proposal (parallel); one Judge call scores all and Python picks the winner; the checker verifies the winner only. Material contradictions found by the Judge become clarification questions when a round is available. Quick mode runs every node (one proposal, quick settings). The interim `FinalReport` = winner + alternatives (M4 replaces the user-facing document). The chat's first summary is built from the report in Python (no LLM call). Health demo scripts (`run_debate`, `run_report`, `demo_data`, `schemas_demo`) deleted; health report components replaced by `ProposalDetails`.
+- 2026-10-25 (M11 parts 2–4, user: "do full M11"): prompts stay next to their code; the REGISTRY + lock file +
+  pytest enforce versioning (no churn of moving 19 prompts into a package). Evals check the REQUEST an agent sends
+  (plumbing, offline) separately from the OUTPUT (model behaviour, live); semantic properties a regex cannot see use a
+  small Haiku judge (`llm_judge`), worded after the actual finding (the regex and a first, stricter judge both flagged
+  correct questions: a check must be calibrated against real outputs before it is trusted). Prompt caching only where
+  a prefix is re-read (Ask). Skills for the coding agent are chosen by Python from the approved plan's stack (no LLM
+  decides what instructions the agent gets). No reviewer / debugger subagent (spec §10.5: avoid unnecessary agents;
+  the retry already carries the failing output). Knowledge stays full-text search. Memory facts are project-labelled
+  and replaced on re-completion. The quick profile and the check-in trigger are removed, not kept as dead options.
 - 2026-10-25 (M11 part 1): **cost accounting** (section 8, M11 part 1 has the details). Choices: one source per cost
   (builder model calls → `usage_log`; coding agent → the Agent SDK's own `total_cost_usd` in `implementation_log`,
   never re-derived from its tokens); every billed attempt counts (self-correction retries, truncated answers, the
@@ -997,6 +1034,24 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
   `e39ceeb5`: total $2.04 = agent $2.04 (builder AI not measured: the project predates M11), first build $0.66 +
   C1 $0.08 + C2 $0.21 + scientific $1.08 (the same numbers as answered by hand last session); `/api/metrics` counts
   the 3 rows; the Build tab's Cost card shows "$2.04 so far" (headless Chrome, screenshot checked by eye).
+  Then (user's request) limits shown as "$x left of $y" bars + "Total so far" + the chat card's "Total cost so far";
+  `IMPLEMENTATION_BUDGET_USD` / `SESSION_LLM_BUDGET_USD` in `.env`. Pushed by the user as `5562c8b`.
+
+- 2026-10-25: **M11 parts 2–4.** Offline: 268 pytest (new: test_tool_log 5, test_prompts 8 incl. the offline evals
+  10/10, test_platform 12) + eslint + tsc + `next build` (`/admin/metrics`); Alembic upgrade / check / downgrade /
+  upgrade clean for `tool_calls` and the `topic` rename. **Live `verify_m11.py`:** sections 1–6, 8, 9 PASS — a real
+  coding agent (4 turns, **$0.0245**) tried to Read `backend/.env`: denied ("outside the project folder") and logged,
+  Write + `ls hello.txt` logged (sandbox exit 0, label T1), no secret in any row; a Tavily search logged with its
+  thread (5 hits); Ask: cache reads **27,435 tokens** on every round after the first, loaded `write-a-change-request`
+  by itself and named the send mode; the curated decimals doc is found, no health doc; 18 triggers; metrics count
+  agent / sandbox / chat / search and the denied call as refused. Section 7 (live evals) first FAILED 2/7: (a) the
+  brief_writer case checked the word "scientific" while the writer listed "sin, cos, tan" (case fixed: regex on the
+  functions + the M10 check "percent stays in scope"; live PASS $0.10); (b) clarification: first my regex flagged an
+  examples-in-brackets question (case fixed), then a REAL defect: "Do you have any technology, hosting, budget or
+  timeline preferences…?" → clarification prompt **v2** (constraints = one chosen topic, no topic lists). Measured with
+  the same Haiku judge: **v1 packed topics in 3/3 runs, v2 in 0/4** (~$0.012 per run). The other live cases passed
+  (routing wording / research, intake ×2, proposer); full live set **6/7 then all fixed, $0.19**. Final full run (user's
+  request): **live evals 7/7 PASS, $0.19**; offline 10/10; all 19 prompts locked.
 
 ## 15. How to work on this repo (the loop every milestone follows)
 
@@ -1068,6 +1123,17 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 22. **Answer cost / behaviour questions from data**, not memory: costs from `GET /usage` (since M11: builder AI +
     coding agent per stage, first build, each change, step; `GET /api/metrics` across sessions), behaviour from the code (e.g. one fresh Agent SDK session per task attempt; the project
     folder and a short briefing carry the context).
+
+23. **Changing a prompt** (any constant registered in `prompts.REGISTRY`, a skill file, a tool docstring): bump its
+    version + add a changelog line (what and why), add or update an eval case in `backend/evals/<prompt>/`, run
+    `uv run python scripts/run_evals.py --prompt <id>` (and `--live` when the case has live checks; it prints the cost),
+    then `uv run python scripts/prompt_versions.py --update`. pytest fails until the lock matches. New agent / prompt =
+    new registry entry + its module in `evals.LLM_USERS` if it calls `call_structured`.
+24. **Eval fixtures** are real states of one fake-pipeline run: after a state / schema change that cases depend on,
+    `uv run python scripts/make_eval_fixtures.py` and commit the JSON. Live scripts must NOT import `tests.conftest`
+    (it sets fake API keys before config reads `.env`); offline ones must import it first.
+25. **Costs are measured, not guessed**: before / after a live run read `GET /usage` (session) or `/admin/metrics`
+    (all); report those numbers.
 
 ## 16. Gotchas met so far (read before you repeat them)
 
@@ -1321,6 +1387,20 @@ is what you will see)
 - At the change pause `workflow_status` is `previewing` (the last working status), not `awaiting_changes`; the pause is
   `pending.type == "change_request"`. Check the pause, not the status, in tests.
 
+*M11 (tools, prompts, cleanup)*
+- `handle_tool_error=True` on a LangChain tool only catches `ToolException`; any other exception escapes the tool loop.
+  `tools.run_tools` logs it (tool_calls) and re-raises; tools that can fail normally must raise ToolException.
+- A node function called outside a graph run fails in `progress.report` / `get_config` (`KeyError: '__pregel_runtime'`
+  even inside a RunnableLambda): run it in a one-node StateGraph (scripts/run_evals.py `node_runner`).
+- Mechanical edits by "cut from X to the next `"""`": a docstring that opens with `"""` + newline ends the cut at
+  its OWN opening quotes and leaves the body behind (happened to QUICK_MODE_NOTE). Read the result or cut to an
+  explicit end marker.
+- Asserting "the output is not logged" with a short number ("42") fails at random: timestamps and durations contain it.
+  Check the specific fields.
+- zsh: `curl localhost:8001/api/metrics?days=1` fails ("no matches found"): quote URLs with `?`.
+- Renaming a column used by a Postgres GENERATED column works with a plain `ALTER ... RENAME` (Postgres rewrites the
+  expression); update the model's `Computed(...)` text by hand (alembic check does not compare it).
+
 **Working with the user / this environment**
 - The user watches the admin page while things run and sends screenshots: they found bugs lint + tsc could not
   (M5: 5 bugs; M9: stale page while a script resumed, wrong task count, finished session hiding the app). Ask for a
@@ -1356,15 +1436,12 @@ is what you will see)
   is in the prompt, a stricter check (count of "or" clauses) would be an M11 eval, not a hard filter.
 
 ## ▶ Next step
-**M11 part 1 (cost + usage) is built and verified** (`verify_m11.py` PASS, 244 pytest + eslint + tsc + `next build`).
-The user commits it, e.g. `M11.1: cost and usage tracking` (`handoff.md` also still carries the uncommitted M10 handoff
-update). After "pushed", continue M11 in this order (section 8, M11 block):
-1. **Part 2 — `tool_calls` log**: the agent's PreToolUse decisions (tool, target, denied + reason) and every sandbox
-   command (argv, exit code, refused, timed out, duration) into a `tool_calls` table (they are in
-   `.builder/logs/*.log` / `commands.jsonl` today, not queryable); `/api/metrics` adds tool failure / refusal counters.
-2. **Part 3 — prompt registry + evals**: `prompts/` (VERSION, owner, changelog), versions recorded per session, eval
-   cases from M10's live findings (section 16) + `run_evals.py` (fake offline, `--live` real, cost printed from the
-   meter); prompt caching for stable system prompts (Ask measured at ~$0.05 per reply).
-3. **Part 4 — builder knowledge + skills + cleanup** (section 2.5 / 2.6 leftovers, idle trigger, quick profile removal).
-4. A brand-new idea end to end in the builder UI (~$2–3, ask first). It is now fully metered: report the real
-   per-stage cost from `GET /usage` and replace the guesses in section 11.
+**M11 is built and verified** (all four parts; part 1 already pushed as `5562c8b`). The user commits the rest, e.g.
+`M11: platform hardening (tool log, prompt registry and evals, knowledge, skills, cleanup)`. After "pushed":
+1. **First brand-new idea end to end in the builder UI** (never done since M10; ~$2–3: ask first). Everything is now
+   measured: report the per-stage cost from `GET /usage`, the tool failures from `/admin/metrics`, and replace the
+   guesses in section 11. Watch: the clarification v2 questions, the skills the agent got (`<skills>` in
+   `.builder/logs/<task>.log`), skipped-test badges, change titles "Change: …".
+2. **M12 (optional)**: Docker runtime per session (memory / CPU / network limits; needs the Docker daemon: open
+   question 2), cleanup CLI for old `generated_projects/` folders.
+3. Small follow-ups found in M11: trim Ask's ~27k-token context; more live eval cases as findings come in (rule 23).

@@ -8,14 +8,10 @@ Usage:
     settings = get_settings()
     settings.max_debate_rounds
 
-Session modes: a session runs in "full" mode (the admin view: every pause, every loop) or "quick" mode
-(the patient chat: a faster model, less research, no loops). The graph wraps every node in
-`session_mode(state["mode"])`, and inside it get_settings() returns the quick settings. The worker
-threads of a node (ContextThreadPoolExecutor) copy the context, so the three lanes see the same mode.
+(The health app's "quick" session profile was removed in M11: every session runs the full pipeline. Old sessions keep
+mode "quick" in their state / DB row; nothing reads it any more.)
 """
 
-from contextlib import contextmanager
-from contextvars import ContextVar
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -49,29 +45,6 @@ RUBRIC_DESCRIPTIONS = {
     "feasibility": "Buildable as a first version within the constraints: proven technologies, available APIs, manageable "
                    "dependencies and risks.",
     "completeness": "Covers users, MVP features, user journey, architecture, technologies, security / privacy and future scope.",
-}
-
-
-SessionMode = Literal["full", "quick"]
-
-# Patient chat ("quick" mode): the whole onboarding should take about 30 seconds after the questions.
-# Same agents, same order; only less of everything. Applied on top of the normal settings.
-QUICK_OVERRIDES = {
-    "llm_max_retries": 1,
-    "llm_timeout_seconds": 40,
-    "max_clarification_rounds": 1,
-    "max_research_retries": 0,              # no automatic loops: one research pass, one debate round
-    "max_debate_rounds": 1,
-    "session_time_budget_seconds": 120,
-    "queries_per_domain": 2,           # one general query + the key-topic query per domain
-    "max_results_per_query": 3,
-    "max_hits_per_domain": 4,          # extraction is the slowest step: fewer sources = less output
-    "max_evidence_per_domain": 4,
-    "max_excerpt_chars": 600,
-    "tavily_search_depth": "basic",         # (the apps domain keeps "advanced": basic review / forum snippets are too short)
-    "tavily_timeout_seconds": 6,            # a hanging search is retried once quickly instead of waiting
-    "search_max_retries": 1,
-    "max_brief_revisions": 0,               # the brief goes out with its open issues listed
 }
 
 
@@ -110,14 +83,9 @@ class Settings(BaseSettings):
     preview_idle_check_seconds: float = Field(default=300, ge=5, description="How often idle previews are looked for.")
     max_task_attempts: int = Field(default=2, ge=1, le=5, description="Attempts per task (a retry gets the failing "
                                    "verify output); then the task is failed and its dependants blocked.")
-    quick_model: str = Field(default="claude-haiku-5-5", description="Model for every agent of a quick (patient chat) session.")
     fallback_model: str = Field(default="claude-haiku-5-5", description="Backup model: a graph agent's call is repeated "
                                 "once on it when the main model fails. Empty = no fallback.")
-    quick_fallback_model: str = Field(default="claude-sonnet-5-5", description="Backup model of a quick session.")
     chat_model: str = Field(default="claude-sonnet-5-5", description="Model of the builder chat's Ask mode.")
-    session_mode: SessionMode = Field(default="full", description="Set by session_mode(); not meant for .env.")
-    quick_double_check: bool = Field(default=False, description="Quick sessions also run the Critic and the Evidence "
-                                     "Checker (about +20 s). Off by default to keep onboarding near 30 s.")
 
     # --- loop limits (see handoff.md for what each counter means) ---
     max_clarification_rounds: int = Field(default=3, ge=0, le=5)
@@ -151,7 +119,7 @@ class Settings(BaseSettings):
                                           "new automatic loops start (research / debate / clarification). User-driven "
                                           "steps (reviews, changes) still run: the user decides those.")
 
-    # --- research limits (cost control). Research runs 3 domains: research / doctor / patient ---
+    # --- research limits (cost control). Research runs 3 domains: apps / papers / tech ---
     queries_per_domain: int = Field(default=3, ge=1, le=6)
     max_results_per_query: int = Field(default=5, ge=1, le=20)
     max_hits_per_domain: int = Field(default=12, ge=3, le=30, description="Hits sent to the extractor per lane.")
@@ -166,11 +134,6 @@ class Settings(BaseSettings):
     # Override in .env as JSON: RUBRIC_WEIGHTS={"fit_to_user":0.4,...}
     rubric_weights: dict[str, float] = Field(default_factory=lambda: dict(DEFAULT_RUBRIC))
 
-    # --- triggers (triggers.py): scheduled check-ins in quiet patient chats ---
-    check_ins_enabled: bool = Field(default=True, description="Run the check-in scheduler inside the API process.")
-    check_in_quiet_hours: float = Field(default=24, ge=0, description="A chat this many hours quiet gets one check-in.")
-    check_in_interval_seconds: float = Field(default=3600, ge=10, description="How often the scheduler looks.")
-    check_in_max_per_run: int = Field(default=5, ge=1, le=50, description="Cost cap: check-ins written per run.")
 
     # --- tracing ---
     langsmith_tracing: bool = True
@@ -195,29 +158,7 @@ class Settings(BaseSettings):
         return weights
 
 
-_current_mode: ContextVar[str] = ContextVar("session_mode", default="full")
-
-
 @lru_cache
-def _settings_for(mode: str) -> Settings:
-    """Build Settings once per mode and reuse them (lru_cache = remember the first result)."""
-    base = Settings()
-    if mode != "quick":
-        return base
-    return base.model_copy(update=QUICK_OVERRIDES | {"anthropic_model": base.quick_model, "fallback_model": base.quick_fallback_model,
-                                                     "session_mode": "quick"})
-
-
 def get_settings() -> Settings:
-    """The settings of the session mode that is active right now ("full" outside a session_mode block)."""
-    return _settings_for(_current_mode.get())
-
-
-@contextmanager
-def session_mode(mode: str | None):
-    """Inside this block get_settings() returns the settings for `mode` (None / unknown = "full")."""
-    token = _current_mode.set("quick" if mode == "quick" else "full")
-    try:
-        yield
-    finally:
-        _current_mode.reset(token)
+    """The app settings, read once per process (.env changes need a restart)."""
+    return Settings()

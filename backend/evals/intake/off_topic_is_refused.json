@@ -1,0 +1,4 @@
+{"prompt": "intake", "node": "intake", "modes": ["live"],
+ "source": "M1: a request that is not an app idea is refused with the app-builder message, nothing is researched.",
+ "input": {"state": {"question": "what is the weather like today", "user_context": "", "mode": "full"}},
+ "checks": [{"on": "raises", "check": "error_type", "equals": "InvalidInputError"}]}

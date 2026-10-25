@@ -1,0 +1,78 @@
+{
+ "ask": {
+  "sha256": "aedd0414fe9de7a5514966c90e4e66fb42b3337eca33bb4c0289939f2dd28cba",
+  "version": 2
+ },
+ "ask_tools": {
+  "sha256": "48c96c46b9c53eb3173fa030121839c053517abbb8b4fc5635496c0023c9be14",
+  "version": 2
+ },
+ "brief_routing": {
+  "sha256": "d93cf62edc188f39c4e0398038cfd45c44c6b333d1197e7c52628e38fdf2b17c",
+  "version": 1
+ },
+ "brief_validator": {
+  "sha256": "c9ed277dd9aa6161c7de378ac26da93fedaa88c04ee145911584bb97af527faa",
+  "version": 1
+ },
+ "brief_writer": {
+  "sha256": "f2c62274f26c9b39ca95c9e1feba65c11bb8ad972e6fbd2291d3916f6db03aab",
+  "version": 1
+ },
+ "builder_rules": {
+  "sha256": "1808447036fcc905bb32e42a5ec550f15ddde867a5304adf21fbb3779977e753",
+  "version": 1
+ },
+ "clarification": {
+  "sha256": "b1feb4c33186d7482324fbc2b9a802f04a6c36ff183b539a1d2d59475b21b3f6",
+  "version": 2
+ },
+ "critic": {
+  "sha256": "cdfc8c8b5045db9ad13fee2e51801253e622c00bf2fc33182ec4c886f7a2d8e3",
+  "version": 1
+ },
+ "evidence_checker": {
+  "sha256": "164b9f930597a01df412a0f10656766db4cd4db685ff245ab50aa65d89bb8132",
+  "version": 1
+ },
+ "extractor": {
+  "sha256": "7b30017990462c8bc0a7bed676a020fb082a9917a215cefab857acce22841c0c",
+  "version": 1
+ },
+ "final_report": {
+  "sha256": "424ca71120e44391dfc95a3e26cffb3adc4ad1ba3535f90f6b4f109a3358cacf",
+  "version": 1
+ },
+ "implementer": {
+  "sha256": "886e9cee1c37699e8a173ecfc33b813d4af87a58e634118b0fb334ed59fd2333",
+  "version": 3
+ },
+ "intake": {
+  "sha256": "ee7b053b34e86bed467af4818d2b5f9cb24336131b14bb1f4f3932a304c67f21",
+  "version": 1
+ },
+ "judge": {
+  "sha256": "f26b7d401a136dc9f843a06814d06b267be0f3284aafd16dea3d3c6a3838a419",
+  "version": 1
+ },
+ "planner": {
+  "sha256": "5e8a9c2cb23771901980db8c3475045b5bd08181cdd9d9f1fbaa509e8b9c6f34",
+  "version": 1
+ },
+ "proposer": {
+  "sha256": "7672351c9ded444d45867ef7126cf88bcefc31d31148510fb2bde790baab7dd8",
+  "version": 2
+ },
+ "research_planner": {
+  "sha256": "b6b9e692f1c509c98fd56a1da5f6417a7685b2cb47d05cfacbffa9127b72af30",
+  "version": 1
+ },
+ "researcher": {
+  "sha256": "8d7ee28f45174aaad7274d02eb1da18fcebefab057fc72e59e8c173d0d579aa3",
+  "version": 1
+ },
+ "skills": {
+  "sha256": "01f95656ef455f555536a8bed61d6ce2cca21439e68f386ec53058ebc4c9aa54",
+  "version": 1
+ }
+}

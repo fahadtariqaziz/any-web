@@ -1,7 +1,4 @@
 """Query planning: Claude turns the clarified idea into targeted searches for all three research domains.
-
-Quick sessions skip the Claude call and use fixed query templates with the project name: one general query and the
-key-topic query per domain are enough for a short summary.
 """
 
 import json
@@ -57,11 +54,6 @@ Idea: bakery website with cake pre-orders for pickup.
 DOMAIN_ORDER = {d: i for i, d in enumerate(DOMAINS)}
 
 # Quick sessions: one general query + the key-topic query per domain, no LLM call.
-QUICK_QUERY = {
-    "apps": ("{term} app alternatives features", "existing_solutions"),
-    "papers": ("{term} research study approaches", "problem_background"),
-    "tech": ("{term} open source implementation library", "libraries_and_frameworks"),
-}
 # The key topic of each domain is always searched on the first pass (fixed fallback query when Claude skipped it).
 KEY_QUERY = {
     "apps": "{term} reviews complaints what users dislike",
@@ -79,21 +71,8 @@ def _key_query(domain: str, term: str) -> SearchQuery:
                        preferred_domains=[])
 
 
-def quick_plan(state: ArenaState) -> ResearchPlan:
-    """No LLM: one general query + the key-topic query per domain."""
-    term = search_term(state)
-    queries: list[SearchQuery] = []
-    for domain in DOMAINS:
-        query, topic = QUICK_QUERY[domain]
-        queries.append(SearchQuery(query=query.format(term=term), domain=domain, topic=topic, preferred_domains=[]))
-        queries.append(_key_query(domain, term))
-    return ResearchPlan(search_term=term, queries=queries)
-
-
 def plan_queries(state: ArenaState, focus: list[str] | None = None) -> ResearchPlan:
     settings = get_settings()
-    if settings.session_mode == "quick" and focus is None:
-        return quick_plan(state)
     per_domain = settings.queries_per_domain
     user_content = f"""{user_case_block(state)}
 <focus>{json.dumps(focus or [], indent=2)}</focus>"""

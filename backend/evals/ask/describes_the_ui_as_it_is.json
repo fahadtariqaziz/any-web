@@ -1,0 +1,6 @@
+{"prompt": "ask", "node": null, "modes": ["offline"],
+ "source": "M10 live finding: Ask pointed at a reopen button that did not exist; the prompt must name the real modes.",
+ "checks": [
+  {"on": "prompt", "prompt": "ask", "check": "contains", "text": "Request some change in app"},
+  {"on": "prompt", "prompt": "ask", "check": "contains", "text": "Plan a bigger"},
+  {"on": "prompt", "prompt": "ask", "check": "contains", "text": "reopens"}]}

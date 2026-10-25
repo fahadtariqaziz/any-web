@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
+from ai_decision_arena import tool_log
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.workspace import sandbox
 from ai_decision_arena.workspace.paths import Workspace, tool_path_problem
@@ -73,6 +74,8 @@ async def _run(ws: Workspace, prompt: str, system_append: str, model: str, label
         if name not in FILE_TOOLS and name != COMMAND_TOOL:
             reason = f"tool {name} is not available here"
         run.tool_calls.append({"tool": name, "target": _target(tool_input), "denied": reason})
+        tool_log.record(ws.session_id, "agent", name, target=_target(tool_input), ok=reason is None, reason=reason,
+                        label=label)
         log(f"{'DENIED ' if reason else ''}{name} {_target(tool_input)}" + (f" ({reason})" if reason else ""))
         if reason:
             return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",

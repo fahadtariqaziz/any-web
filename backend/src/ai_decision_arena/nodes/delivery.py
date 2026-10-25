@@ -16,6 +16,7 @@ Writes (owner): build_results, build_fix_round (build_check); preview (preview);
 """
 
 import copy
+import re
 from datetime import datetime, timezone
 
 from langgraph.config import get_config
@@ -47,6 +48,17 @@ def _plan(state: ArenaState) -> ImplementationPlan:
     return ImplementationPlan.model_validate(state["implementation_plan"])
 
 
+# Test runners' own summary lines: node --test "ℹ skipped 4" / TAP "# skip 4", vitest "4 skipped", jest "4 skipped",
+# pytest "4 skipped". A count the runner REPORTED (in the output tail), not an exit code: shown as such.
+SKIPPED_RE = re.compile(r"(?:ℹ|#)\s*(?:skip(?:ped)?|todo)\s+(\d+)|(\d+)\s+(?:skipped|todo)\b", re.IGNORECASE)
+
+
+def skipped_tests(output: str) -> int | None:
+    """Skipped + todo tests the runner reported, or None when the output has no such count."""
+    counts = [int(a or b) for a, b in SKIPPED_RE.findall(output)]
+    return sum(counts) if counts else None
+
+
 def check_commands(plan: ImplementationPlan) -> list[tuple[str, str]]:
     return ([("install", c) for c in plan.commands.install] + [("test", c) for c in plan.commands.test]
             + [("build", c) for c in plan.commands.build])
@@ -62,8 +74,12 @@ def build_check_node(state: ArenaState) -> dict:
     for phase, command in check_commands(plan):
         r = sandbox.run(ws, command, label=f"build-{phase}")
         output = (r.stderr_tail.strip() + "\n" + r.stdout_tail.strip()).strip()
-        steps.append({"phase": phase, "command": command, "ok": r.ok, "exit_code": r.exit_code,
-                      "summary": r.summary(), "output": output[-OUTPUT_CHARS:]})
+        step = {"phase": phase, "command": command, "ok": r.ok, "exit_code": r.exit_code,
+                "summary": r.summary(), "output": output[-OUTPUT_CHARS:]}
+        if phase == "test" and (skipped := skipped_tests(r.stdout_tail + "\n" + r.stderr_tail)):
+            step["skipped_tests"] = skipped          # passing runs can hide untested behaviour behind skips
+            report("build_check", f"test: the runner reports {skipped} skipped / todo test(s)")
+        steps.append(step)
         report("build_check", f"{phase}: {command} → {r.summary()}")
         if not r.ok:
             break                                   # later steps depend on this one
@@ -168,9 +184,19 @@ def reopen_update(state: ArenaState, action: str, request: str) -> dict:
     return {"change_requests": [*requests, entry], "status": "awaiting_changes", "current_node": "await_change_request"}
 
 
+MAX_TITLE_REQUEST_CHARS = 70
+
+
 def change_task_title(round_no: int) -> str:
-    """Title of the C<n> task a change request creates; the chat transcript (api/chat.py) finds the task by it."""
+    """Title of the C<n> tasks of sessions from before M11 (the transcript still finds those by it)."""
     return f"Change request {round_no}"
+
+
+def change_title(request: str) -> str:
+    """Title of a change task since M11: the request itself (the old "Change request <round>" counted the change-pause
+    ROUND, so the second change after a Finish was "C2 Change request 3")."""
+    text = " ".join(request.split())
+    return "Change: " + (text if len(text) <= MAX_TITLE_REQUEST_CHARS else text[:MAX_TITLE_REQUEST_CHARS - 1] + "…")
 
 
 def change_request_router_node(state: ArenaState) -> dict:
@@ -196,11 +222,14 @@ def change_request_router_node(state: ArenaState) -> dict:
     verify = plan.commands.test or plan.commands.build
     tasks = copy.deepcopy(state.get("implementation_tasks", []))
     spec = PlanTask(
-        id=next_task_id(tasks, "C"), phase="change", title=change_task_title(last["round"]),
+        id=next_task_id(tasks, "C"), phase="change", title=change_title(last["request"]),
         description=("The user asked for this change to the running app. Implement it within the approved brief and "
                      "plan, keep everything else working, and add or update tests for it.\n"
                      f"User request: {last['request']}"),
         depends_on=[], files=[], acceptance_criteria=[last["request"][:300]],
         verify_commands=verify or ["ls"])
     report("change_request_router", f"decision: change → coding agent task {spec.id}")
-    return update | {"implementation_tasks": add_task(tasks, spec), "build_fix_round": 0, "status": "implementing"}
+    # The request records its task, so the conversation links them by id (not by title).
+    requests = [*state["change_requests"][:-1], last | {"task_id": spec.id}]
+    return update | {"implementation_tasks": add_task(tasks, spec), "build_fix_round": 0, "status": "implementing",
+                     "change_requests": requests}

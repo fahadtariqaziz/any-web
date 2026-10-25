@@ -1,0 +1,7 @@
+{"prompt": "skills", "node": null, "modes": ["offline"],
+ "source": "M11: the health skills (meal planning, emotional support...) are gone; Ask offers builder skills via load_skill.",
+ "checks": [
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "write-a-change-request"},
+  {"on": "prompt", "prompt": "skills", "check": "not_contains", "text": "patient"},
+  {"on": "prompt", "prompt": "ask_tools", "check": "contains", "text": "load_skill"},
+  {"on": "prompt", "prompt": "ask", "check": "contains", "text": "<cost>"}]}

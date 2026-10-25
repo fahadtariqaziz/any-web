@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from ai_decision_arena import schemas as S
-from ai_decision_arena.config import get_settings, session_mode
+from ai_decision_arena.config import get_settings
 from ai_decision_arena.research import search as search_module
 from ai_decision_arena.research.extractor import extract_evidence, select_hits
 from ai_decision_arena.research.planner import ensure_key_topics, plan_queries
@@ -38,15 +38,6 @@ def test_ensure_key_topics_fills_every_domain():
     assert len([x for x in fixed if x.domain == "tech"]) == 2                       # room left: key query appended
     for d in DOMAINS:
         assert any(x.domain == d and x.topic == KEY_TOPIC[d] for x in fixed)
-
-
-def test_quick_plan_needs_no_llm_and_covers_every_domain(base_state):
-    with session_mode("quick"):
-        plan = plan_queries(base_state)
-    assert plan.search_term == "habit tracker app"
-    assert len(plan.queries) == 6 and {x.domain for x in plan.queries} == set(DOMAINS)
-    for d in DOMAINS:
-        assert any(x.domain == d and x.topic == KEY_TOPIC[d] for x in plan.queries)
 
 
 def test_plan_queries_enforces_the_budget_and_domain_order(fake_llm, base_state):

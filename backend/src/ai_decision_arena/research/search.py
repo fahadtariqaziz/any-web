@@ -16,6 +16,7 @@ from langsmith import traceable
 from langsmith.utils import ContextThreadPoolExecutor
 from tavily import TavilyClient
 
+from ai_decision_arena import tool_log
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.progress import report
 from ai_decision_arena.research.sources import SITES_BY_DOMAIN, classify_source, normalize_url
@@ -61,16 +62,25 @@ def search_one(q: SearchQuery) -> list[SearchHit]:
         "timeout": settings.tavily_timeout_seconds,
     } | _domain_kwargs(q)
 
+    started = time.monotonic()
+    target = f"{q.domain}: {q.query}"
     for attempt in range(settings.search_max_retries + 1):
         try:
             response = _client().search(q.query, **kwargs)
             break
-        except PERMANENT_ERRORS:
+        except PERMANENT_ERRORS as exc:
+            tool_log.record(tool_log.current_thread_id(), "search", "tavily", target=target, ok=False,
+                            reason=f"{type(exc).__name__}: {exc}", duration_seconds=round(time.monotonic() - started, 3))
             raise
-        except Exception:
+        except Exception as exc:
             if attempt == settings.search_max_retries:
+                tool_log.record(tool_log.current_thread_id(), "search", "tavily", target=target, ok=False,
+                                reason=f"{type(exc).__name__}: {exc} (after {attempt + 1} attempts)",
+                                duration_seconds=round(time.monotonic() - started, 3))
                 raise
             time.sleep(2 ** attempt)   # 1s, 2s, 4s ...
+    tool_log.record(tool_log.current_thread_id(), "search", "tavily", target=target,
+                    duration_seconds=round(time.monotonic() - started, 3), label=f"{len(response.get('results') or [])} hits")
 
     return [
         SearchHit(

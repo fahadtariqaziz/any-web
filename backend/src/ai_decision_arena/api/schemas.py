@@ -42,9 +42,8 @@ class CreateDecisionRequest(BaseModel):
     question: str = Field(min_length=MIN_QUESTION_CHARS, max_length=MAX_QUESTION_CHARS,
                           examples=["A habit tracker app for university students"])
     context: str = Field(default="", max_length=MAX_CONTEXT_CHARS, description="Optional extra context.")
-    mode: Literal["full", "quick"] = Field(default="full", description='"full": every agent, every loop (the builder '
-                                           'and the admin view). "quick": legacy fast profile (Haiku, one proposal); '
-                                           "no longer started by the UI.")
+    mode: Literal["full"] = Field(default="full", description='Always "full": every agent, every loop (the quick '
+                                  "profile was retired in M11; old sessions may still say quick).")
 
 
 class ClarificationResume(BaseModel):
@@ -222,6 +221,8 @@ class UsageResponse(BaseModel):
     llm_measured_since: str | None = Field(default=None, description="First metered step; None = the builder's own "
                                            "calls were never measured in this session (it ran before M11).")
     unpriced_models: list[str] = Field(default_factory=list)
+    prompt_versions: dict[str, int] = Field(default_factory=dict, description="prompt id -> version used (prompts.py)")
+    models_used: list[str] = Field(default_factory=list)
     prices_as_of: str
     phases: list[dict[str, Any]] = Field(default_factory=list, description="{phase, llm_usd, agent_usd, total_usd}")
     first_build: dict[str, Any] = Field(default_factory=dict, description="{llm_usd, agent_usd, total_usd} before the "
@@ -241,8 +242,31 @@ class MetricsResponse(BaseModel):
     by_node: list[dict[str, Any]]
     by_day: list[dict[str, Any]]
     calls_by_model: dict[str, int]
+    tools: list[dict[str, Any]] = Field(default_factory=list, description="tool_calls per source + tool: {source, tool, "
+                                        "calls, failed, refused, timed_out, avg_seconds}")
     agent: dict[str, Any] = Field(default_factory=dict, description="Coding-agent spend of sessions saved in "
                                   "decision_sessions.metrics (completed ones): {sessions, cost_usd}")
+
+
+class ToolCallView(BaseModel):
+    source: Literal["agent", "sandbox", "chat", "search"]
+    tool: str
+    target: str
+    label: str = ""
+    ok: bool
+    reason: str | None = None
+    exit_code: int | None = None
+    timed_out: bool = False
+    duration_seconds: float | None = None
+    at: str
+
+
+class ToolCallList(BaseModel):
+    """A session's tool calls, newest first (tool_calls table; empty with PERSIST_RESULTS=false)."""
+
+    thread_id: str
+    calls: list[ToolCallView]
+    counts: dict[str, int] = Field(default_factory=dict, description="{total, failed, denied_or_refused}")
 
 
 class PreviewResponse(BaseModel):

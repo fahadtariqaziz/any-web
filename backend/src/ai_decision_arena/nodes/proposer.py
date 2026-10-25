@@ -1,7 +1,6 @@
 """Node 4 — Proposer: 2-3 solution proposals from the clarified requirements and ALL the evidence, in ONE call.
 
 Python assigns proposal ids (proposal_a, proposal_b, proposal_c) and checks that cited evidence ids exist.
-Quick sessions ask for ONE proposal (QUICK_RULE).
 
 Writes (owner): proposals, proposer_notes, proposer_status, debate_round, status, current_node.
 Also clears criticisms/scores (a new round invalidates the old ones).
@@ -9,7 +8,6 @@ Also clears criticisms/scores (a new round invalidates the old ones).
 
 import json
 
-from ai_decision_arena.config import get_settings
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
 from ai_decision_arena.prompting import BUILDER_RULES, criticisms_block, evidence_block, user_case_block
@@ -47,12 +45,6 @@ Rules:
   evidence_too_thin to true.
 """ + BUILDER_RULES
 
-QUICK_RULE = """QUICK SESSION: this overrides every proposal count below and in the output schema. Return exactly ONE
-proposal (proposals list of length 1): the approach that fits this user best. Set why_fewer_than_two to
-"quick session" and evidence_too_thin to false, unless the evidence is too thin for any proposal (then an empty
-list and evidence_too_thin true).
-
-"""
 
 
 def proposer_node(state: ArenaState) -> dict:
@@ -64,7 +56,6 @@ def proposer_node(state: ArenaState) -> dict:
         return base | {"proposals": [], "proposer_notes": "No evidence was retrieved, so no solution could be proposed.",
                        "proposer_status": "no_evidence"}
 
-    quick = get_settings().session_mode == "quick"
     previous = state.get("criticisms", [])
     user_content = f"""{user_case_block(state)}
 {evidence_block(evidence)}
@@ -73,14 +64,14 @@ def proposer_node(state: ArenaState) -> dict:
 <conflicting_claims>{json.dumps(state.get("conflicting_claims", []), indent=1)}</conflicting_claims>
 <previous_criticisms>{criticisms_block(previous) if previous else "(none)"}</previous_criticisms>
 <debate_round>{round_number}</debate_round>"""
-    system_prompt = (QUICK_RULE if quick else "") + SYSTEM_PROMPT
-    report("proposer", f"debate round {round_number}: designing {'one solution' if quick else '2-3 solutions'} "
+    system_prompt = SYSTEM_PROMPT
+    report("proposer", f"debate round {round_number}: designing 2-3 solutions "
                        f"from {len(evidence)} evidence records")
     out = call_structured(ProposerOutput, system_prompt, user_content, max_tokens=9000, run_name="proposer_llm")
 
     known = {e["evidence_id"] for e in evidence}
     proposals: list[dict] = []
-    for i, p in enumerate(out.proposals[:1 if quick else MAX_PROPOSALS]):
+    for i, p in enumerate(out.proposals[:MAX_PROPOSALS]):
         # Trust boundary: only ids that exist survive. Dropped ones become a visible gap.
         cited = [eid for eid in p.supporting_evidence_ids if eid in known]
         unknown = [eid for eid in p.supporting_evidence_ids if eid not in known]
@@ -94,8 +85,8 @@ def proposer_node(state: ArenaState) -> dict:
         )
         proposals.append(proposal.model_dump(mode="json"))
 
-    note = out.why_fewer_than_two.strip() if len(proposals) < 2 and not quick else ""
-    if len(proposals) >= 2 or (quick and proposals):
+    note = out.why_fewer_than_two.strip() if len(proposals) < 2 else ""
+    if len(proposals) >= 2:
         status = "ok"
     elif out.evidence_too_thin:
         status = "thin"                                # a follow-up search may help

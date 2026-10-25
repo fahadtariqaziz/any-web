@@ -1,13 +1,15 @@
-"""Skills: know-how the chat agent loads ON DEMAND, only when a conversation needs it.
+"""Skills: reusable know-how, loaded only when it is needed (spec §10.5; builder skills since M11).
 
-Each skill is a folder backend/skills/<name>/ with a SKILL.md: a front-matter block (name, description) and
-the instructions. Only the one-line descriptions go into the system prompt (cheap, always there); the full
-instructions enter the context only when Claude calls the load_skill tool (tools.py). So adding a tenth skill
-costs one line of prompt, not a page.
-
-Same idea as Claude Code / Agent SDK skills, kept minimal: no scripts, just instructions.
+Each skill is backend/skills/<name>/SKILL.md: a front-matter block (name, description, audience, applies_to) and
+instructions. Two audiences:
+- ask:   the Ask-mode assistant sees only the one-line descriptions (<available_skills>) and loads a skill's full text
+         with the load_skill tool when a question needs it (writing a change request, explaining build results...);
+- agent: the coding agent gets the skills whose `applies_to` keywords match the approved plan's tech stack /
+         dependencies / testing strategy (Python picks them; "*" = every project), as <skills> in its task prompt.
+Skill texts are versioned in the prompt registry (prompts.py, id "skills"): editing one is a prompt change.
 """
 
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -24,24 +26,45 @@ def _parse(path: Path) -> dict:
             key, _, value = line.partition(":")
             meta[key.strip()] = value.strip()
     return {"name": meta.get("name", path.parent.name), "description": meta.get("description", ""),
+            "audience": meta.get("audience", "ask"),
+            "applies_to": [w.strip().lower() for w in meta.get("applies_to", "").split(",") if w.strip()],
             "instructions": body.strip()}
 
 
 @lru_cache
 def all_skills() -> dict[str, dict]:
-    """name -> {name, description, instructions}, read once per process (restart to pick up new skills)."""
+    """name -> skill, read once per process (restart to pick up new skills)."""
     skills = (_parse(p) for p in sorted(SKILLS_DIR.glob("*/SKILL.md")))
     return {s["name"]: s for s in skills}
 
 
+def _for(audience: str) -> dict[str, dict]:
+    return {n: s for n, s in all_skills().items() if s["audience"] == audience}
+
+
 def skills_block() -> str:
-    """The menu for the system prompt: names and descriptions only."""
-    lines = "\n".join(f"- {s['name']}: {s['description']}" for s in all_skills().values())
+    """Ask's menu for the system prompt: names and descriptions only."""
+    lines = "\n".join(f"- {s['name']}: {s['description']}" for s in _for("ask").values())
     return f"<available_skills>\n{lines}\n</available_skills>" if lines else ""
 
 
 def load_skill(name: str) -> str:
-    skill = all_skills().get(name)
+    skill = _for("ask").get(name)
     if not skill:
-        return f"No skill named {name!r}. Available: {', '.join(all_skills()) or 'none'}."
+        return f"No skill named {name!r}. Available: {', '.join(_for('ask')) or 'none'}."
     return f'<skill name="{skill["name"]}">\n{skill["instructions"]}\n</skill>'
+
+
+def agent_skills_for(stack_text: str) -> list[dict]:
+    """The coding-agent skills whose keywords occur (as words) in the plan's stack text, plus the "*" ones."""
+    words = set(re.findall(r"[a-z0-9.+#-]+", stack_text.lower()))
+    return [s for s in _for("agent").values()
+            if "*" in s["applies_to"] or any(k in words for k in s["applies_to"])]
+
+
+def agent_skills_block(stack_text: str) -> str:
+    chosen = agent_skills_for(stack_text)
+    if not chosen:
+        return ""
+    body = "\n".join(f'<skill name="{s["name"]}">\n{s["instructions"]}\n</skill>' for s in chosen)
+    return f"<skills>\n{body}\n</skills>"

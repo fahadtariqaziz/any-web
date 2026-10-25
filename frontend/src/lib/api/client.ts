@@ -18,6 +18,7 @@ import type {
   PreviewResponse,
   ReportResponse,
   UsageResponse,
+  MetricsResponse,
   ResumeRequest,
   SessionList,
   SessionMode,
@@ -112,6 +113,11 @@ export function getPlan(threadId: string): Promise<PlanResponse> {
 /** The coding agent's tasks, attempt log and last build check. 409 "no_implementation" before the build started. */
 export function getImplementation(threadId: string): Promise<ImplementationResponse> {
   return request(`${BASE}/${encodeURIComponent(threadId)}/implementation`);
+}
+
+/** The builder's usage, costs and tool outcomes across projects over the last `days` days (M11). */
+export function getMetrics(days = 7): Promise<MetricsResponse> {
+  return request(`/api/metrics?days=${days}`);
 }
 
 /** What the session cost so far: the builder's model calls + the coding agent (M11). */

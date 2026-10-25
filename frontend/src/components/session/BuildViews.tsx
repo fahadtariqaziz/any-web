@@ -115,6 +115,11 @@ export function BuildCard({ build }: { build: BuildResults }) {
                 <Badge tone={s.ok ? "emerald" : "red"}>{s.phase}</Badge>
                 <code className="text-slate-800">{s.command}</code>
                 <span className="text-slate-500">{s.summary}</span>
+                {s.skipped_tests ? (
+                  <span title="Reported by the test runner: these tests did not run, so a passing exit code does not cover them.">
+                    <Badge tone="amber">{s.skipped_tests} skipped</Badge>
+                  </span>
+                ) : null}
               </span>
               {!s.ok && s.output && <pre className="mt-1 max-h-48 overflow-auto rounded bg-slate-50 p-2 text-xs whitespace-pre-wrap">{s.output}</pre>}
             </li>

@@ -1,0 +1,54 @@
+{
+ "prompt": "brief_writer",
+ "node": "brief_writer",
+ "modes": [
+  "offline",
+  "live"
+ ],
+ "source": "M10 live finding: the updated brief listed the already built percent key as out of scope; the writer must see the built changes and the built stack.",
+ "input": {
+  "fixture": "replan_brief_writer"
+ },
+ "checks": [
+  {
+   "on": "request",
+   "check": "contains",
+   "text": "<changes_built_after_approval>",
+   "all_calls": true
+  },
+  {
+   "on": "request",
+   "check": "contains",
+   "text": "Add a percent key",
+   "all_calls": true
+  },
+  {
+   "on": "request",
+   "check": "contains",
+   "text": "<built_app>",
+   "all_calls": true
+  },
+  {
+   "on": "request",
+   "check": "contains",
+   "text": "scientific calculator",
+   "why": "the requested bigger change reaches the writer"
+  },
+  {
+   "on": "output",
+   "path": "brief.proposed_solution.mvp_features",
+   "check": "json_matches",
+   "pattern": "\\b(sin|cos|tan|log|ln)\\b|scientific",
+   "why": "the bigger change (scientific functions) is in the MVP",
+   "live_only": true
+  },
+  {
+   "on": "output",
+   "path": "brief.scope.in_scope",
+   "check": "json_contains",
+   "text": "percent",
+   "why": "the already built percent key stays in scope (M10 finding)",
+   "live_only": true
+  }
+ ]
+}

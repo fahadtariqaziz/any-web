@@ -1,0 +1,6 @@
+{"prompt": "brief_validator", "node": "brief_validator", "modes": ["offline"],
+ "source": "M10 live finding: the validator flagged the percent rule's 'you said' label as unsupported because only the writer saw the built changes.",
+ "input": {"fixture": "replan_planner", "state": {"current_node": "brief_writer"}},
+ "checks": [
+  {"on": "request", "check": "contains", "text": "<changes_built_after_approval>"},
+  {"on": "request", "check": "contains", "text": "Add a percent key"}]}

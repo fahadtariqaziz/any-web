@@ -1,0 +1,8 @@
+{"prompt": "proposer", "node": "proposer", "modes": ["offline", "live"],
+ "source": "M3 / M11: one call proposes 2-3 solutions over ALL evidence (the quick profile's single proposal is gone).",
+ "input": {"fixture": "built_calculator", "state": {"debate_round": 0, "criticisms": []}},
+ "checks": [
+  {"on": "request", "check": "schema", "equals": "ProposerOutput"},
+  {"on": "request", "check": "not_contains", "text": "QUICK SESSION"},
+  {"on": "request", "check": "contains", "text": "<item id=\"ev_", "why": "the evidence reaches the proposer with its ids"},
+  {"on": "output", "path": "proposals", "check": "len_between", "min": 2, "max": 3}]}

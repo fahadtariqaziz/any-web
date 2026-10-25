@@ -1,0 +1,5 @@
+{"prompt": "implementer", "node": null, "modes": ["offline"],
+ "source": "M10 leftover: T13 left 4 t.skip tests in the calculator that later tasks never re-enabled.",
+ "checks": [
+  {"on": "prompt", "prompt": "implementer", "check": "contains", "text": "Leave no skipped or pending tests behind"},
+  {"on": "prompt", "prompt": "implementer", "check": "contains", "text": "Never weaken or delete a test"}]}

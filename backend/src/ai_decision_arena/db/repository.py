@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from ai_decision_arena.db.engine import session_factory
 from ai_decision_arena.db.models import (ChatMessage, DecisionReport, DecisionSession, EvidenceRecord, KnowledgeDoc,
-                                         ProjectArtifact, ProjectRuntime, UsageEvent, UserMemory)
+                                         ProjectArtifact, ProjectRuntime, ToolCall, UsageEvent, UserMemory)
 
 EVIDENCE_COLUMNS = {"evidence_id", "domain", "source_url", "source_title", "source_type",
                     "relevant_excerpt", "verification_status", "retrieved_at"}
@@ -87,7 +87,7 @@ def save_completion(thread_id: str, state: dict, status: str, metrics: dict) -> 
         # The knowledge base grows with every session: its evidence becomes searchable for later chats.
         _upsert_knowledge(db, [
             {"kind": "evidence", "key": f"{thread_id}:{e['evidence_id']}", "title": e["source_title"],
-             "url": str(e["source_url"]), "domain": e["domain"], "condition": state.get("project_name"),
+             "url": str(e["source_url"]), "domain": e["domain"], "topic": state.get("project_name"),
              "content": " ".join([e.get("relevant_excerpt", ""), *e.get("claims_supported", [])]), "thread_id": thread_id}
             for e in state.get("evidence", [])
         ])
@@ -158,11 +158,11 @@ def list_runtimes(states: tuple[str, ...] = ("starting", "ready")) -> list[dict]
 
 
 def list_sessions(limit: int = 20, mode: str | None = None) -> list[DecisionSession]:
-    """Newest sessions first, for the frontend's "recent sessions" lists. mode: only "full" or "quick" ones."""
+    """Newest sessions first, for the projects lists. mode: only "full" or legacy "quick" ones."""
     query = select(DecisionSession).order_by(DecisionSession.created_at.desc()).limit(limit)
     if mode:
         query = query.where(DecisionSession.mode == mode)
-    if mode == "quick":   # chats whose first message intake rejected (not about health): nothing to reopen
+    if mode == "quick":   # legacy chats whose first message intake rejected: nothing to reopen
         query = query.where(~((DecisionSession.status == "failed") & DecisionSession.project_name.is_(None)))
     with session_factory()() as db:
         return list(db.execute(query).scalars())
@@ -183,7 +183,7 @@ def list_chat_messages(thread_id: str, limit: int = 200) -> list[ChatMessage]:
 # --- long-term memory (memory.py) ---------------------------------------------------------------
 
 def add_memories(user_id: str, facts: list[str], source: str, thread_id: str | None) -> None:
-    """Insert facts; a fact the patient already has is skipped (unique user_id + fact)."""
+    """Insert facts; a fact the user already has is skipped (unique user_id + fact)."""
     if not facts:
         return
     rows = [{"user_id": user_id, "fact": f, "source": source, "thread_id": thread_id} for f in facts]
@@ -199,10 +199,16 @@ def list_memories(user_id: str, limit: int = 40) -> list[UserMemory]:
         return list(reversed(db.execute(query).scalars().all()))
 
 
-def delete_memories(user_id: str) -> int:
-    """"Forget me": removes every remembered fact of this patient. Returns how many were deleted."""
+def delete_memories(user_id: str, thread_id: str | None = None, source: str | None = None) -> int:
+    """"Forget me": every remembered fact of this user; with thread_id / source only those (a project's own session
+    facts, replaced when it completes again). Returns how many were deleted."""
+    query = delete(UserMemory).where(UserMemory.user_id == user_id)
+    if thread_id:
+        query = query.where(UserMemory.thread_id == thread_id)
+    if source:
+        query = query.where(UserMemory.source == source)
     with session_factory().begin() as db:
-        return db.execute(delete(UserMemory).where(UserMemory.user_id == user_id)).rowcount
+        return db.execute(query).rowcount
 
 
 # --- knowledge base (knowledge.py) --------------------------------------------------------------
@@ -222,11 +228,21 @@ def upsert_knowledge_docs(rows: list[dict]) -> None:
         _upsert_knowledge(db, rows)
 
 
+def replace_curated_docs(rows: list[dict]) -> int:
+    """Upsert the curated docs and delete curated rows whose file is gone (e.g. the old health docs). Returns how
+    many were deleted."""
+    with session_factory().begin() as db:
+        _upsert_knowledge(db, rows)
+        result = db.execute(delete(KnowledgeDoc).where(KnowledgeDoc.kind == "curated",
+                                                       KnowledgeDoc.key.not_in([r["key"] for r in rows] or [""])))
+        return result.rowcount
+
+
 # Full-text search. plainto_tsquery joins the words with AND ("&"), so a whole question would only match a
 # document containing every word; turning "&" into "|" (OR) lets ts_rank reward documents that match MORE words.
-# Documents of the current chat get a boost (they were found for this very patient).
+# Documents of the current project get a boost (they were found for this very project).
 SEARCH_SQL = text("""
-SELECT id, kind, title, url, domain, condition, thread_id, content,
+SELECT id, kind, title, url, domain, topic, thread_id, content,
        ts_rank(search_vector, q) * CASE WHEN thread_id = :thread_id THEN 1.5 ELSE 1 END AS rank
 FROM knowledge_docs,
      to_tsquery('english', replace(plainto_tsquery('english', :query)::text, ' & ', ' | ')) AS q
@@ -239,33 +255,11 @@ LIMIT :limit
 
 # --- triggers (triggers.py) ---------------------------------------------------------------------
 
-# Finished patient chats that have been quiet for at least :quiet_hours and whose last message is not already
-# a check-in (so a patient who doesn't answer gets ONE check-in, not one per scheduler run).
-QUIET_CHATS_SQL = text("""
-SELECT s.thread_id
-FROM decision_sessions s
-LEFT JOIN LATERAL (
-    SELECT m.kind, m.created_at FROM chat_messages m WHERE m.thread_id = s.thread_id ORDER BY m.id DESC LIMIT 1
-) last ON true
-WHERE s.mode = 'quick'
-  AND s.status IN ('completed', 'completed_with_uncertainty')
-  AND coalesce(last.created_at, s.completed_at) < now() - make_interval(secs => :quiet_hours * 3600)
-  AND coalesce(last.kind, 'reply') <> 'check_in'
-ORDER BY coalesce(last.created_at, s.completed_at) DESC
-LIMIT :limit
-""")
-
-
-def quiet_chats(quiet_hours: float, limit: int) -> list[str]:
-    with session_factory()() as db:
-        return list(db.execute(QUIET_CHATS_SQL, {"quiet_hours": quiet_hours, "limit": limit}).scalars())
-
-
 def backfill_knowledge_from_evidence() -> int:
     """Copy the evidence of sessions saved BEFORE the knowledge base existed (new sessions do it at completion)."""
     with session_factory().begin() as db:
         return db.execute(text("""
-            INSERT INTO knowledge_docs (kind, key, title, url, domain, condition, content, thread_id)
+            INSERT INTO knowledge_docs (kind, key, title, url, domain, topic, content, thread_id)
             SELECT 'evidence', s.thread_id || ':' || e.evidence_id, e.source_title, e.source_url, e.domain,
                    s.project_name, e.excerpt, s.thread_id
             FROM evidence_records e JOIN decision_sessions s ON s.id = e.session_id
@@ -337,3 +331,29 @@ def agent_cost_since(since: datetime) -> dict:
         n, total = db.execute(select(func.count(DecisionSession.id), func.coalesce(func.sum(cost), 0.0)).where(
             DecisionSession.completed_at >= since, DecisionSession.metrics.has_key("implementation_cost_usd"))).one()
     return {"sessions": n, "cost_usd": round(float(total), 4)}
+
+
+def save_tool_call(row: dict) -> None:
+    with session_factory().begin() as db:
+        db.add(ToolCall(**{**row, "at": datetime.fromisoformat(row["at"])}))
+
+
+def list_tool_calls(thread_id: str, limit: int = 300, source: str | None = None) -> list[ToolCall]:
+    query = select(ToolCall).where(ToolCall.thread_id == thread_id).order_by(ToolCall.at.desc(), ToolCall.id.desc())
+    if source:
+        query = query.where(ToolCall.source == source)
+    with session_factory()() as db:
+        return list(db.execute(query.limit(limit)).scalars())
+
+
+def tool_metrics(since: datetime) -> list[dict]:
+    """Per source + tool: calls, failures (not ok), refused/denied (a reason without an exit code), timeouts, seconds."""
+    refused = (~ToolCall.ok) & ToolCall.exit_code.is_(None) & ~ToolCall.timed_out
+    rows = select(ToolCall.source, ToolCall.tool, func.count(ToolCall.id),
+                  func.count(ToolCall.id).filter(~ToolCall.ok), func.count(ToolCall.id).filter(refused),
+                  func.count(ToolCall.id).filter(ToolCall.timed_out),
+                  func.coalesce(func.avg(ToolCall.duration_seconds), 0.0)).where(ToolCall.at >= since).group_by(
+        ToolCall.source, ToolCall.tool).order_by(ToolCall.source, func.count(ToolCall.id).desc())
+    with session_factory()() as db:
+        return [{"source": s, "tool": tl, "calls": n, "failed": f, "refused": r, "timed_out": to,
+                 "avg_seconds": round(float(avg), 3)} for s, tl, n, f, r, to, avg in db.execute(rows)]

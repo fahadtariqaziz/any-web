@@ -75,6 +75,7 @@ export interface BuildStep {
   exit_code: number | null;
   summary: string; // e.g. "exit 0 in 1.2s", "timed out after 120s"
   output: string;
+  skipped_tests?: number; // test step: skipped + todo tests the runner reported in its summary (M11)
 }
 
 /** The last build check: install → test → build in the sandbox. passed comes from exit codes only. */
@@ -632,6 +633,32 @@ export interface ImplementationResponse {
   log: { task_id: string; attempt: number; ok: boolean; status: TaskStatus; summary: string; cost_usd: number; at: string }[];
   cost_usd: number;
   build: BuildResults | null;
+}
+
+/** Totals of usage_events rows (one per node run with model calls / per Ask reply). */
+export interface UsageTotals {
+  runs: number;
+  calls: number;
+  failed_calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  cost_usd: number;
+  seconds: number;
+  node_failures: number;
+}
+
+/** GET /api/metrics?days=N (M11): the builder's own usage and tool outcomes across projects. */
+export interface MetricsResponse {
+  since: string;
+  days: number;
+  total: UsageTotals & { sessions: number };
+  by_node: (UsageTotals & { node: string })[];
+  by_day: (UsageTotals & { day: string })[];
+  calls_by_model: Record<string, number>;
+  tools: { source: "agent" | "sandbox" | "chat" | "search"; tool: string; calls: number; failed: number; refused: number; timed_out: number; avg_seconds: number }[];
+  agent: { sessions?: number; cost_usd?: number };
 }
 
 /** One metered step: a graph node's model calls ("llm") or one coding-agent task attempt ("agent"). */

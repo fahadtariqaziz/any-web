@@ -21,7 +21,7 @@ import httpx
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
-from ai_decision_arena.config import REPO_ROOT, get_settings, session_mode
+from ai_decision_arena.config import REPO_ROOT, get_settings
 from ai_decision_arena.db.repository import get_runtime
 from ai_decision_arena.graph import build_graph
 from ai_decision_arena.plan import plan_hash, render_plan_markdown, tasks_from_plan
@@ -105,16 +105,14 @@ graph = build_graph(InMemorySaver())
 
 
 def run(command) -> tuple[dict, object]:
-    with session_mode("full"):
-        for chunk in graph.stream(command, config, stream_mode="custom"):
-            print("   ", chunk.get("message") if isinstance(chunk, dict) else chunk)
+    for chunk in graph.stream(command, config, stream_mode="custom"):
+        print("   ", chunk.get("message") if isinstance(chunk, dict) else chunk)
     snapshot = graph.get_state(config)
     return dict(snapshot.values), snapshot
 
 
 t0 = time.monotonic()
-with session_mode("full"):
-    graph.update_state(config, values, as_node="plan_review_router")
+graph.update_state(config, values, as_node="plan_review_router")
 state, snapshot = run(None)
 print(f"\n{time.monotonic() - t0:.0f}s\n")
 

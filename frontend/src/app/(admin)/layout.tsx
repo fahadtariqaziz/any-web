@@ -1,4 +1,4 @@
-import { Blocks, Hammer, Plus } from "lucide-react";
+import { BarChart3, Blocks, Hammer, Plus } from "lucide-react";
 import Link from "next/link";
 
 // The admin view: every agent step, pause, score and verdict is visible. The builder (chat + preview) lives at "/".
@@ -20,6 +20,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link href="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">
               <Hammer className="size-4" aria-hidden />
               Builder
+            </Link>
+            <Link href="/admin/metrics" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">
+              <BarChart3 className="size-4" aria-hidden />
+              Metrics
             </Link>
             <Link
               href="/admin"

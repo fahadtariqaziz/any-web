@@ -1,0 +1,7 @@
+{"prompt": "intake", "node": "intake", "modes": ["live"],
+ "source": "Standard test idea (M1): the smallest buildable project must be understood as a browser app.",
+ "input": {"state": {"question": "A simple calculator web app", "user_context": "", "mode": "full"}},
+ "checks": [
+  {"on": "output", "path": "project_category", "check": "in", "values": ["web_app", "website"]},
+  {"on": "output", "path": "missing_information", "check": "len_between", "min": 1, "max": 8,
+   "why": "intake lists what is still unknown (it feeds clarification)"}]}

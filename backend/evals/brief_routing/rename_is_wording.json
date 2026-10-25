@@ -1,0 +1,10 @@
+{"prompt": "brief_routing", "node": "brief_review_router", "modes": ["offline", "live"],
+ "source": "M5: a pure wording change must not re-run research or the debate (minutes and dollars).",
+ "input": {"fixture": "replan_planner", "state": {"current_node": "await_brief_review"},
+   "append": {"brief_feedback": [{"round": 9, "action": "request_changes", "target": "auto",
+     "feedback": "Call the app CalcPro everywhere in the brief and make the problem statement two sentences shorter.",
+     "at": "2026-10-25T12:00:00+00:00"}]}},
+ "checks": [
+  {"on": "request", "check": "calls", "schema": "FeedbackRouting", "equals": 1},
+  {"on": "request", "check": "contains", "text": "CalcPro"},
+  {"on": "output", "path": "brief_review_route", "check": "equals", "value": "wording"}]}

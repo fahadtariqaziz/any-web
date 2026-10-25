@@ -15,9 +15,6 @@ What call_structured() does when something goes wrong, in this order:
 
 Every attempt that got a response is metered (usage.record: tokens + USD, also the invalid and truncated ones,
 which are billed too); the node wrapper turns the node's meter into a `usage_log` entry.
-
-In a quick (patient chat) session the model comes from settings.quick_model and every system prompt
-gets QUICK_MODE_NOTE: shorter answers are the main lever for speed (output tokens take the time).
 """
 
 from functools import lru_cache
@@ -67,15 +64,10 @@ def describe_llm_error(exc: Exception) -> str:
     return f"{type(exc).__name__}: {exc}"
 
 
-QUICK_MODE_NOTE = """
-Speed mode (a patient is waiting for this): keep every text field to one short sentence, keep lists to at
-most 3 items, and when the instructions give a range (e.g. "5-6 questions") use the lower end. A QUICK SESSION
-rule in the instructions overrides this note."""
-
 
 def get_llm(max_tokens: int | None = None, model: str | None = None, effort: str | None = None,
             timeout: float | None = None) -> ChatAnthropic:
-    """The client for the active session mode (see config.session_mode); `model` overrides the mode's model,
+    """The Claude client; `model` overrides settings.anthropic_model,
     `effort` sets output_config.effort (langchain merges it with the structured-output format), `timeout` the
     per-request timeout in seconds."""
     settings = get_settings()
@@ -181,8 +173,6 @@ def _call_structured(
 ) -> T:
     """One model: SDK retries + self-correction. Raises an anthropic.APIError or LLMOutputError."""
     settings = get_settings()
-    if settings.session_mode == "quick":
-        system_prompt += "\n" + QUICK_MODE_NOTE
     structured_llm = get_llm(max_tokens, model=model, effort=effort, timeout=timeout).with_structured_output(
         schema,
         method="json_schema",   # Anthropic native structured outputs

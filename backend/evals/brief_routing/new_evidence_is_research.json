@@ -1,0 +1,7 @@
+{"prompt": "brief_routing", "node": "brief_review_router", "modes": ["live"],
+ "source": "M5: a request for evidence the brief does not have goes back to research, not to a rewrite.",
+ "input": {"fixture": "replan_planner", "state": {"current_node": "await_brief_review"},
+   "append": {"brief_feedback": [{"round": 9, "action": "request_changes", "target": "auto",
+     "feedback": "Find out what users of existing online calculators complain about regarding accessibility and screen readers, and base the requirements on that evidence.",
+     "at": "2026-10-25T12:00:00+00:00"}]}},
+ "checks": [{"on": "output", "path": "brief_review_route", "check": "equals", "value": "research"}]}
