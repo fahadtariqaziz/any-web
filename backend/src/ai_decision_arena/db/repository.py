@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from ai_decision_arena.db.engine import session_factory
 from ai_decision_arena.db.models import (ChatMessage, DecisionReport, DecisionSession, EvidenceRecord, KnowledgeDoc,
-                                         ProjectArtifact, UserMemory)
+                                         ProjectArtifact, ProjectRuntime, UserMemory)
 
 EVIDENCE_COLUMNS = {"evidence_id", "domain", "source_url", "source_title", "source_type",
                     "relevant_excerpt", "verification_status", "retrieved_at"}
@@ -125,6 +125,36 @@ def list_artifacts(thread_id: str, kind: str | None = None) -> list[ProjectArtif
         query = query.where(ProjectArtifact.kind == kind)
     with session_factory()() as db:
         return list(db.execute(query).scalars())
+
+
+RUNTIME_COLUMNS = ("state", "command", "port", "pid", "process_started_at", "url", "last_error", "log_path",
+                   "started_at", "ready_at", "stopped_at", "last_seen_at")
+
+
+def save_runtime(thread_id: str, values: dict) -> None:
+    """Insert or update the session's runtime row (workspace/processes.py owns the values)."""
+    row = {"thread_id": thread_id} | {k: values.get(k) for k in RUNTIME_COLUMNS}
+    stmt = insert(ProjectRuntime).values(**row)
+    stmt = stmt.on_conflict_do_update(index_elements=["thread_id"],
+                                      set_={k: stmt.excluded[k] for k in RUNTIME_COLUMNS} | {"updated_at": func.now()})
+    with session_factory().begin() as db:
+        db.execute(stmt)
+
+
+def _runtime_dict(row: ProjectRuntime) -> dict:
+    return {"thread_id": row.thread_id} | {k: getattr(row, k) for k in RUNTIME_COLUMNS}
+
+
+def get_runtime(thread_id: str) -> dict | None:
+    with session_factory()() as db:
+        row = db.execute(select(ProjectRuntime).where(ProjectRuntime.thread_id == thread_id)).scalar_one_or_none()
+        return _runtime_dict(row) if row else None
+
+
+def list_runtimes(states: tuple[str, ...] = ("starting", "ready")) -> list[dict]:
+    with session_factory()() as db:
+        rows = db.execute(select(ProjectRuntime).where(ProjectRuntime.state.in_(states))).scalars()
+        return [_runtime_dict(r) for r in rows]
 
 
 def list_sessions(limit: int = 20, mode: str | None = None) -> list[DecisionSession]:

@@ -48,3 +48,6 @@ yarn-error.log*
 
 # Logs
 *.log
+
+# Generated apps (one folder per builder session, M7)
+generated_projects/

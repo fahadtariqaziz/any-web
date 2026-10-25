@@ -1029,12 +1029,14 @@ FORBIDDEN_COMMANDS = (("git", "push"), ("git", "remote"), ("npm", "publish"), ("
 SHELL_METACHARACTERS = ("&&", "||", ";", "|", ">", "<", "`", "$(", "${", "&")
 
 
-def command_problems(command: str) -> list[str]:
-    """Why a plan command would be refused (empty list = allowed). Pure Python, shared with the sandbox."""
+def command_problems(command: str, *, shell_operators: bool = True) -> list[str]:
+    """Why a plan command would be refused (empty list = allowed). Pure Python, shared with the sandbox.
+    shell_operators=False: the command came as an argv LIST (no shell anywhere), so ';' or '|' inside an argument
+    (python3 -c "a; b") is just text; plan commands are strings and always get the check."""
     import shlex
 
     problems: list[str] = []
-    if any(m in command for m in SHELL_METACHARACTERS):
+    if shell_operators and any(m in command for m in SHELL_METACHARACTERS):
         problems.append(f"{command!r}: shell operators are not allowed (one plain command per entry)")
     try:
         argv = shlex.split(command)
@@ -1047,7 +1049,8 @@ def command_problems(command: str) -> list[str]:
     if any(tuple(argv[:2]) == f for f in FORBIDDEN_COMMANDS):
         problems.append(f"{command!r}: publishing or pushing is not allowed")
     for arg in argv[1:]:
-        if arg.startswith(("/", "~")) or ".." in arg.split("/"):
+        values = [arg, arg.split("=", 1)[1]] if "=" in arg else [arg]      # --prefix=/tmp is a path too
+        if any(v.startswith(("/", "~")) or ".." in v.split("/") for v in values):
             problems.append(f"{command!r}: paths must stay inside the project (no absolute paths, '~' or '..')")
             break
     if argv[0] == "rm" and any(a in ("-rf", "-fr", "-r", "-R") for a in argv[1:]) and any(a in (".", "*", "./") for a in argv[1:]):

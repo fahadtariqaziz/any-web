@@ -79,6 +79,7 @@ from ai_decision_arena.graph import build_graph
 from ai_decision_arena.llm import resolve_model
 from ai_decision_arena.memory import valid_user_id
 from ai_decision_arena.triggers import CheckInScheduler
+from ai_decision_arena.workspace.processes import ProcessManager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -117,6 +118,10 @@ async def lifespan(app: FastAPI):
     app.state.graph = graph
     app.state.runner = GraphRunner(graph)
     check_models()
+    # Dev servers (M7): adopt the ones still running from before a restart, clean up what a crash left behind.
+    # They are NOT stopped at shutdown, so `uvicorn --reload` keeps the previews alive (idle stop ends them).
+    app.state.processes = ProcessManager()
+    app.state.processes.reconcile()
     scheduler = CheckInScheduler(graph) if get_settings().check_ins_enabled else None   # scheduled trigger
     if scheduler:
         scheduler.start()

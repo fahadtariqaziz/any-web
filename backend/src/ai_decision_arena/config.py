@@ -25,6 +25,7 @@ from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILE = Path(__file__).resolve().parents[2] / ".env"   # backend/.env
+REPO_ROOT = Path(__file__).resolve().parents[3]           # ai-lab-2/
 
 # Copy .env into os.environ too: LangChain/LangSmith/Tavily read their keys from there.
 # Real environment variables win over .env (override=False).
@@ -114,6 +115,19 @@ class Settings(BaseSettings):
                                    "earlier steps; after that only wording changes (or approval) are accepted.")
     brief_word_budget: int = Field(default=900, ge=300, le=3000, description="Words of brief sections 1-9 before the "
                                    "appendix (about one page); overflow items move to the appendix.")
+
+    # --- generated projects (M7: workspace/, handoff.md section 6) ---
+    generated_projects_dir: Path = Field(default=REPO_ROOT / "generated_projects", description="One folder per session "
+                                         "(<dir>/<thread_id>/app + .builder); git-ignored.")
+    command_timeout_seconds: float = Field(default=120, gt=0, description="Per sandbox command (tests, builds, ls...).")
+    install_timeout_seconds: float = Field(default=600, gt=0, description="Per package install (npm install, uv sync...).")
+    command_output_cap_bytes: int = Field(default=20_000, ge=1000, le=1_000_000, description="Tail kept per stream.")
+    share_package_cache: bool = Field(default=True, description="Sessions share one npm/uv/pip download cache under "
+                                      "<generated_projects_dir>/.shared (content-addressed and integrity-checked; "
+                                      "installs are much faster). False = a cache per session.")
+    preview_port_range: str = Field(default="4100-4199", pattern=r"^\d{4,5}-\d{4,5}$")
+    preview_health_timeout_seconds: float = Field(default=60, gt=0, description="A dev server must answer HTTP in time.")
+    preview_idle_minutes: float = Field(default=30, gt=0, description="A preview nobody looked at for this long is stopped.")
 
     # --- session budget ---
     session_time_budget_seconds: float = Field(default=900, gt=0, description="Active (non-paused) seconds after which no new loops start.")

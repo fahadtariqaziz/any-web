@@ -11,8 +11,8 @@ Schema changes go through Alembic migrations (backend/migrations), never by hand
 import uuid
 from datetime import datetime
 
-from sqlalchemy import (CheckConstraint, Computed, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint,
-                        func)
+from sqlalchemy import (CheckConstraint, Computed, DateTime, Double, ForeignKey, Index, Integer, String, Text,
+                        UniqueConstraint, func, text)
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -153,6 +153,36 @@ class ProjectArtifact(Base):
     content: Mapped[dict] = mapped_column(JSONB, default=dict)       # ProblemBrief / ImplementationPlan as JSON
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ProjectRuntime(Base):
+    """The dev server (live preview) of a session (M7, workspace/processes.py). One row per session; the row is the
+    registry that survives a backend restart: at startup a live process is adopted if its pid AND start time still
+    match, otherwise the row is marked failed. Only one active (starting / ready) runtime may hold a port."""
+
+    __tablename__ = "project_runtimes"
+    __table_args__ = (
+        CheckConstraint("state IN ('starting', 'ready', 'failed', 'stopped')", name="ck_project_runtimes_state"),
+        Index("uq_project_runtimes_active_port", "port", unique=True,
+              postgresql_where=text("state IN ('starting', 'ready')")),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    thread_id: Mapped[str] = mapped_column(String(64), unique=True)
+    state: Mapped[str] = mapped_column(String(20))
+    command: Mapped[str] = mapped_column(Text)
+    port: Mapped[int | None] = mapped_column(Integer)
+    pid: Mapped[int | None] = mapped_column(Integer)
+    process_started_at: Mapped[float | None] = mapped_column(Double)   # psutil create_time: guards against pid reuse
+    url: Mapped[str | None] = mapped_column(Text)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    log_path: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    stopped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))   # preview viewed (idle stop)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class KnowledgeDoc(Base):
