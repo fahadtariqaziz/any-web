@@ -14,7 +14,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useDecision } from "@/hooks/useDecision";
 import { useFetch } from "@/hooks/useFetch";
 import { useNow } from "@/hooks/useNow";
-import { getBrief, getImplementation, getPlan } from "@/lib/api/client";
+import { getBrief, getImplementation, getPlan, getUsage } from "@/lib/api/client";
 import type { DecisionStatus } from "@/lib/api/types";
 import { deriveActivity } from "@/lib/pipeline";
 
@@ -47,6 +47,7 @@ export function BuilderView({ threadId }: { threadId: string }) {
   const plan = useFetch(() => getPlan(threadId), `${threadId}|${moved}`, Boolean(status?.has_plan));
   // While the coding agent works, every task attempt adds progress lines: re-fetch the task list with them.
   const implementation = useFetch(() => getImplementation(threadId), `${threadId}|${moved}|${status?.progress.length}`, Boolean(status?.has_build));
+  const usage = useFetch(() => getUsage(threadId), `${threadId}|${moved}|${status?.progress.length}`, Boolean(status?.has_build));
 
   if (!status) {
     if (error && error.status !== 0 && error.status < 500) {
@@ -96,7 +97,7 @@ export function BuilderView({ threadId }: { threadId: string }) {
           style={chatWidth ? ({ "--chat-w": `${chatWidth}px` } as React.CSSProperties) : undefined}
           className={`${mobileSide === "chat" ? "flex" : "hidden"} min-h-0 w-full flex-col md:flex md:w-[var(--chat-w,400px)] md:shrink-0 lg:w-[var(--chat-w,440px)]`}
         >
-          <ChatPane threadId={threadId} status={status} lastUpdate={lastUpdate} refresh={refresh} implementation={implementation.data} onOpenTab={openTab} />
+          <ChatPane threadId={threadId} status={status} lastUpdate={lastUpdate} refresh={refresh} implementation={implementation.data} usage={usage.data} onOpenTab={openTab} />
         </section>
         <ResizeHandle width={chatWidth} onWidth={setChatWidth} chatLeft={() => chatRef.current?.getBoundingClientRect().left ?? 0} />
         <section aria-label="Preview and documents" className={`${mobileSide === "work" ? "flex" : "hidden"} min-h-0 min-w-0 flex-1 flex-col bg-slate-100 p-2 md:flex`}>
@@ -112,6 +113,7 @@ export function BuilderView({ threadId }: { threadId: string }) {
             briefError={brief.error}
             plan={plan.data}
             implementation={implementation.data}
+            usage={usage.data}
           />
         </section>
       </div>

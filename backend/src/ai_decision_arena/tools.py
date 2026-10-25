@@ -12,6 +12,7 @@ cost stay predictable (~30 s). In the chat a turn is open-ended, so Claude choos
 Guardrails: at most MAX_TOOL_ROUNDS model calls with tools per turn (then one final answer without tools),
 at most MAX_WEB_SEARCHES web searches per turn, every tool result is wrapped as <source> data (never
 instructions), and a failing tool returns an error text instead of crashing the turn.
+Every model round (the sub-agent's too) is metered into the turn's ToolContext.meter (usage.py).
 """
 
 import json
@@ -23,8 +24,10 @@ from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, Tool
 from langchain_core.tools import BaseTool, StructuredTool
 
 from ai_decision_arena import knowledge, memory, skills
+from ai_decision_arena.pricing import tokens_from_langchain
 from ai_decision_arena.research.search import search_one
 from ai_decision_arena.schemas import SearchQuery
+from ai_decision_arena.usage import UsageMeter, record
 
 MAX_TOOL_ROUNDS = 4
 MAX_WEB_SEARCHES = 3
@@ -39,6 +42,12 @@ class ToolContext:
     project: str = ""
     web_searches: int = 0
     used: list[str] = field(default_factory=list)       # tool names in call order, for logs / traces
+    meter: UsageMeter = field(default_factory=UsageMeter)   # tokens + USD of this turn's model calls
+
+
+def _meter(llm, message, ctx: ToolContext) -> None:
+    if message is not None:
+        record(getattr(llm, "model", "") or "unknown", tokens_from_langchain(message.usage_metadata), meter=ctx.meter)
 
 
 def _sources(items: list[dict]) -> str:
@@ -145,6 +154,7 @@ def stream_with_tools(llm, messages: list[BaseMessage], tools: list[BaseTool], c
                 separated = True
                 wrote_text = True
                 yield chunk.text
+        _meter(llm, full, ctx)
         if full is None or not full.tool_calls:
             return
         messages = messages + [full] + run_tools(full, tools, ctx)
@@ -157,6 +167,7 @@ def invoke_with_tools(llm, messages: list[BaseMessage], tools: list[BaseTool], c
     for round_no in range(1, max_rounds + 2):
         model = with_tools if round_no <= max_rounds else llm
         reply: AIMessage = model.invoke(messages, config=config | {"run_name": f"{config.get('run_name', 'agent')}_round_{round_no}"})
+        _meter(llm, reply, ctx)
         if not reply.tool_calls:
             return reply.text
         messages = messages + [reply] + run_tools(reply, tools, ctx)

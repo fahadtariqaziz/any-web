@@ -17,6 +17,7 @@ import type {
   LiveSnapshot,
   PreviewResponse,
   ReportResponse,
+  UsageResponse,
   ResumeRequest,
   SessionList,
   SessionMode,
@@ -111,6 +112,11 @@ export function getPlan(threadId: string): Promise<PlanResponse> {
 /** The coding agent's tasks, attempt log and last build check. 409 "no_implementation" before the build started. */
 export function getImplementation(threadId: string): Promise<ImplementationResponse> {
   return request(`${BASE}/${encodeURIComponent(threadId)}/implementation`);
+}
+
+/** What the session cost so far: the builder's model calls + the coding agent (M11). */
+export function getUsage(threadId: string): Promise<UsageResponse> {
+  return request(`${BASE}/${encodeURIComponent(threadId)}/usage`);
 }
 
 /** Live state of the session's dev server (reading it keeps the preview from the idle stop). 409 "no_preview" before. */

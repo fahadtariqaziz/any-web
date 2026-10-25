@@ -634,6 +634,47 @@ export interface ImplementationResponse {
   build: BuildResults | null;
 }
 
+/** One metered step: a graph node's model calls ("llm") or one coding-agent task attempt ("agent"). */
+export interface UsageStep {
+  kind: "llm" | "agent";
+  node: string;
+  phase: string;
+  at: string;
+  cost_usd: number;
+  calls?: number;
+  tokens?: { input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_write_tokens: number };
+  seconds?: number;
+  models?: Record<string, number>;
+  error?: string | null;
+  task_id?: string;
+  attempt?: number;
+  ok?: boolean;
+}
+
+export interface CostSplit {
+  llm_usd: number;
+  agent_usd: number;
+  total_usd: number;
+}
+
+/** GET /api/decisions/{id}/usage (M11): what the session cost, per phase, for the first build and per change. */
+export interface UsageResponse {
+  thread_id: string;
+  total_usd: number;
+  llm_usd: number; // the builder's own model calls (measured since M11)
+  agent_usd: number; // the coding agent (Agent SDK cost per attempt)
+  ask_usd: number | null;
+  llm_budget_usd: number;
+  agent_budget_usd: number;
+  llm_measured_since: string | null; // null = the builder's calls were never measured (session from before M11)
+  unpriced_models: string[];
+  prices_as_of: string;
+  phases: ({ phase: string } & CostSplit)[];
+  first_build: CostSplit;
+  changes: ({ round: number; action: "change" | "replan"; request: string; at: string; tasks: string[] } & CostSplit)[];
+  steps: UsageStep[];
+}
+
 export interface PreviewResponse extends PreviewInfo {
   thread_id: string;
   log_tail: string;
@@ -718,6 +759,7 @@ export interface ChangeTurn {
   at: string;
   task_id: string | null;
   task_status: TaskStatus | null;
+  cost_usd: number | null; // model calls + coding agent until the next reply at the change pause (M11)
 }
 
 /** GET /api/chats/{thread_id}: the whole conversation of a builder session (the pauses themselves come from the status). */

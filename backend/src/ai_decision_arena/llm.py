@@ -13,6 +13,9 @@ What call_structured() does when something goes wrong, in this order:
    The node wrapper (nodes/node_wrapper.py) records it and the session ends as "failed",
    showing that message to the user.
 
+Every attempt that got a response is metered (usage.record: tokens + USD, also the invalid and truncated ones,
+which are billed too); the node wrapper turns the node's meter into a `usage_log` entry.
+
 In a quick (patient chat) session the model comes from settings.quick_model and every system prompt
 gets QUICK_MODE_NOTE: shorter answers are the main lever for speed (output tokens take the time).
 """
@@ -27,7 +30,9 @@ from langgraph.config import get_config
 from pydantic import BaseModel
 
 from ai_decision_arena.config import get_settings
+from ai_decision_arena.pricing import tokens_from_langchain
 from ai_decision_arena.progress import report
+from ai_decision_arena.usage import record
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -192,10 +197,11 @@ def _call_structured(
             messages,
             config={"run_name": run_name, "metadata": {"attempt": attempt, "model": model}},
         )
+        raw = result["raw"]
+        record(model, tokens_from_langchain(getattr(raw, "usage_metadata", None)), ok=result["parsed"] is not None)
         if result["parsed"] is not None:
             return result["parsed"]
 
-        raw = result["raw"]
         if raw.response_metadata.get("stop_reason") == "max_tokens":
             # Output was cut off. Re-sending the truncated text wastes tokens: just ask for less.
             last_error = "output truncated at max_tokens"

@@ -186,7 +186,9 @@ export function AppRunningCard({
   finishing,
   onOpenPreview,
   onOpenBuild,
+  totalUsd,
 }: {
+  totalUsd?: number | null; // builder AI + coding agent + Ask so far (GET /usage)
   payload: ChangeRequestPayload;
   onFinish: () => void;
   finishing: boolean;
@@ -209,7 +211,11 @@ export function AppRunningCard({
         <Badge tone={done === payload.tasks.length ? "emerald" : "amber"}>
           {done}/{payload.tasks.length} tasks done
         </Badge>
-        <Badge tone="slate">Agent cost ${payload.cost_usd.toFixed(2)}</Badge>
+        {totalUsd != null ? (
+          <Badge tone="slate">Total cost so far ${totalUsd.toFixed(2)}</Badge>
+        ) : (
+          <Badge tone="slate">Coding agent, all tasks ${payload.cost_usd.toFixed(2)}</Badge>
+        )}
       </div>
       <p className="text-sm text-slate-600">
         {payload.changes_allowed

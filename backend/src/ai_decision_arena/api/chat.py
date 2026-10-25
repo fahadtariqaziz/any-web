@@ -22,6 +22,7 @@ from ai_decision_arena.api.runner import graph_config
 from ai_decision_arena.api.schemas import (ChangeTurn, ChatMessageRequest, ChatMessageView, ChatTranscript,
                                            ClarificationTurn, ReviewTurn)
 from ai_decision_arena.chat import stream_reply, summary_from_report
+from ai_decision_arena.usage import session_cost
 from ai_decision_arena.db.repository import add_chat_message, list_chat_messages
 from ai_decision_arena.nodes.delivery import change_task_title
 
@@ -62,11 +63,13 @@ def review_turns(values: dict) -> list[ReviewTurn]:
 def change_turns(values: dict) -> list[ChangeTurn]:
     """Change requests, each with the C<n> task the router created for it ("Change request <round>")."""
     tasks = {t["title"]: t for t in values.get("implementation_tasks", []) if t.get("phase") == "change"}
+    costs = {c["round"]: c["total_usd"] for c in session_cost(values)["changes"]}
     turns = []
     for c in values.get("change_requests", []):
         task = tasks.get(change_task_title(c["round"])) if c["action"] == "change" else None
         turns.append(ChangeTurn(round=c["round"], action=c["action"], request=c.get("request", ""), at=c["at"],
-                                task_id=task["id"] if task else None, task_status=task["status"] if task else None))
+                                task_id=task["id"] if task else None, task_status=task["status"] if task else None,
+                                cost_usd=costs.get(c["round"])))
     return turns
 
 

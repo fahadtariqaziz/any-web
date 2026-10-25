@@ -120,5 +120,10 @@ class ArenaState(TypedDict, total=False):
     completed_at: str
     metrics: dict                        # durations, rounds, counts (completion)
 
+    # --- usage and cost (M11) ------------------------------------------------- (nodes/node_wrapper.py)
+    usage_log: list[dict]                # one entry per node run that called a model: {node, at, seconds, calls,
+                                         #   failed_calls, models, input/output/cache tokens, cost_usd, unpriced_models,
+                                         #   error?}. The coding agent's cost is in implementation_log instead.
+
     # --- errors ------------------------------------------------ (nodes/node_wrapper.py)
     error: dict | None                   # ErrorRecord of the failure that ended the session (status "failed")

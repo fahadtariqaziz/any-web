@@ -208,6 +208,43 @@ class ImplementationResponse(BaseModel):
     build: dict[str, Any] | None = Field(default=None, description="Last build check: {round, passed, steps}.")
 
 
+class UsageResponse(BaseModel):
+    """What a session cost (M11, usage.session_cost): the builder's own model calls (measured since M11) + the coding
+    agent (Agent SDK cost per attempt), per phase, for the first build and per change request, and step by step."""
+
+    thread_id: str
+    total_usd: float
+    llm_usd: float
+    agent_usd: float
+    ask_usd: float | None = Field(default=None, description="Ask-mode replies (usage_events); None = not readable.")
+    llm_budget_usd: float
+    agent_budget_usd: float
+    llm_measured_since: str | None = Field(default=None, description="First metered step; None = the builder's own "
+                                           "calls were never measured in this session (it ran before M11).")
+    unpriced_models: list[str] = Field(default_factory=list)
+    prices_as_of: str
+    phases: list[dict[str, Any]] = Field(default_factory=list, description="{phase, llm_usd, agent_usd, total_usd}")
+    first_build: dict[str, Any] = Field(default_factory=dict, description="{llm_usd, agent_usd, total_usd} before the "
+                                        "first change request")
+    changes: list[dict[str, Any]] = Field(default_factory=list, description="{round, action, request, at, llm_usd, "
+                                          "agent_usd, total_usd, tasks}")
+    steps: list[dict[str, Any]] = Field(default_factory=list, description="llm steps (one per node run) and agent "
+                                        "attempts, oldest first")
+
+
+class MetricsResponse(BaseModel):
+    """The builder's own model usage across sessions (usage_events; Ask included, the coding agent not)."""
+
+    since: str
+    days: int
+    total: dict[str, Any]
+    by_node: list[dict[str, Any]]
+    by_day: list[dict[str, Any]]
+    calls_by_model: dict[str, int]
+    agent: dict[str, Any] = Field(default_factory=dict, description="Coding-agent spend of sessions saved in "
+                                  "decision_sessions.metrics (completed ones): {sessions, cost_usd}")
+
+
 class PreviewResponse(BaseModel):
     """The session's dev server, read live from the process manager (not from the checkpoint)."""
 
@@ -375,6 +412,8 @@ class ChangeTurn(BaseModel):
     at: str
     task_id: str | None = Field(default=None, description="The C<n> task of a change (None for replan / finish).")
     task_status: str | None = Field(default=None, description="pending | done | failed | blocked | skipped.")
+    cost_usd: float | None = Field(default=None, description="What this change cost so far (model calls + coding "
+                                   "agent until the next reply at the change pause; usage.session_cost). None for finish.")
 
 
 class ChatTranscript(BaseModel):

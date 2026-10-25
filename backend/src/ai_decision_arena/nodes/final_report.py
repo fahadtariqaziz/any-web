@@ -33,6 +33,7 @@ from ai_decision_arena.schemas import (
     SolutionProposal,
 )
 from ai_decision_arena.state import ArenaState
+from ai_decision_arena.usage import llm_cost
 
 DISCLAIMER = (
     "This report summarises web research retrieved automatically: existing products and their users' feedback, papers "
@@ -196,6 +197,8 @@ def completion_node(state: ArenaState, config: RunnableConfig) -> dict:
         "evidence_count": len(state.get("evidence", [])),
         "claims_checked": len(state.get("verification_results", [])),
         "started_at": state.get("started_at"),
+        "llm_cost_usd": llm_cost(state),          # the builder's own model calls (metered since M11)
+        "llm_calls": sum(e.get("calls", 0) for e in state.get("usage_log") or []),
     }
     if state.get("workspace_dir"):
         tasks = state.get("implementation_tasks", [])

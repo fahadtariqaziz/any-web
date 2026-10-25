@@ -185,6 +185,31 @@ class ProjectRuntime(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class UsageEvent(Base):
+    """The builder's own model usage (M11, usage.py): one row per graph-node run that called a model, plus one per
+    Ask reply (node "ask"). Feeds /api/metrics across sessions; per-session cost reads the checkpoint (usage_log).
+    The coding agent's cost is not here (implementation_log)."""
+
+    __tablename__ = "usage_events"
+    __table_args__ = (Index("ix_usage_events_at", "at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    thread_id: Mapped[str] = mapped_column(String(64), index=True)
+    node: Mapped[str] = mapped_column(String(64))
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))           # when the node run started
+    seconds: Mapped[float] = mapped_column(Double, default=0.0)
+    calls: Mapped[int] = mapped_column(Integer, default=0)
+    failed_calls: Mapped[int] = mapped_column(Integer, default=0)
+    models: Mapped[dict] = mapped_column(JSONB, default=dict)               # model -> calls
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)           # uncached input
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cache_read_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cache_write_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[float] = mapped_column(Double, default=0.0)
+    error: Mapped[str | None] = mapped_column(String(40))                   # ErrorRecord.category when the node failed
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class KnowledgeDoc(Base):
     """The knowledge base (knowledge.py): documents the chat agent can search, with Postgres full-text search.
 

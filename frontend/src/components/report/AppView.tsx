@@ -40,7 +40,7 @@ export function AppView({
                 </Badge>
               )}
               <Badge tone="slate" size="md">
-                Agent cost ${implementation.cost_usd.toFixed(2)}
+                Coding agent, all tasks ${implementation.cost_usd.toFixed(2)}
               </Badge>
             </>
           }

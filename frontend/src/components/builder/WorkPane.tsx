@@ -10,12 +10,12 @@ import { BriefView } from "@/components/report/BriefView";
 import { PlanView } from "@/components/report/PlanView";
 import { ActivityFeed } from "@/components/session/ActivityFeed";
 import { BuildCard, TaskList } from "@/components/session/BuildViews";
+import { CostCard } from "@/components/session/CostCard";
 import { NowPanel } from "@/components/session/NowPanel";
-import { Badge } from "@/components/ui/Badge";
 import { Callout } from "@/components/ui/Callout";
 import { Spinner } from "@/components/ui/Spinner";
 import type { ApiError } from "@/lib/api/client";
-import type { BriefResponse, DecisionStatus, ImplementationResponse, PlanResponse } from "@/lib/api/types";
+import type { BriefResponse, DecisionStatus, ImplementationResponse, PlanResponse, UsageResponse } from "@/lib/api/types";
 import type { Activity } from "@/lib/pipeline";
 
 import { DownloadCode } from "./DownloadCode";
@@ -35,6 +35,7 @@ export function WorkPane({
   briefError,
   plan,
   implementation,
+  usage,
 }: {
   threadId: string;
   tab: WorkTab;
@@ -47,6 +48,7 @@ export function WorkPane({
   briefError: ApiError | null;
   plan: PlanResponse | null;
   implementation: ImplementationResponse | null;
+  usage: UsageResponse | null;
 }) {
   const running = status.run_state === "running";
   const tabs: { key: WorkTab; label: string; icon: React.ReactNode; disabled: boolean }[] = [
@@ -93,12 +95,10 @@ export function WorkPane({
         {implementation ? (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
-              <Badge tone="slate" size="md">
-                Agent cost ${implementation.cost_usd.toFixed(2)}
-              </Badge>
               <span className="truncate">Project folder: {implementation.workspace_dir ?? "unknown"}</span>
             </div>
             {implementation.build && <BuildCard build={implementation.build} />}
+            {usage && <CostCard usage={usage} />}
             <TaskList tasks={implementation.tasks} />
           </div>
         ) : (

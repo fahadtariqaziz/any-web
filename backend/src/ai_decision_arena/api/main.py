@@ -29,6 +29,7 @@ Status and pending pause are read from the checkpoint (graph.get_state), so they
 import logging
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from collections import Counter
 from typing import Annotated, Literal
 
@@ -42,7 +43,8 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from ai_decision_arena import memory
+from ai_decision_arena import memory, usage
+from ai_decision_arena.pricing import PRICES_AS_OF
 from ai_decision_arena.api.chat import router as chat_router
 from ai_decision_arena.api.memories import router as memories_router
 from ai_decision_arena.api.runner import GraphRunner, graph_config
@@ -53,6 +55,8 @@ from ai_decision_arena.api.schemas import (
     ChangeRequestResume,
     CodeExportResponse,
     ImplementationResponse,
+    MetricsResponse,
+    UsageResponse,
     PreviewResponse,
     ReopenResume,
     CaseView,
@@ -82,7 +86,8 @@ from ai_decision_arena.api.schemas import (
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.brief import brief_is_approved
 from ai_decision_arena.plan import plan_is_approved
-from ai_decision_arena.db.repository import list_artifacts, list_sessions, save_session_status
+from ai_decision_arena.db.repository import (agent_cost_since, list_artifacts, list_sessions, save_session_status,
+                                             session_node_cost, usage_metrics)
 from ai_decision_arena.graph import build_graph
 from ai_decision_arena.llm import resolve_model
 from ai_decision_arena.memory import valid_user_id
@@ -444,6 +449,38 @@ def get_implementation(thread_id: str, request: Request):
                                   workspace_dir=values.get("workspace_dir"), current_task_id=values.get("current_task_id"),
                                   tasks=values.get("implementation_tasks", []), log=values.get("implementation_log", []),
                                   cost_usd=values.get("implementation_cost_usd", 0.0), build=values.get("build_results"))
+
+
+@app.get("/api/decisions/{thread_id}/usage", response_model=UsageResponse, tags=["decisions"])
+def get_usage(thread_id: str, request: Request):
+    """What the session cost so far: the builder's model calls + the coding agent, per phase / change / step."""
+    snapshot = _snapshot(request, thread_id)
+    values = snapshot.values or {}
+    settings = get_settings()
+    ask_usd = None
+    if settings.persist_results:
+        try:
+            ask_usd = session_node_cost(thread_id, "ask")
+        except Exception:                           # noqa: BLE001 - the rest of the report still holds
+            logging.getLogger(__name__).exception("could not read Ask usage")
+    return UsageResponse(thread_id=thread_id, ask_usd=ask_usd, llm_budget_usd=settings.session_llm_budget_usd,
+                         agent_budget_usd=settings.implementation_budget_usd, prices_as_of=PRICES_AS_OF,
+                         **usage.session_cost(values))
+
+
+@app.get("/api/metrics", response_model=MetricsResponse, tags=["metrics"])
+def get_metrics(days: int = 7):
+    """The builder's model usage over the last `days` days (usage_events, written since M11): totals, per node,
+    per day, calls per model, node failures; plus the coding agent's spend from completed sessions."""
+    days = max(1, min(days, 365))
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    try:
+        data = usage_metrics(since)
+        agent = agent_cost_since(since)
+    except Exception as exc:                        # noqa: BLE001
+        logging.getLogger(__name__).exception("could not read metrics")
+        raise ApiError(503, "database_unavailable", f"Could not read the metrics: {type(exc).__name__}.") from exc
+    return MetricsResponse(since=since.isoformat(timespec="seconds"), days=days, agent=agent, **data)
 
 
 def _preview_response(thread_id: str, record: RuntimeRecord) -> PreviewResponse:

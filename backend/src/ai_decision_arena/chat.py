@@ -14,11 +14,12 @@ Skills are not offered until M11 replaces the old health skills with builder ski
 """
 
 import json
+import time
 from collections.abc import Iterator
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-from ai_decision_arena import memory
+from ai_decision_arena import memory, usage
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.llm import get_llm
 from ai_decision_arena.state import ArenaState
@@ -235,4 +236,9 @@ def stream_reply(thread_id: str, state: ArenaState, history: list[dict], message
     config = {"run_name": "project_chat", "metadata": {"thread_id": thread_id, "source": "chat"}}
     ctx = ToolContext(thread_id=thread_id, user_id=state.get("user_id") or None,
                       project=state.get("project_name", ""))
-    yield from stream_with_tools(llm, messages, chat_tools(ctx), ctx, config)
+    started, started_at = time.time(), usage.now_iso()
+    try:
+        yield from stream_with_tools(llm, messages, chat_tools(ctx), ctx, config)
+    finally:                                     # also when the stream breaks: the calls were billed
+        if ctx.meter.calls:
+            usage.save_event(thread_id, ctx.meter.entry("ask", started_at, time.time() - started))

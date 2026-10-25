@@ -28,6 +28,8 @@ from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
 
 from ai_decision_arena import schemas as S  # noqa: E402
 from ai_decision_arena.config import get_settings  # noqa: E402
+from ai_decision_arena.pricing import Tokens  # noqa: E402
+from ai_decision_arena.usage import record  # noqa: E402
 
 # Modules that did `from ai_decision_arena.llm import call_structured`: each holds its own reference.
 LLM_USERS = [
@@ -328,6 +330,8 @@ class FakeLLM:
     def __call__(self, schema, system_prompt, user_content, *, max_tokens=None, run_name=None, model=None,
                  effort=None, timeout=None):
         self.calls.append((schema.__name__, run_name))
+        # Billed-looking usage, so the metering path (usage.py, node_wrapper) runs offline too: $0.004 on Sonnet.
+        record(model or get_settings().anthropic_model, Tokens(input=1000, output=200))
         self.kwargs.append({"schema": schema, "model": model, "effort": effort, "timeout": timeout, "user": user_content})
         # A runtime subclass (e.g. plan.plan_schema_for) uses its base class's builder, then its own validators run.
         base = next(c for c in schema.__mro__ if c in self.overrides or c in DEFAULT_BUILDERS)

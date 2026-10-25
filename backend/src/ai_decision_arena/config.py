@@ -146,6 +146,10 @@ class Settings(BaseSettings):
 
     # --- session budget ---
     session_time_budget_seconds: float = Field(default=900, gt=0, description="Active (non-paused) seconds after which no new loops start.")
+    session_llm_budget_usd: float = Field(default=5.0, gt=0, description="USD of the builder's own model calls "
+                                          "(usage_log; the coding agent has implementation_budget_usd) after which no "
+                                          "new automatic loops start (research / debate / clarification). User-driven "
+                                          "steps (reviews, changes) still run: the user decides those.")
 
     # --- research limits (cost control). Research runs 3 domains: research / doctor / patient ---
     queries_per_domain: int = Field(default=3, ge=1, le=6)

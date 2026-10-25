@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from ai_decision_arena.db.engine import session_factory
 from ai_decision_arena.db.models import (ChatMessage, DecisionReport, DecisionSession, EvidenceRecord, KnowledgeDoc,
-                                         ProjectArtifact, ProjectRuntime, UserMemory)
+                                         ProjectArtifact, ProjectRuntime, UsageEvent, UserMemory)
 
 EVIDENCE_COLUMNS = {"evidence_id", "domain", "source_url", "source_title", "source_type",
                     "relevant_excerpt", "verification_status", "retrieved_at"}
@@ -277,3 +277,63 @@ def search_knowledge_docs(query: str, thread_id: str | None, limit: int, include
         rows = db.execute(SEARCH_SQL, {"query": query, "thread_id": thread_id or "", "limit": limit,
                                        "include_curated": include_curated}).mappings()
         return [dict(r) for r in rows]
+
+
+USAGE_COLUMNS = ("seconds", "calls", "failed_calls", "models", "input_tokens", "output_tokens", "cache_read_tokens",
+                 "cache_write_tokens", "cost_usd", "error")
+
+
+def save_usage_event(thread_id: str, entry: dict) -> None:
+    """One usage entry (usage.UsageMeter.entry) as a row."""
+    with session_factory().begin() as db:
+        db.add(UsageEvent(thread_id=thread_id, node=entry["node"], at=datetime.fromisoformat(entry["at"]),
+                          **{k: entry.get(k) for k in USAGE_COLUMNS if entry.get(k) is not None}))
+
+
+def usage_metrics(since: datetime) -> dict:
+    """Totals since `since`: overall, per node, per model (calls), per day; failures per node."""
+    sums = (func.count(UsageEvent.id), func.coalesce(func.sum(UsageEvent.calls), 0),
+            func.coalesce(func.sum(UsageEvent.failed_calls), 0), func.coalesce(func.sum(UsageEvent.input_tokens), 0),
+            func.coalesce(func.sum(UsageEvent.output_tokens), 0), func.coalesce(func.sum(UsageEvent.cache_read_tokens), 0),
+            func.coalesce(func.sum(UsageEvent.cache_write_tokens), 0), func.coalesce(func.sum(UsageEvent.cost_usd), 0.0),
+            func.coalesce(func.sum(UsageEvent.seconds), 0.0),
+            func.count(UsageEvent.error))
+    keys = ("runs", "calls", "failed_calls", "input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens",
+            "cost_usd", "seconds", "node_failures")
+
+    def row_dict(row) -> dict:
+        d = dict(zip(keys, row))
+        d["cost_usd"], d["seconds"] = round(float(d["cost_usd"]), 4), round(float(d["seconds"]), 1)
+        return d
+
+    where = UsageEvent.at >= since
+    day = func.date_trunc("day", UsageEvent.at)
+    with session_factory()() as db:
+        total = row_dict(db.execute(select(*sums).where(where)).one())
+        total["sessions"] = db.execute(select(func.count(func.distinct(UsageEvent.thread_id))).where(where)).scalar_one()
+        by_node = [{"node": r[0], **row_dict(r[1:])} for r in
+                   db.execute(select(UsageEvent.node, *sums).where(where).group_by(UsageEvent.node)
+                              .order_by(func.sum(UsageEvent.cost_usd).desc()))]
+        by_day = [{"day": r[0].date().isoformat(), **row_dict(r[1:])} for r in
+                  db.execute(select(day, *sums).where(where).group_by(day).order_by(day))]
+        models: dict[str, int] = {}
+        for (m,) in db.execute(select(UsageEvent.models).where(where)):
+            for name, n in (m or {}).items():
+                models[name] = models.get(name, 0) + int(n)
+    return {"total": total, "by_node": by_node, "by_day": by_day, "calls_by_model": models}
+
+
+def session_node_cost(thread_id: str, node: str) -> float:
+    """USD one node spent in a session (used for Ask: its replies are not in the checkpoint)."""
+    with session_factory()() as db:
+        return round(float(db.execute(select(func.coalesce(func.sum(UsageEvent.cost_usd), 0.0)).where(
+            UsageEvent.thread_id == thread_id, UsageEvent.node == node)).scalar_one()), 4)
+
+
+def agent_cost_since(since: datetime) -> dict:
+    """Coding-agent spend of sessions completed since `since` (decision_sessions.metrics, written at completion)."""
+    cost = DecisionSession.metrics["implementation_cost_usd"].as_float()
+    with session_factory()() as db:
+        n, total = db.execute(select(func.count(DecisionSession.id), func.coalesce(func.sum(cost), 0.0)).where(
+            DecisionSession.completed_at >= since, DecisionSession.metrics.has_key("implementation_cost_usd"))).one()
+    return {"sessions": n, "cost_usd": round(float(total), 4)}
