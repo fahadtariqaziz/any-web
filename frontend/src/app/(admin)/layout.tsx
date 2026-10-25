@@ -1,7 +1,7 @@
-import { Blocks, MessageCircle, Plus } from "lucide-react";
+import { Blocks, Hammer, Plus } from "lucide-react";
 import Link from "next/link";
 
-// The admin view: every agent step, pause, score and verdict is visible. The chat lives at "/" (M10 redesigns both).
+// The admin view: every agent step, pause, score and verdict is visible. The builder (chat + preview) lives at "/".
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col bg-slate-50 text-slate-900">
@@ -18,8 +18,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Link>
           <nav className="flex items-center gap-3">
             <Link href="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">
-              <MessageCircle className="size-4" aria-hidden />
-              Chat
+              <Hammer className="size-4" aria-hidden />
+              Builder
             </Link>
             <Link
               href="/admin"

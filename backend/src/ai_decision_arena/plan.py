@@ -7,13 +7,16 @@ allowlisted commands):
   cannot silently drop a feature the user approved. The check runs inside call_structured's validation, so a
   missing feature goes back to the planner with the exact list.
 - Approval is bound to the exact plan markdown (sha256), like the brief's.
+- A plan for an app that is ALREADY BUILT (M10: a bigger change after the brief was updated) is written as a
+  PlanExtension with only the new work; Python merges it with the built part (`built_part`, `merge_extension`) and the
+  MERGED plan must pass every check above. Built tasks keep their status; only the new ones are pending.
 """
 
 import hashlib
 
 from pydantic import model_validator
 
-from ai_decision_arena.schemas import ImplementationPlan
+from ai_decision_arena.schemas import ImplementationPlan, PlanExtension
 
 
 def _norm(text: str) -> str:
@@ -37,6 +40,57 @@ def plan_schema_for(mvp_features: list[str]) -> type[ImplementationPlan]:
     CheckedImplementationPlan.__name__ = "ImplementationPlan"          # the schema name Claude sees
     CheckedImplementationPlan.__qualname__ = "ImplementationPlan"
     return CheckedImplementationPlan
+
+
+def built_part(plan: ImplementationPlan, tasks: list[dict]) -> ImplementationPlan | None:
+    """The part of the stored plan that was already worked on (its tasks are no longer pending), or None when
+    nothing is built yet. A pending extension under review is dropped, so a revision starts again from the build."""
+    worked = {t["id"] for t in tasks if t.get("status") != "pending"}
+    kept = [t for t in plan.tasks if t.id in worked]
+    if not kept:
+        return None
+    used_phases = {t.phase for t in kept}
+    kept_ids = {t.id for t in kept}
+    coverage = [c.model_copy(update={"task_ids": [i for i in c.task_ids if i in kept_ids]}) for c in plan.feature_coverage]
+    return plan.model_copy(update={"tasks": kept, "phases": [p for p in plan.phases if p.id in used_phases],
+                                   "feature_coverage": [c for c in coverage if c.task_ids]})
+
+
+def merge_extension(built: ImplementationPlan, ext: PlanExtension) -> dict:
+    """The built plan + the extension, as plain data for ImplementationPlan validation: built phases / tasks first, the
+    new ones after; everything descriptive (summary, stack, structure, commands...) comes from the extension, which
+    describes the whole project after the change."""
+    data = ext.model_dump(mode="json")
+    built_phase_ids = {p.id for p in built.phases}
+    data["phases"] = [p.model_dump(mode="json") for p in built.phases] + [p for p in data["phases"]
+                                                                          if p["id"] not in built_phase_ids]
+    data["tasks"] = [t.model_dump(mode="json") for t in built.tasks] + data["tasks"]
+    return data
+
+
+def extension_schema_for(mvp_features: list[str], built: ImplementationPlan) -> type[PlanExtension]:
+    """PlanExtension + a check that the MERGED plan passes every ImplementationPlan check and covers the MVP (so a
+    problem goes back to the planner with the exact message, inside call_structured)."""
+    full = plan_schema_for(mvp_features)
+    built_ids = [t.id for t in built.tasks]
+
+    class CheckedPlanExtension(PlanExtension):
+        @model_validator(mode="after")
+        def merged_plan_is_valid(self) -> "CheckedPlanExtension":
+            reused = [t.id for t in self.tasks if t.id in built_ids]
+            if reused:
+                raise ValueError(f"new task ids must not reuse built task ids {reused}; continue after {built_ids[-1]}")
+            if not self.tasks:
+                raise ValueError("an extension needs at least one new task")
+            try:
+                full.model_validate(merge_extension(built, self))
+            except ValueError as exc:
+                raise ValueError(f"merged with the built tasks ({', '.join(built_ids)}), the plan is invalid: {exc}") from exc
+            return self
+
+    CheckedPlanExtension.__name__ = "PlanExtension"
+    CheckedPlanExtension.__qualname__ = "PlanExtension"
+    return CheckedPlanExtension
 
 
 def plan_hash(markdown: str) -> str:
@@ -63,10 +117,17 @@ def _bullets(items: list[str]) -> list[str]:
     return [f"- {i}" for i in items] if items else ["- none"]
 
 
-def render_plan_markdown(plan: ImplementationPlan, project_name: str, revision: int, model: str) -> str:
+def render_plan_markdown(plan: ImplementationPlan, project_name: str, revision: int, model: str,
+                         built_ids: frozenset[str] = frozenset()) -> str:
+    """built_ids: tasks that are already built (a plan extension): marked, so the reader sees what is new."""
     phase_names = {p.id: p.name for p in plan.phases}
+    new = [t.id for t in plan.tasks if t.id not in built_ids]
     out = [f"# Implementation plan: {project_name.strip().capitalize() or 'your project'}",
-           f"*Plan version {revision + 1} · written by {model} from the approved brief*", "", plan.summary.strip(), "",
+           f"*Plan version {revision + 1} · written by {model} from the approved brief*", ""]
+    if built_ids:
+        out += [f"> **{len(new)} new task{'s' if len(new) != 1 else ''} ({', '.join(new)})** on top of the "
+                f"{len(built_ids)} already built (marked *built*). Only the new tasks run.", ""]
+    out += [plan.summary.strip(), "",
            "## Technology", "", *_bullets(plan.tech_stack), "",
            "## Architecture", "", plan.architecture.strip(), "",
            f"**Data model:** {plan.data_model.strip()}", ""]
@@ -83,6 +144,9 @@ def render_plan_markdown(plan: ImplementationPlan, project_name: str, revision: 
         out += [f"### {phase.id}. {phase.name}", f"*{phase.goal.strip()}*", ""]
         for t in [t for t in plan.tasks if t.phase == phase.id]:
             deps = f" · after {', '.join(t.depends_on)}" if t.depends_on else ""
+            if t.id in built_ids:
+                out += [f"**{t.id}. {t.title}** · *built*", ""]
+                continue
             out += [f"**{t.id}. {t.title}**{deps}", "", t.description.strip(), ""]
             if t.files:
                 out += [f"- Files: {', '.join(f'`{f}`' for f in t.files)}"]

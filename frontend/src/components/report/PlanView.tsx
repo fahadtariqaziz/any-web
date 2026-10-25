@@ -1,7 +1,8 @@
 "use client";
 
 // The implementation plan once the session moved past the plan review (read-only; the review is PlanReviewPanel).
-// Collapsed by default: the plan is long, and the brief above it is what most readers check first.
+// Collapsed by default in the admin view (the plan is long, the brief above it is what most readers check first);
+// open in the builder's Plan tab.
 
 import { ChevronDown, ListChecks } from "lucide-react";
 import { useState } from "react";
@@ -12,8 +13,8 @@ import { Markdown } from "@/components/ui/Markdown";
 import type { PlanResponse } from "@/lib/api/types";
 import { formatDateTime } from "@/lib/format";
 
-export function PlanView({ data }: { data: PlanResponse }) {
-  const [open, setOpen] = useState(false);
+export function PlanView({ data, defaultOpen = false }: { data: PlanResponse; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <Card className="animate-fade-up">
       <CardHeader

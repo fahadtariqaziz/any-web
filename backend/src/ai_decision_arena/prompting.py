@@ -30,6 +30,7 @@ def user_case_block(state: ArenaState) -> str:
 <extra_context>{state.get("user_context", "")}</extra_context>
 <clarification_answers>{json.dumps(state.get("clarification_answers", {}), indent=2)}</clarification_answers>
 {brief_feedback_block(state)}
+{built_changes_block(state)}
 </user_input>
 <project>{state.get("project_name", "")}</project>
 <project_category>{state.get("project_category", "")}</project_category>
@@ -40,6 +41,23 @@ def user_case_block(state: ArenaState) -> str:
 <assumptions>{json.dumps(state.get("assumptions", []), indent=2)}</assumptions>
 <risk_flags>{json.dumps(state.get("risk_flags", []))}</risk_flags>
 {memories_block(state.get("user_memories", []))}"""
+
+
+def built_changes(state: ArenaState) -> list[str]:
+    """Change requests the coding agent finished after the brief was approved (C tasks done), in the user's words (the
+    request is the last part of the task description)."""
+    return [((t.get("spec") or {}).get("description") or "").split("User request:", 1)[-1].strip()
+            for t in state.get("implementation_tasks", []) if t.get("phase") == "change" and t.get("status") == "done"]
+
+
+def built_changes_block(state: ArenaState) -> str:
+    """What the user asked for AND got built after the brief was approved (M10): every agent sees these as the user's
+    own statements (labels "user_provided"), and the brief must keep them in scope. Empty before any change."""
+    done = built_changes(state)
+    if not done:
+        return ""
+    return "<changes_built_after_approval>\n" + "\n".join(f"<change>{c}</change>" for c in done) + \
+        "\n</changes_built_after_approval>"
 
 
 def brief_feedback_block(state: ArenaState) -> str:

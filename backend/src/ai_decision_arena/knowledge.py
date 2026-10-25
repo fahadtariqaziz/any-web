@@ -21,6 +21,9 @@ log = logging.getLogger(__name__)
 KNOWLEDGE_DIR = Path(__file__).resolve().parents[2] / "knowledge"     # backend/knowledge
 MAX_RESULTS = 5
 MAX_EXCERPT_CHARS = 700
+# The curated docs in backend/knowledge/ are still the old health app's (emergency signs, medication...): the
+# builder chat must not cite them. M11 replaces them with builder docs and turns this back on.
+INCLUDE_CURATED = False
 
 
 def _parse(path: Path) -> dict:
@@ -48,7 +51,7 @@ def load_curated(directory: Path = KNOWLEDGE_DIR) -> int:
 def search(query: str, thread_id: str | None = None, limit: int = MAX_RESULTS) -> list[dict]:
     """Best matches first. Never raises: a database problem returns [] (the agent then says it found nothing)."""
     try:
-        rows = search_knowledge_docs(query, thread_id, max(1, min(limit, 10)))
+        rows = search_knowledge_docs(query, thread_id, max(1, min(limit, 10)), include_curated=INCLUDE_CURATED)
     except Exception:                                    # noqa: BLE001
         log.exception("knowledge search failed")
         return []

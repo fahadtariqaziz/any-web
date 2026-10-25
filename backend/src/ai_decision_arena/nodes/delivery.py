@@ -146,6 +146,33 @@ def await_change_request_node(state: ArenaState) -> dict:
             "current_node": "await_change_request"}
 
 
+FINISHED = ("completed", "completed_with_uncertainty")
+
+
+def reopen_actions(state: ArenaState) -> list[str]:
+    """What a FINISHED project still accepts (M10 "reopen"): [] / ["change"] / ["change", "replan"]. Only a project
+    that was built and finished at the change-request pause (not a failed one), within the same limits as the pause."""
+    requests = state.get("change_requests", [])
+    if state.get("status") not in FINISHED or not state.get("workspace_dir") or not requests or requests[-1]["action"] != "finish":
+        return []
+    changes_allowed, replan_allowed = _limits(state)
+    return ["change", "replan"] if changes_allowed and replan_allowed else ["change"] if changes_allowed else []
+
+
+def reopen_update(state: ArenaState, action: str, request: str) -> dict:
+    """State update that reopens a finished project, written AS the await_change_request node (graph.update_state),
+    so the graph continues exactly like an answered pause: change_request_router → implementer (task C<n>) or planner.
+    The caller checked reopen_actions(). Completion runs (and saves) again at the next finish; its saves are upserts."""
+    requests = state.get("change_requests", [])
+    entry = {"round": len(requests) + 1, "action": action, "request": request.strip(), "at": _now(), "reopened": True}
+    return {"change_requests": [*requests, entry], "status": "awaiting_changes", "current_node": "await_change_request"}
+
+
+def change_task_title(round_no: int) -> str:
+    """Title of the C<n> task a change request creates; the chat transcript (api/chat.py) finds the task by it."""
+    return f"Change request {round_no}"
+
+
 def change_request_router_node(state: ArenaState) -> dict:
     last = state["change_requests"][-1]
     update: dict = {"change_route": last["action"], "current_node": "change_request_router"}
@@ -153,17 +180,23 @@ def change_request_router_node(state: ArenaState) -> dict:
         report("change_request_router", "decision: finish")
         return update
     if last["action"] == "replan":
-        feedback = [*state.get("plan_feedback", []), {"round": state.get("plan_revision_count", 0) + 1,
-                                                       "action": "request_changes", "feedback": last["request"],
-                                                       "at": last["at"], "source": "change_request"}]
-        report("change_request_router", "decision: replan → planner (the new plan needs your approval again)")
-        return update | {"plan_feedback": feedback, "plan_review_route": "changes", "plan_approved_at": None,
-                         "plan_approved_hash": None, "status": "planning"}
+        # A bigger change starts with the BRIEF (user's decision, M10): the writer puts the request into the approved
+        # brief (it may widen the scope), it is validated and approved again, then the planner adds only the new work
+        # (plan extension) for its own approval. Both approvals are cleared here.
+        feedback = [*state.get("brief_feedback", []), {"round": state.get("brief_review_round_count", 0) + 1,
+                                                        "action": "request_changes", "target": "wording",
+                                                        "feedback": last["request"], "at": last["at"],
+                                                        "source": "change_request"}]
+        report("change_request_router", "decision: bigger change → the brief is updated first, then a plan with only "
+                                        "the new work (both need your approval)")
+        return update | {"brief_feedback": feedback, "brief_review_route": "wording", "brief_approved_at": None,
+                         "brief_approved_hash": None, "plan_approved_at": None, "plan_approved_hash": None,
+                         "plan_review_route": None, "status": "writing_brief"}
     plan = _plan(state)
     verify = plan.commands.test or plan.commands.build
     tasks = copy.deepcopy(state.get("implementation_tasks", []))
     spec = PlanTask(
-        id=next_task_id(tasks, "C"), phase="change", title=f"Change request {last['round']}",
+        id=next_task_id(tasks, "C"), phase="change", title=change_task_title(last["round"]),
         description=("The user asked for this change to the running app. Implement it within the approved brief and "
                      "plan, keep everything else working, and add or update tests for it.\n"
                      f"User request: {last['request']}"),

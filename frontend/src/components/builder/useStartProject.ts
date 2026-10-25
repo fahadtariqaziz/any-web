@@ -1,17 +1,18 @@
 "use client";
 
-// Start a new patient chat from a first message: create a quick session and open its page.
-// Used by the "New chat" screen and by a chat whose first message wasn't about health.
+// Start a new project from a first message: create a session (the full pipeline, like the admin view) and open
+// its builder page. Used by the home screen and by a project whose first message wasn't an app idea.
 
 import { useRouter } from "next/navigation";
 import { useLayoutEffect, useState } from "react";
 
-import { useChatList } from "@/components/chat/ChatListContext";
 import { ApiError, createDecision } from "@/lib/api/client";
 
-export function useStartChat({ replace = false }: { replace?: boolean } = {}) {
+import { useProjectList } from "./ProjectListContext";
+
+export function useStartProject({ replace = false }: { replace?: boolean } = {}) {
   const router = useRouter();
-  const { refresh } = useChatList();
+  const { refresh } = useProjectList();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +30,7 @@ export function useStartChat({ replace = false }: { replace?: boolean } = {}) {
     setSending(true);
     setError(null);
     try {
-      const { thread_id } = await createDecision({ question: text, mode: "quick" });
+      const { thread_id } = await createDecision({ question: text, mode: "full" });
       refresh();
       if (replace) router.replace(`/c/${thread_id}`);
       else router.push(`/c/${thread_id}`);

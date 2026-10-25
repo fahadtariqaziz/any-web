@@ -104,6 +104,7 @@ def test_start_pause_resume_report(client):
 
     # built (fake agent, real verify), build check passed, preview running → paused for change requests
     assert status["run_state"] == "paused" and status["pending"]["type"] == "change_request"
+    assert status["has_build"] is True
     impl = client.get(f"/api/decisions/{thread_id}/implementation").json()
     assert [t["status"] for t in impl["tasks"]] == ["done", "done"] and impl["build"]["passed"] and impl["cost_usd"] > 0
     preview = client.get(f"/api/decisions/{thread_id}/preview").json()
@@ -182,5 +183,111 @@ def test_brief_change_request_round_trip_and_wording_only_cap(client, monkeypatc
     assert wait_until_not_running(client, thread_id)["pending"]["type"] == "plan_review"
     client.post(f"/api/decisions/{thread_id}/resume", json={"type": "plan_review", "action": "approve"})
     assert wait_until_not_running(client, thread_id)["pending"]["type"] == "change_request"
+    client.post(f"/api/decisions/{thread_id}/resume",
+                json={"type": "change_request", "action": "change", "request": "Add a footer."})
+    assert wait_until_not_running(client, thread_id)["pending"]["type"] == "change_request"
     client.post(f"/api/decisions/{thread_id}/resume", json={"type": "change_request", "action": "finish"})
     assert wait_until_not_running(client, thread_id)["workflow_status"] == "completed"
+
+    # M10: the builder chat's transcript carries the whole conversation, in order, with the change's task
+    monkeypatch.setattr("ai_decision_arena.api.chat.list_chat_messages", lambda thread_id: [])   # no DB in tests
+    chat = client.get(f"/api/chats/{thread_id}").json()
+    assert chat["ready"] is True and chat["question"] == "A habit tracker app for students"
+    assert [(r["kind"], r["action"]) for r in chat["reviews"]] == [
+        ("brief", "request_changes"), ("brief", "approve"), ("plan", "approve")]
+    assert chat["reviews"][0]["feedback"] == "Shorter, please." and chat["reviews"][0]["target"] == "wording"
+    assert [(c["action"], c["task_id"], c["task_status"]) for c in chat["changes"]] == [
+        ("change", "C1", "done"), ("finish", None, None)]
+    assert chat["changes"][0]["request"] == "Add a footer."
+
+    # Ask mode sees the brief, the plan, the build and the user's requests (measured facts only)
+    from ai_decision_arena.api.runner import graph_config
+    from ai_decision_arena.chat import build_context
+    context = build_context(app.state.graph.get_state(graph_config(thread_id)).values)
+    assert '<brief approved="true"># ' in context and '"approved": true' in context
+    assert '"id": "C1"' in context and '"passed": true' in context and "Add a footer." in context
+    assert "Shorter, please." in context and "<current_stage>completed</current_stage>" in context
+
+
+def test_ask_mode_waits_for_the_report(client):
+    thread_id = client.post("/api/decisions", json={"question": "A simple calculator web app"}).json()["thread_id"]
+    wait_until_not_running(client, thread_id)                       # paused at the questions: no report yet
+    chat = client.get(f"/api/chats/{thread_id}").json()
+    assert chat["ready"] is False and chat["reviews"] == [] and chat["changes"] == [] and chat["messages"] == []
+    r = client.post(f"/api/chats/{thread_id}/messages", json={"content": "Why this stack?"})
+    assert r.status_code == 409 and r.json()["error"]["code"] == "onboarding_not_finished"
+
+
+def finish_via_api(client, question: str) -> str:
+    thread_id = client.post("/api/decisions", json={"question": question}).json()["thread_id"]
+    for reply in ({"type": "clarification", "answers": {}}, {"type": "brief_review", "action": "approve"},
+                  {"type": "plan_review", "action": "approve"}, {"type": "change_request", "action": "finish"}):
+        assert wait_until_not_running(client, thread_id)["pending"]["type"] == reply["type"]
+        assert client.post(f"/api/decisions/{thread_id}/resume", json=reply).status_code == 202
+    return thread_id
+
+
+def test_reopen_a_finished_project_for_another_change(client, monkeypatch):
+    thread_id = finish_via_api(client, "A simple calculator web app")
+    status = wait_until_not_running(client, thread_id)
+    assert status["run_state"] == "finished" and status["reopen_actions"] == ["change", "replan"]
+
+    too_short = client.post(f"/api/decisions/{thread_id}/resume", json={"type": "reopen", "action": "change", "request": "x"})
+    assert too_short.status_code == 422
+    r = client.post(f"/api/decisions/{thread_id}/resume",
+                    json={"type": "reopen", "action": "change", "request": "Add a percent key: 430 - 20% = 344."})
+    assert r.status_code == 202
+    status = wait_until_not_running(client, thread_id)
+    # the same path as an answered pause: task C1 → build check → preview restarted → paused again
+    assert status["run_state"] == "paused" and status["pending"]["type"] == "change_request"
+    assert status["reopen_actions"] == []
+    assert client.post(f"/api/decisions/{thread_id}/resume",
+                       json={"type": "reopen", "action": "change", "request": "Another one"}).status_code == 409
+    impl = client.get(f"/api/decisions/{thread_id}/implementation").json()
+    assert impl["tasks"][-1]["id"] == "C1" and impl["tasks"][-1]["status"] == "done" and impl["build"]["passed"]
+    assert client.get(f"/api/decisions/{thread_id}/preview").json()["state"] == "ready"
+
+    # "Download code": the built files, as JSON for the folder writer and as a zip
+    code = client.get(f"/api/decisions/{thread_id}/code").json()
+    assert code["folder_name"]
+    assert {f["path"] for f in code["files"]} >= {"package.json", "src/main.js", "src/habits.js"}   # the fake plan's files
+    zipped = client.get(f"/api/decisions/{thread_id}/code.zip")
+    assert zipped.status_code == 200 and zipped.headers["content-type"] == "application/zip"
+    assert zipped.headers["content-disposition"] == f'attachment; filename="{code['folder_name']}.zip"'
+
+    client.post(f"/api/decisions/{thread_id}/resume", json={"type": "change_request", "action": "finish"})
+    status = wait_until_not_running(client, thread_id)
+    assert status["run_state"] == "finished" and status["workflow_status"] == "completed"
+    monkeypatch.setattr("ai_decision_arena.api.chat.list_chat_messages", lambda thread_id: [])
+    changes = client.get(f"/api/chats/{thread_id}").json()["changes"]
+    assert [(c["action"], c["task_id"], c["task_status"]) for c in changes] == [
+        ("finish", None, None), ("change", "C1", "done"), ("finish", None, None)]
+
+    # a reopened bigger change updates the brief first (brief review), then a plan with only the new work
+    r = client.post(f"/api/decisions/{thread_id}/resume", json={"type": "reopen", "action": "replan", "request": "Use a scientific layout."})
+    assert r.status_code == 202
+    status = wait_until_not_running(client, thread_id)
+    assert status["pending"]["type"] == "brief_review"
+    client.post(f"/api/decisions/{thread_id}/resume", json={"type": "brief_review", "action": "approve"})
+    status = wait_until_not_running(client, thread_id)
+    assert status["pending"]["type"] == "plan_review" and status["pending"]["payload"]["new_task_count"] == 1
+    chat = client.get(f"/api/chats/{thread_id}").json()
+    assert chat["changes"][-1]["action"] == "replan"                        # shown once: as a change turn
+    # (review times have 1 s resolution: this fast test may give two replies the same second, so count, don't order)
+    assert sum(r["kind"] == "brief" and r["action"] == "approve" for r in chat["reviews"]) == 2
+
+
+def test_reopen_respects_the_change_limit_and_needs_a_finished_build(client, monkeypatch):
+    from ai_decision_arena.config import get_settings
+    thread_id = finish_via_api(client, "A habit tracker app for students")
+    wait_until_not_running(client, thread_id)
+    monkeypatch.setattr(get_settings(), "max_change_requests", 0)
+    assert client.get(f"/api/decisions/{thread_id}").json()["reopen_actions"] == []
+    r = client.post(f"/api/decisions/{thread_id}/resume", json={"type": "reopen", "action": "change", "request": "More."})
+    assert r.status_code == 422 and "maximum" in r.json()["error"]["message"]
+
+    paused = client.post("/api/decisions", json={"question": "A simple calculator web app"}).json()["thread_id"]
+    wait_until_not_running(client, paused)                  # waiting for answers: not finished
+    r = client.post(f"/api/decisions/{paused}/resume", json={"type": "reopen", "action": "change", "request": "More."})
+    assert r.status_code == 409 and r.json()["error"]["code"] == "not_finished"
+    assert client.get(f"/api/decisions/{paused}/code").json()["error"]["code"] == "no_implementation"   # nothing built

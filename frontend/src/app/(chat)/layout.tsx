@@ -1,6 +1,7 @@
-import { ChatShell } from "@/components/chat/ChatShell";
+import { BuilderShell } from "@/components/builder/BuilderShell";
 
-// The patient chat (ChatGPT style, full screen). The admin view with every agent step is at /admin.
-export default function ChatLayout({ children }: { children: React.ReactNode }) {
-  return <ChatShell>{children}</ChatShell>;
+// The builder (Lovable style, full screen): home at "/", one project at "/c/<id>" (chat left, preview right).
+// The admin view with every agent step is at /admin.
+export default function BuilderLayout({ children }: { children: React.ReactNode }) {
+  return <BuilderShell>{children}</BuilderShell>;
 }

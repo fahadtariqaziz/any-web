@@ -5,7 +5,7 @@
 >
 > **New agent / new session? Start here (10 minutes):**
 > 1. Read section 0 (where we are), "▶ Next step" at the very end, and the next milestone's block in section 8.
-> 2. Read **section 15 (how to work here)** and **section 16 (gotchas)** in full: they are the lessons of M0–M9.
+> 2. Read **section 15 (how to work here)** and **section 16 (gotchas)** in full: they are the lessons of M0–M10.
 > 3. Check the machine: `git status` (clean = the user committed the last milestone; if not, ask), the user's dev
 >    servers (`lsof -nP -iTCP:8001 -sTCP:LISTEN`, `lsof -nP -iTCP:3001 -sTCP:LISTEN`; reuse them, never start a second
 >    one), `bash backend/scripts/verify_m0.sh` (must end with `M0 VERIFY: PASS`).
@@ -23,12 +23,12 @@
 |---|---|
 | **Spec** | `docs/app-builder-spec.md` — the user's original brief, verbatim (clarification §1, research §2, proposals §3, brief §4.1–4.10, validation §5, review §6, planning §7, implementation §8, preview + isolation §9, platform §10.1–10.11, constraints §12, outcome §13). The milestone blocks below quote the parts each one needs. |
 | **Concept (decided 2026-10-24)** | An AI application builder like Lovable: the user describes an app or website; the system clarifies, researches, proposes, critiques, judges, writes a validated problem statement + solution brief, gets approval, plans (Opus 5.5), implements (Sonnet 5.5) in an isolated session folder, and shows a live preview beside the chat. |
-| **Where we are** | **M0–M9 done (2026-10-25). The pipeline works end to end:** idea → clarification → research (3 domains) → proposals / critic / judge / checker → validated brief → **user approval** → Opus plan → **user approval** → Sonnet coding agent builds task by task (verified by real commands) → build check → **live preview** → change requests → finish. Proven by the M9 E2E over HTTP: a 12-task Opus plan built 12/12 on the first attempt, build + preview + one change request, agent cost $0.74 (section 14). The UI is still the **admin view** (`/admin`, `/decisions/<id>`: stepper + panels per pause); the chat pages (`/`, `/c/<id>`) are the old quick chat and do not show builds yet. |
-| **Milestones** | M0 harness · M1 intake + clarification · M2 research · M3 debate · M4 brief writer + validator · M5 brief review · M6 Opus planner + plan review · M7 workspace / sandbox / processes · M8 coding agent (Claude Agent SDK) · M9 build check / preview / change requests. Details: section 8 (✅ blocks), section 14 (progress log with real numbers), section 12 (decisions). |
-| **Next milestone** | **M10 — Lovable UI** (section 8): chat left + live preview right. Open questions 3 and 4 (section 13) should be answered at its start. |
+| **Where we are** | **M0–M10 done (2026-10-25). The pipeline works end to end:** idea → clarification → research (3 domains) → proposals / critic / judge / checker → validated brief → **user approval** → Opus plan → **user approval** → Sonnet coding agent builds task by task (verified by real commands) → build check → **live preview** → change requests → finish. Proven by the M9 E2E over HTTP: a 12-task Opus plan built 12/12 on the first attempt, build + preview + one change request, agent cost $0.74 (section 14). **M10: the Lovable-style builder UI** is the main UI: `/` = "What do you want to build?" + recent projects, `/c/<id>` = conversation left (questions, review cards, change requests, Ask mode) + live preview / Brief / Plan / Build / Activity right. The admin view (`/admin`, `/decisions/<id>`) stays as the detailed view; both link to each other. |
+| **Milestones** | M0 harness · M1 intake + clarification · M2 research · M3 debate · M4 brief writer + validator · M5 brief review · M6 Opus planner + plan review · M7 workspace / sandbox / processes · M8 coding agent (Claude Agent SDK) · M9 build check / preview / change requests · M10 Lovable UI. Details: section 8 (✅ blocks), section 14 (progress log with real numbers), section 12 (decisions). |
+| **Next milestone** | **M11 — Platform hardening** (section 8). Before it: the user's browser checklist for M10 (section 14, M10 entry). |
 | **Models (verified 2026-10-24 via `client.models.list()`)** | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` are all available to the key in `backend/.env`. Configured default: `ANTHROPIC_MODEL=claude-sonnet-5-5`. |
 | **Environment (verified 2026-10-24/25)** | macOS, zsh · uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head `f4a5b6c7d8e9` · `claude-agent-sdk` 0.2.174 (ships its own Claude Code CLI 2.1.310) · `psutil` 7.2 · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are the original ai-lab** → ai-lab-2 runs on **8001/3001** (the user starts them with `--reload`; section 11) · previews use ports **4100–4199** · generated apps in `generated_projects/` (git-ignored). |
-| **Tests** | `bash backend/scripts/verify_m0.sh` = 229 pytest + eslint + tsc, ~30 s. Offline: fake LLM, fake Tavily, `FakeAgent` for the coding agent, in-memory checkpoints, no DB; but sandbox commands, git and dev servers (`python3 -m http.server {port}`) run for REAL under tmp dirs. Live checks: `backend/scripts/verify_m1..m9.py` (real APIs, node level) and `scripts/api_flow.py --auto` (full HTTP E2E); what each needs, writes and costs: section 11. No frontend unit tests (lint + tsc + the user's browser check). |
+| **Tests** | `bash backend/scripts/verify_m0.sh` = 233 pytest + eslint + tsc, ~30 s. Offline: fake LLM, fake Tavily, `FakeAgent` for the coding agent, in-memory checkpoints, no DB; but sandbox commands, git and dev servers (`python3 -m http.server {port}`) run for REAL under tmp dirs. Live checks: `backend/scripts/verify_m1..m10.py` (real APIs, node level; m10 = UI contract + rendered page) and `scripts/api_flow.py --auto` (full HTTP E2E); what each needs, writes and costs: section 11. No frontend unit tests (lint + tsc + `next build` + headless-Chrome DOM checks + the user's browser check). Free UI walk-through of every pause: `scripts/fake_api.py` (section 11). |
 
 ---
 
@@ -101,7 +101,8 @@ ai-lab-2/
 │   ├── skills/*/SKILL.md           # chat skills (STILL health: meal-planning, habit-coaching... M11 replaces)
 │   ├── .cache/*.json               # cached real states for the verify scripts (git-ignored; section 11)
 │   ├── scripts/                    # run_graph, run_intake, run_research, api_flow (HTTP end to end), check_env, draw_graph,
-│   │                               #   probe_schema (grammar limit), load_knowledge, print_helpers, verify_m0.sh, verify_m1..m9.py, spike_agent_sdk.py
+│   │                               #   probe_schema (grammar limit), load_knowledge, print_helpers, verify_m0.sh, verify_m1..m10.py,
+│   │                               #   spike_agent_sdk.py, fake_api.py (offline API with the test fakes, port 8002)
 │   ├── tests/                      # pytest: conftest (FakeLLM, fake search, FakeAgent, process_manager fixture,
 │   │                               #   finish_session), test_graph, test_limits, test_sources, test_schemas, test_nodes,
 │   │                               #   test_research, test_brief, test_brief_review, test_plan, test_workspace,
@@ -115,19 +116,21 @@ ai-lab-2/
 │       ├── research/  planner (queries), search (Tavily), extractor (snippets → Evidence), sources (domains, url utils)
 │       ├── workspace/  paths (session folders, safe_path, tool_path_problem), sandbox (one command), processes (dev
 │       │               servers, M7), agent (Claude Agent SDK adapter, M8)
-│       ├── chat.py, tools.py, researcher.py, skills.py, knowledge.py, memory.py, triggers.py, checkpointing.py
+│       ├── chat.py (Ask mode: project assistant), tools.py, researcher.py, skills.py, knowledge.py, memory.py, triggers.py, checkpointing.py
 │       ├── db/  engine, models (9 tables), repository
-│       └── api/  main (decisions endpoints), runner (background threads), chat, memories, triggers, schemas, errors
+│       └── api/  main (decisions endpoints), runner (background threads), chat (transcript + Ask), memories, triggers, schemas, errors
 └── frontend/src/
-    ├── app/(chat)/   `/` and `/c/[threadId]`  — ChatGPT-style chat (ChatShell, ChatView, Composer, Messages…)
+    ├── app/(chat)/   `/` (NewProject) and `/c/[threadId]` (BuilderView) — the Lovable-style builder (BuilderShell layout)
     ├── app/(admin)/  `/admin`, `/decisions/[threadId]` — full pipeline view: DecisionView renders ONE panel per state
     │                 (NowPanel while running; ClarificationForm / BriefReviewPanel / PlanReviewPanel / ChangeRequestPanel
     │                 per pause; finished: AppView + PlanView + BriefView + ReportView), PipelineStepper (10 stages)
-    ├── components/   session/ (panels above + BuildViews: PreviewCard, BuildCard, TaskList), report/, debate/, evidence/, ui/
+    ├── components/   builder/ (M10: BuilderShell, ProjectsDrawer, ProjectListContext, NewProject, useStartProject, BuilderView,
+    │                 ChatPane, ActionCards, Composer, Messages, StageChips, WorkingChip, WorkPane, PreviewPane),
+    │                 session/ (admin panels + BuildViews: PreviewCard, BuildCard, TaskList; RiskFlagBanner), report/, debate/, evidence/, ui/
     ├── hooks/  useDecision (poll 2 s running, 5 s paused/interrupted, stop when finished), useLive (useBrief, usePlan,
-    │           useImplementation, usePreview...), useFetch, useStartChat…
+    │           useImplementation, usePreview...), useFetch, useStoredList, useNow
     └── lib/  api/client.ts, api/types.ts (hand-written mirror of API models), pipeline.ts (STAGES, NODE_INFO, progress
-              parsing), chatStages.ts, format.ts (status labels / tones)
+              parsing), chatStages.ts (chat working-chip labels per node), format.ts (status labels / tones)
 ```
 
 ### 2.4 Mechanisms we keep (platform, not health-specific)
@@ -143,22 +146,24 @@ ai-lab-2/
 - Chat tool loop (`tools.stream_with_tools`, bounded rounds), research sub-agent (`researcher.py`), skills loader, knowledge base (Postgres FTS), long-term memory keyed by a browser id, scheduled trigger thread.
 - Frontend: polling hook, resume flow, discriminated `pending` payloads, stepper derived from status, live snapshot tabs.
 
-### 2.5 Health-app leftovers still in the code (checked 2026-10-25)
-Everything on the main path (prompts, schemas, state, DB columns, research domains, rubric, admin UI) was converted in
-M1–M9. Still health-flavoured, all OFF the build path:
-- `backend/knowledge/*.md` (emergency-warning-signs, medication-safety...), `backend/skills/*` (meal-planning,
-  habit-coaching, emotional-support, explaining-test-results) → replaced in M11 by builder docs/skills.
-- `tools.py` (chat tool docstrings: "patient", lanes "research / doctor / patient"), `triggers.py` check-in prompt,
-  `config.py` quick/chat model descriptions ("patient chat") → M10/M11 (depends on open question 3).
-- Frontend: the chat pages (`app/(chat)/`, `components/chat/*`, `useStartChat`, `chatStages.ts`), `RedFlagBanner`,
-  the "Patient context" label in `EvidencePanel` (feedback context of app reviews), wording in `ReportView` /
-  `DecisionView` / `types.ts` comments → M10.
+### 2.5 Health-app leftovers still in the code (checked 2026-10-25, after M10)
+Everything on the main path (prompts, schemas, state, DB columns, research domains, rubric, admin UI, builder UI, Ask
+mode: chat / tools / researcher prompts) was converted in M1–M10. Still health-flavoured, all OFF the build path:
+- `backend/knowledge/*.md` (emergency-warning-signs, medication-safety...): still loaded in `knowledge_docs` (kind
+  `curated`) but **not searchable** since M10 (`knowledge.INCLUDE_CURATED = False`) → M11 replaces them with builder
+  docs and turns it back on.
+- `backend/skills/*` (meal-planning, habit-coaching, emotional-support, explaining-test-results): the chat no longer
+  offers `load_skill` / the skills block (M10) → M11 builder skills.
+- `triggers.py` check-ins for quiet **quick** chats (`QUIET_CHATS_SQL` `mode = 'quick'`): the UI no longer starts quick
+  sessions, so it finds only old ones → M11 replaces it with the idle-preview trigger. `memory.py` docstrings say
+  "patient"; `config.py` quick-profile settings (`quick_model`, `QUICK_OVERRIDES`) still exist for old sessions → M11.
 - DB: `knowledge_docs.condition` column (feeds a generated FTS column) → M11.
 
 ### 2.6 Gaps still open (planned)
-Lovable chat + preview layout (M10) · prompt registry / versions, eval cases, per-node token + USD accounting,
+Prompt registry / versions, eval cases, per-node token + USD accounting,
 `tool_calls` table, builder knowledge + skills, idle trigger beyond previews (M11) · Docker runtime per session (M12).
-Not planned yet: auth / multi-user isolation of the API (sessions are keyed by thread_id + a browser user id only).
+Not planned yet: auth / multi-user isolation of the API (sessions are keyed by thread_id + a browser user id only);
+streaming the brief / plan while they are written.
 
 ---
 
@@ -506,11 +511,52 @@ restricted to the session's environment; resource usage and processes are manage
 - **Verify:** pytest (routes, fix-round cap, preview ready only after health check) + `scripts/verify_m9.py`: full pipeline `--auto` on a tiny idea; `curl` of the preview URL returns HTTP 200.
 - **Commit:** `M9: build check, preview and change requests`
 
-### M10 — Lovable UI
+### M10 — Lovable UI ✅ done 2026-10-25
 Spec §9 (interface): left = the conversation (initial prompt, clarification answers, document review, plan approval, change
 requests), context and progress preserved through the session; right = the live preview of the running app.
 - `/` and `/c/[id]`: left = chat (prompt → questions → stage chips → brief card with Approve / Request changes + target → plan card → task progress → change composer), right = `PreviewPane` (iframe, state chip, errors, refresh/restart). `/admin` keeps the detailed view with new stages. Remove health wording, update `pipeline.ts`, `chatStages.ts`, `format.ts`, layout metadata.
 - **Verify:** `npm run lint`, `tsc --noEmit`, `next build`; manual checklist in the progress log (new idea → answer → approve brief → approve plan → preview visible → one change request applied).
+- **As built (user's answers 2026-10-25: open question 4 = full pipeline, 3 = keep the chat as "Ask" mode):**
+  `/` = NewProject (prompt, example chips, recent projects); `/c/<id>` = BuilderView: left `ChatPane` (stage chips,
+  first message, clarification one question at a time, research summary, then reviews / change requests / Ask
+  messages in time order, then the live area: working chip + newest progress line, `BuildProgressCard` while
+  building, `BriefReviewCard` / `PlanReviewCard` (Approve buttons + "read it" → right tab; changes are typed in the
+  message box), `AppRunningCard` (Finish), finished note); right `WorkPane` tabs Preview (`PreviewPane`: browser
+  bar with state dot, URL, reload, phone width, new tab, Start/Restart; iframe reloads when `started_at` changes;
+  failed → dev server error + log; stopped → Start) · Brief (`BriefView`) · Plan (`PlanView defaultOpen`) · Build
+  (`BuildCard` + `TaskList`) · Activity (`NowPanel` + `ActivityFeed`). The tab follows the project (brief review →
+  Brief, plan review → Plan, building → Build, built → Preview, else Activity) until the user picks one; the choice
+  holds until the suggestion changes. One message box whose modes depend on the pause: answer (+ Skip) · Change the
+  brief (target select in the card) · Change the plan · "Request some change in app" (one coding-agent task C<n>) /
+  "Plan a bigger change" (replan: the planner rewrites the plan for approval) · "Ask about app" (from the report on);
+  mode chips have hover hints. Labels chosen by the user after the browser check (2026-10-25). Light
+  theme (reuses the admin cards). **Resizable split** (user's request): drag the border (`ResizeHandle`) to set the
+  chat width (320–900 px, the preview keeps ≥ 420 px and fills the rest), remembered in localStorage
+  (`builder:chatWidth`, read with `useSyncExternalStore`, server snapshot null = default 400 / 440 px), double-click
+  resets, arrow keys ±24 px. **Download code** (user's request; button right of the tabs, enabled once built and
+  while the builder is not running): Chrome / Edge → folder picker (File System Access API), the project is written
+  into a NEW subfolder `<project-slug>/` (confirm before overwriting an existing one; every path re-checked in the
+  browser: no `/`, `..`, `\`, `:`); other browsers → `<project-slug>.zip`. Backend `workspace/export.py`:
+  `GET /code` (JSON, base64) and `GET /code.zip`; only `app/`, without node_modules / dist / .next / coverage / .git /
+  caches / venvs, `.env*` except `.env.example`, symlinks; 5 MB per file, 50 MB total. The result popup says where
+  it was saved, how to run it (plan install + dev commands) and what was left out. Mobile: Chat | Preview switch. Projects drawer from the top bar (all sessions,
+  intake-rejected ones hidden). Old `components/chat/*` and `useStartChat` deleted. Admin: "Open in the builder"
+  link, nav "Builder", `RiskFlagBanner` (informational, replaces the emergency wording), "Feedback context",
+  "Project facts".
+  Backend: `GET /api/chats/{id}` adds `reviews` (brief + plan replies with `at`, replans from the change pause shown
+  only as change turns) and `changes` (with the `C<n>` task + status, matched via `delivery.change_task_title`);
+  `DecisionStatus.has_build`; Ask context (`chat.build_context`) adds `<current_stage>`, `<brief>`, `<plan>` (no task
+  descriptions), `<build>` (measured facts only), `<user_requests>`; prompt: answers only, never claims a change;
+  chat tools without `load_skill`, researcher / tool prompts re-pointed at app projects; knowledge search excludes
+  curated (health) docs; new sessions from the UI are `mode: "full"`.
+  **Reopen (added after the user's browser check, open question 6):** a finished, built project takes another change
+  or a new plan: `POST /resume {"type": "reopen", "action": "change" | "replan", "request"}` (409 unless finished; 422
+  unless the action is in `DecisionStatus.reopen_actions` = `delivery.reopen_actions(state)`: built, finished at the
+  change pause, same limits as the pause). The API writes `delivery.reopen_update` (a new `change_requests` entry,
+  `reopened: true`) with `graph.update_state(..., as_node="await_change_request")` and continues the run: the router
+  makes task C<n> (or replans) exactly like an answered pause; completion runs again at the next Finish (its saves are
+  upserts). UI: after Finish the message box offers "Ask about app" (default, so a question never reopens by
+  accident) / "Request some change in app" / "Plan a bigger change"; the finished note says so; Ask's prompt knows a change reopens the project.
 - **Commit:** `M10: Lovable UI with live preview`
 
 ### M11 — Platform hardening (prompts, evals, cost, knowledge, memory, triggers, skills)
@@ -587,7 +633,15 @@ accounting arrives with M11, until then LLM spend is not metered):
 | `verify_m7.py` workspace / sandbox / processes | — | — | free, seconds |
 | `verify_m8.py` coding agent, 2-task plan | plan cache | a workspace | $0.05 measured, ~30 s |
 | `verify_m9.py` build / preview / change | plan cache | a workspace + project_runtimes row | $0.09–0.10 measured, ~1 min |
+| `verify_m10.py [--session id] [--ask] [--skip-build]` builder UI (35 checks incl. real resize drags and Download-code clicks via `frontend/scripts/check_resize.mjs` / `check_download.mjs`) | dev servers on 8001/3001, one built session, Chrome for the DOM / drag checks | (`--ask`: 2 chat messages in that session) | free (`--ask`: cents, 1 Sonnet call), ~1 min incl. `next build` |
+| `fake_api.py` offline API (port 8002) for UI work | nothing (fake LLM / search / agent from tests/conftest.py, in-memory everything) | a throwaway tmp generated-projects folder | free; a full session in seconds |
 | `api_flow.py --auto [--change "..."]` full E2E over HTTP | dev servers on 8001/3001 | a real session | agent $0.74 measured + research/brief/plan LLM calls (unmetered, guess $1–2); ~15 min active |
+
+**UI work without paying (M10):** `cd backend && uv run python scripts/fake_api.py` (API on 8002), then
+`cd frontend && NEXT_PUBLIC_API_URL=http://localhost:8002 npx next build && npx next start -p 3002` (a production server:
+a second `next dev` would fight the user's dev server over `.next/dev`). Create a session on 8002, resume its pauses
+with curl / httpx, and look at http://localhost:3002/c/<id> (or headless Chrome, section 16). Afterwards run
+`verify_m10.py` (it rebuilds `.next` against 8001).
 
 `.cache/` is git-ignored: a fresh clone runs verify_m3 → m4 → m6 once to rebuild the chain. The cached
 calculator state carries a CONDITIONAL report (M3's Judge asked for clarification), so sessions built from it end
@@ -622,6 +676,47 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 - 2026-10-24: Standard test idea for every live verify and the first end-to-end builds: **"A simple calculator web app"** (user's call: if the smallest project builds, bigger ones follow).
 - 2026-10-24 (M1): risk flags are informational only; `limits.loops_allowed` no longer blocks on them. `max_clarification_rounds` = 3.
 - 2026-10-24 (M3): one Proposer call makes 2–3 proposals over ALL evidence; one Critic call per proposal (parallel); one Judge call scores all and Python picks the winner; the checker verifies the winner only. Material contradictions found by the Judge become clarification questions when a round is available. Quick mode runs every node (one proposal, quick settings). The interim `FinalReport` = winner + alternatives (M4 replaces the user-facing document). The chat's first summary is built from the report in Python (no LLM call). Health demo scripts (`run_debate`, `run_report`, `demo_data`, `schemas_demo`) deleted; health report components replaced by `ProposalDetails`.
+- 2026-10-25 (M10): **bigger changes go through the brief, and a plan for a built app only adds work** (user's
+  answer after the browser check: "Plan a bigger change: make it scientific calculator as well" came back as plan v2
+  WITHOUT the feature, because the approved brief lists scientific mode as out of scope, and approving it would have
+  reset all tasks to pending and rebuilt the app from T1, possibly losing C1/C2). Now: replan (at the change pause or
+  via reopen) → `brief_feedback` entry (source `change_request`, target wording) + both approvals cleared →
+  `brief_writer` in "user" mode (the prompt moves an added capability into the MVP / in-scope lists) → validator →
+  brief review → approve → planner in **extension mode** whenever a `built_part` exists (plan tasks no longer pending):
+  output `PlanExtension` (only new tasks, ids after the highest built id, depends_on / feature_coverage may cite built
+  ids; inputs `<built_plan>`, `<built_tasks>`, `<later_changes>` (C / F tasks), `<project_files>`,
+  `<requested_change>`), validated MERGED (`plan.extension_schema_for` → `merge_extension` → full ImplementationPlan
+  checks + MVP coverage), stored as a normal ImplementationPlan; built tasks (and C / F tasks) keep their status, new
+  ones are pending; the markdown marks built tasks and says "N new tasks"; plan review payload `new_task_count`. The
+  First live run (user, session `e39ceeb5`, "make it scientific calculator as well"): brief draft 3 put scientific
+  mode in the MVP, but listed the percent key and themes as out of scope / later although C1 (dark theme) and C2
+  (percent) were built → every agent now sees `<changes_built_after_approval>` (done C-task requests, in the user's
+  words; `prompting.built_changes_block` inside `<user_input>`), the writer must keep them in scope and label what they
+  state user_provided (first only the writer had them, and the validator then flagged the percent rule's "you said"
+  label as unsupported); the extension planner gets
+  them as `<later_changes>`. Second live finding: the user's correction ("keep percent and theme in scope", target
+  auto) was routed by the FeedbackRouting LLM to **proposal**: the debate re-ran (~4 min) and the new brief swapped
+  Big.js for Decimal.js, i.e. described a different app than the built one → once `workspace_dir` exists the brief
+  review is **wording-only** (`wording_only_reason: "built"`; auto → wording without the routing call; proposal /
+  research / requirements refused by the node and the API), and user-mode writer revisions get `<built_app>` (plan
+  tech_stack, dependencies, architecture) to keep. The
+  session `e39ceeb5` was restored to its checkpoint after C2 (`update_state(<checkpoint fa7a3b58>, {}, as_node="preview")`
+  + `invoke(None)`; the history with the faulty plan v2 is kept).
+- 2026-10-25 (M10): open question 6 → **finished projects can be reopened** (user's answer after the browser check:
+  Ask on a finished calculator could only say "send it in Change mode", which no longer existed). Implemented as a
+  `reopen` reply that writes a change request as the `await_change_request` node (`update_state(as_node=...)`), so no
+  graph change and the same router / limits / completion. The chat's "reply sent, poll not caught up" state is now
+  time-based (`sentAt` vs `useDecision().lastUpdate`, like the admin view's `resuming`), because a finished project
+  has no pause key.
+- 2026-10-25 (M10): open question 4 → the builder UI runs the **full** pipeline (quick profile no longer started; its
+  settings stay for old sessions until M11). Open question 3 → the tool chat stays as **Ask mode** beside the builder:
+  available once the report exists, at any stage, never changes anything (changes go through the pauses), context =
+  case + report + evidence highlights + brief + plan + measured build facts + the user's earlier requests. Ask has no
+  skills and no curated knowledge until M11 replaces the health ones. The conversation is assembled from the checkpoint
+  (clarification answers, `brief_feedback`, `plan_feedback`, `change_requests`, all with `at`) + `chat_messages`; no new
+  table. The builder page is light-themed so the admin cards (BriefView, PlanView, BuildViews, NowPanel, ActivityFeed)
+  are reused unchanged. Approve / Finish are buttons in the chat cards; every free-text reply goes through the one
+  message box (mode switch).
 - 2026-10-25 (M9, after the E2E): **preview isolation**: `port_is_free` first tries to CONNECT on 127.0.0.1 / ::1
   (anything accepting = taken), and `ready` additionally requires `listens_on(pid, port)` (psutil: the started process
   tree holds the LISTEN socket). Reason: macOS lets a SO_REUSEADDR bind to 127.0.0.1:4100 succeed while a Node app
@@ -672,11 +767,12 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 - 2026-10-25 (M4): the brief writer makes **three** strict structured calls (sections 1–4, then 5–6 and 7–9 in parallel with sections 1–4 as context): the whole brief schema exceeds the API's grammar limit. Python owns: references (from cited ids only), the `verified` label (needs a checker-verified source, else downgraded to `research_backed`), `required_by_user` technology (only with label `user_provided`), the one-page budget (900 words over sections 1–9, labels/citations/URLs not counted): the renderer moves list items beyond per-list caps to the appendix and, while the page is over budget, shrinks the caps level by level (`CAP_LEVELS` 1.0/0.75/0.5/0; floors keep the MVP, scope, user journey, 3 functional requirements, 2 success criteria and 2 risks in the main part); only a brief too long at the smallest caps fails `det_word_budget`. Reason: in the first live run the LLM needed two full rewrites (1561 → 1080 → 1012 words) for length alone. M5 E2E still needed two (1021 → 940 → 861): the writer now aims at 80% of the budget with ≤ ~20-word items, and `det_word_budget` passes up to budget × 1.10 (`WORD_BUDGET_TOLERANCE`, "approximately one page"). Validator: deterministic checks first; if one fails and a revision is left, revise **without** the LLM call; revise also on any high-severity LLM criterion; clarify only when the reviewer says the brief cannot go forward without the user AND `loops_allowed` permits (bumps `research_retry_count`, resets `brief_revision_count`); otherwise approve, listing remaining medium/high failures as open issues (appendix C + `unresolved_questions`, status `completed_with_uncertainty`). Approve currently routes to `completion` (M5 inserts `await_brief_review`). `GET /brief` returns only a draft whose validation verdict is approve and whose `brief_generated_at` matches the brief (no unvalidated draft is ever shown). The brief lives in the checkpoint only; `project_artifacts` (DB) comes with M5.
 - 2026-10-24 (M2): the word is **domain** everywhere (code, state, API, DB columns, UI), keys `apps / papers / tech`. Tavily steering is "prefer" for all three (never exclusive); the apps domain searches with `advanced` depth. `SearchQuery` validates that a topic belongs to its domain; each domain's key topic (`user_complaints`, `established_approaches`, `feasibility_and_risks`) is always searched on the first pass (`planner.ensure_key_topics`). Patient-story top-up removed.
 
-## 13. Open questions (for the user; 1 answered 2026-10-25; ask 3 and 4 when M10 starts, they shape its chat)
+## 13. Open questions (for the user; 1, 3, 4, 6 answered 2026-10-25)
 1. ~~**Coding agent (M8):** OK to spike the Claude Agent SDK first?~~ **Answered 2026-10-25: yes, use the Claude Agent SDK** (own tool loop stays the fallback if the spike fails a hard requirement).
 2. **Preview runtime:** start the Docker daemon for v2 later, or stay on host subprocesses for now? (v1 works without Docker.)
-3. **Chat after preview:** keep the tool-using chat (`chat.py`) as "ask about this project", or retire it?
-4. **Quick mode / patient chat UI:** retire the "quick" profile entirely in M10?
+3. ~~**Chat after preview:** keep the tool-using chat (`chat.py`) as "ask about this project", or retire it?~~ **Answered 2026-10-25: keep it as "Ask" mode** (built in M10).
+4. ~~**Quick mode / patient chat UI:** retire the "quick" profile entirely in M10?~~ **Answered 2026-10-25: the builder runs the full pipeline**; the quick profile is no longer started (code removal in M11).
+6. ~~**Continue a finished project?**~~ **Answered 2026-10-25: yes, "reopen"** (built in M10).
 5. Rename LangSmith project from `ai-decision-arena` (shared with ai-lab) to `ai-app-builder`? (one `.env` line)
 
 ## 14. Progress log
@@ -769,6 +865,51 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
   (`test_a_foreign_wildcard_listener_is_never_mistaken_for_our_preview`). After the fixes: 229 pytest 3× green,
   eslint + tsc green, `verify_m9.py` PASS again (chose 4101 because 4100 was taken).
 
+- 2026-10-25: **M10 done.** New `frontend/src/components/builder/` (14 files, see 2.3 and the M10 block), routes `/`
+  and `/c/<id>` rewritten, old chat components deleted; admin wording / links; backend transcript `reviews` / `changes`,
+  `has_build`, Ask context + prompts, curated-knowledge filter, `change_task_title`; `scripts/verify_m10.py`,
+  `scripts/fake_api.py`. Verify: 230 pytest (new: the transcript of a session with a wording change, approvals, one
+  change request and finish, in order with C1 done; `build_context` contains brief / plan / build / requests; Ask
+  409 before the report) + eslint + tsc + `next build` green. `verify_m10.py --ask` on the M9 E2E session `e39ceeb5`
+  PASS 25/25: API contract, 4 pages 200, rendered DOM (first message, change request + "C1 done", stage chips, five
+  tabs, Ask box, approvals, admin → builder link, home), Ask answer streamed in 1.4 s and saved. A manual Ask
+  question on the same session answered from the measured build facts (12 + C1 done, build round 2 passed, preview
+  on 4100), said what it could not know (how the toggle works), and refused "make the buttons bigger" pointing to
+  Change mode. Offline walk-through with `fake_api.py` + headless-Chrome screenshots at every pause (question 1 of
+  2 with Skip; brief card + Brief tab; wording change + Ask in the timeline; plan card + Plan tab; app running with
+  a REAL dev server in the iframe; after the change: "C1 done", round 2). Fixed from the screenshots: lower-case
+  project names, stage chips wrapping, a green tick on "completed with uncertainty".
+  Later the same day, at the user's request: renamed modes ("Ask about app", "Request some change in app", "Plan a
+  bigger change" + hover hints) and the resizable chat | preview split (verify_m10 30/30 with real drags: 440 → 843 px
+  across the iframe, clamps 320 / 900, survives reload, double-click reset).
+  Then "Download code" (user's request): 233 pytest (export: source + vendor kept, node_modules / dist / .git /
+  __pycache__ / .env / .env.local / symlinked file and folder left out, zip has one top-level folder; API: /code and
+  /code.zip on a built session, 409 before a build); verify_m10 35/35: real click in folder mode wrote the
+  calculator's 34 files (69,654 bytes, every name and size equal to `app/`, nothing else), zip mode downloaded
+  `simple-calculator-web-app.zip` with the same names.
+  Then the bigger-change fix (decisions): 234 pytest (`test_bigger_change_updates_the_brief_first_then_plans_only_the_new_work`:
+  replan → brief writer edits with the request → brief review → PlanExtension with built plan / tasks / real file
+  list → tasks {T1, T2 done, T3 pending}, plan review `new_task_count` 1 → only T3 run by the agent → build + preview;
+  `test_a_plan_extension_must_merge_into_a_valid_plan`: reused ids, unknown dependency, missing MVP feature refused;
+  API: reopened bigger change → brief review → plan review); verify_m10 35/35. Not yet run live (brief revision
+  ~$0.2 + Opus extension ~$0.5 + the new tasks).
+  **Browser checklist for the user (needs a full paid run, ~$2–3):** at http://localhost:3001 type a new idea →
+  answer the questions one by one in the chat → the right pane shows Activity while the agents work → brief card:
+  read it in the Brief tab, try one change request (e.g. wording), then Approve → plan card + Plan tab → Approve and
+  build → Build tab with tasks ticking, build progress card in the chat → Preview tab shows the app → type one
+  change in "Change the app" → after it: "C<n> done", the preview reloads with the change → try "Ask" → Finish.
+  Also: the projects drawer (top-left), phone width (Chat | Preview switch), the admin "Open in the builder" link.
+  **User's browser check (same day), session `e39ceeb5`:** Ask answered "tell me short about our problem statement"
+  correctly and, asked to add a percent feature, said percent was out of scope of the approved brief, proposed rules
+  and refused to claim a change, but pointed at a reopen that did not exist → **Reopen** built (decisions). Verify
+  after it: 232 pytest (2 new: reopen change → C1 → build → preview → paused → finish → replan → plan review 2; the
+  limit and not-finished refusals) + eslint + tsc + `next build`; `verify_m10.py` 23/23; offline walk-through
+  (finished: Ask / Change the app / New plan, note; reopened: "Change request 2", C1 done, round 3). **Live on
+  `e39ceeb5` with the user's percent request:** reopened, C2 done on the first attempt (38 turns, $0.21; session agent
+  total $0.95), build check 3 passed, preview restarted on 4100 in 70 s. Independent re-check: the served page has
+  a `data-action="percent"` key; sandbox `npm test` 95/95 (was 85); `calculate(tokenize(...))`: 430-20% = 344,
+  430+20% = 516, 50*20% = 10, 20% = 0.2, 50/20% = 250; keys `430-20%=` through the app's reducer → 344.
+
 ## 15. How to work on this repo (the loop every milestone follows)
 
 1. **Start:** follow "Start here" at the top. Read the milestone block in section 8 (it quotes the spec parts it needs;
@@ -819,6 +960,9 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
     the log, not the browser page.
 16. **Tests that touch processes or ports** must use the fixtures (`root` / `ws` / `manager` in test_workspace,
     autouse `process_manager` in conftest) and must not assume a fixed free port: leftover previews may hold 4100+.
+17. **UI changes: look before you ask the user.** Render the page yourself with headless Chrome (screenshot or
+    `--dump-dom`, section 16) and read the screenshot; walk every pause for free with `scripts/fake_api.py`. M10's
+    screenshots caught 3 visual bugs before the user saw them. The user's browser check is still the final word.
 
 ## 16. Gotchas met so far (read before you repeat them)
 
@@ -997,6 +1141,48 @@ is what you will see)
 - To steer the fake planner in one test: `fake_llm.overrides[S.ImplementationPlan] = builder` (e.g. a broken dev
   command); `fake_llm.kwargs[i]["user"]` holds each call's prompt (used to prove a replan request reached the planner).
 
+*Builder UI (M10)*
+- *Symptom:* the headless screenshot at `--window-size=420,...` looked cut off on the right. → Cause: headless Chrome on
+  macOS keeps a ~500 px minimum layout width. → **Fix:** check phone layouts at 600 px (still below `md` = 768 px).
+- *Symptom:* the Plan tab looked faded in one screenshot. → Cause: `animate-fade-up` (0.35 s) was mid-way when the
+  virtual time budget ended (the plan was fetched late). → **Fix:** none needed; a longer `--virtual-time-budget`
+  (15000) showed it fully. Rule: re-shoot before "fixing" what may be screenshot timing.
+- *Symptom:* the resize drag stopped as soon as the pointer crossed into the preview; after a fix, double-click reset
+  stopped working. → Cause: an iframe swallows pointer events; and a full-page drag cover shown on pointerdown caught
+  the second click of the double-click. → **Fix:** `setPointerCapture` on the handle (events keep coming over the
+  iframe) + the cover only after a 3 px move. Found by `check_resize.mjs`: real mouse events over the Chrome DevTools
+  protocol (Node 22's built-in WebSocket, no Puppeteer needed) — use that pattern whenever a UI check needs clicks or
+  drags.
+- The native folder picker (`showDirectoryPicker`) cannot be automated. `check_download.mjs` replaces it with
+  `navigator.storage.getDirectory()` (the Origin Private File System has the same FileSystemDirectoryHandle API),
+  clicks the real button and lists what was written; downloads are caught with `Browser.setDownloadBehavior` on the
+  BROWSER target (`/json/version` WebSocket), not the page.
+- Headless Chrome is the agent's eyes: `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new
+  --disable-gpu --hide-scrollbars --window-size=1440,900 --virtual-time-budget=9000 --screenshot=/tmp/x.png <url>`
+  (then Read the PNG), or `--dump-dom` for the HTML after the client fetched its data (verify_m10 asserts on it). It
+  cannot click: drive the pauses through the API (curl / httpx `POST /resume`) and re-render.
+- `git rm` STAGES the deletion. The user commits, so keep the index untouched: delete with `rm`, or `git reset -q`
+  afterwards (done in M10).
+- `next build` next to the user's `next dev` is safe in Next 16: dev writes to `.next/dev`, the build to `.next`. A
+  second `next dev` on another port is NOT (same `.next/dev`): use `next build && next start -p 3002`. A build bakes
+  `NEXT_PUBLIC_API_URL` in: rebuild against 8001 after a fake-API build (verify_m10 does).
+- *Symptom:* my own check of the generated percent feature returned "Invalid expression" for every input although
+  its tests passed. → Cause: I called `calculate("430-20%")`; the engine takes TOKENS (`calculate(tokenize(text))`).
+  → **Fix:** read how the project's own tests call the code before calling it yourself; a failing independent check
+  is first a question about the check.
+- *Symptom:* a "new plan" for a running app listed T1–T12 again and would have rebuilt everything. → Cause: the
+  planner only knew the brief and the previous plan, and `tasks_from_plan` reset every task to pending. → **Fix:**
+  extension mode (decisions). Rule: anything that re-plans a built app must see what exists (tasks, later changes,
+  files) and must not reset finished work.
+- A checkpointed session can be rolled back without losing history: pick the checkpoint from
+  `graph.get_state_history(config)`, `update_state(that_config, {}, as_node=<the node before the wanted step>)`, then
+  `invoke(None, thread_config)` (only safe when the next node has no LLM call, e.g. an `await_*` pause).
+- Order of conversation items: review / change `at` has second resolution, chat messages microseconds: two items in
+  the same second can swap (only a script is that fast). Sorting is by `Date.parse`, stable.
+- The chat's "answered" state (a reply sent, poll not caught up) is time-based: `sentAt` vs the last status poll
+  (`useDecision().lastUpdate`). A pause key does not work: a finished project has none, and two finishes would look
+  the same.
+
 **Working with the user / this environment**
 - The user watches the admin page while things run and sends screenshots: they found bugs lint + tsc could not
   (M5: 5 bugs; M9: stale page while a script resumed, wrong task count, finished session hiding the app). Ask for a
@@ -1032,8 +1218,10 @@ is what you will see)
   is in the prompt, a stricter check (count of "or" clauses) would be an M11 eval, not a hard filter.
 
 ## ▶ Next step
-**User commits M9** as `M9: build check, preview and change requests` (browser check of the finished-session view:
-open the E2E session `e39ceeb5` at http://localhost:3001/decisions/e39ceeb5-cf6b-4950-b518-b656ec65515b → "Your app"
-card with the preview, build check and 13 tasks; the plan card reads "12 tasks · +1 added later"). Then **M10 —
-Lovable UI** (section 8): `/` and `/c/[id]` become chat left + live preview right, reusing `BuildViews.tsx`
-(`PreviewCard`, `BuildCard`, `TaskList`), `ChangeRequestPanel` logic and the polling fix; `next build` must pass.
+**User commits M10** as `M10: Lovable UI with live preview` after the browser checklist in section 14 (M10 entry): a new
+idea end to end in the builder at http://localhost:3001 (a full paid run, ~$2–3), plus the M9 calculator session
+`e39ceeb5` at http://localhost:3001/c/e39ceeb5-cf6b-4950-b518-b656ec65515b (history, Ask, preview: press Start if it
+idle-stopped; it now has the percent key from the live reopen check). Then **M11 — Platform hardening** (section 8): prompt registry + versions, eval cases + runner, per-node
+token / USD accounting + budget + `/metrics`, `tool_calls` log, builder knowledge docs + skills (then
+`knowledge.INCLUDE_CURATED = True` and `load_skill` back in `chat_tools`), idle-preview trigger replacing the quick-chat
+check-ins, removal of the quick profile and the remaining health leftovers (section 2.5).

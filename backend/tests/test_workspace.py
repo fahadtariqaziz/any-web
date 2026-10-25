@@ -351,3 +351,36 @@ def test_a_foreign_wildcard_listener_is_never_mistaken_for_our_preview(root, man
     finally:
         os.killpg(foreign.pid, signal.SIGKILL)
         foreign.wait()
+
+
+# --- code export ("Download code", M10) ----------------------------------------------------------------------
+
+def test_code_export_keeps_the_source_and_leaves_out_deps_builds_secrets_and_links(ws, tmp_path):
+    import base64
+    import io
+    import zipfile
+
+    from ai_decision_arena.workspace import export
+    files = {"package.json": "{}", "src/main.js": "x", "vendor/big.mjs": "big", ".env.example": "KEY=", "README.md": "#",
+             ".env": "SECRET=1", ".env.local": "S=2", "node_modules/a/index.js": "dep", "dist/app.js": "built",
+             ".git/HEAD": "ref", "src/__pycache__/m.pyc": "c"}
+    for rel, text in files.items():
+        (ws.app / rel).parent.mkdir(parents=True, exist_ok=True)
+        (ws.app / rel).write_text(text)
+    outside = tmp_path / "outside.txt"
+    outside.write_text("not part of the project")
+    (ws.app / "link.txt").symlink_to(outside)
+    (ws.app / "linkdir").symlink_to(tmp_path)
+
+    result = export.collect(ws, "Simple Calculator: Web App!")
+    assert result.folder_name == "simple-calculator-web-app"
+    assert [rel for rel, _ in result.files] == [".env.example", "README.md", "package.json", "src/main.js", "vendor/big.mjs"]
+    skipped = " | ".join(result.skipped)
+    for left_out in ("node_modules/", "dist/", ".git/", "src/__pycache__/", ".env (may hold secrets)", ".env.local",
+                     "link.txt (symlink", "linkdir/ (symlink"):
+        assert left_out in skipped
+    as_json = export.as_json(result)
+    assert base64.b64decode(next(f for f in as_json["files"] if f["path"] == "vendor/big.mjs")["content_b64"]) == b"big"
+    names = zipfile.ZipFile(io.BytesIO(export.as_zip(result))).namelist()
+    assert names == [f"simple-calculator-web-app/{rel}" for rel, _ in result.files]
+    assert export.folder_name(None, "abcdef123456") == "project-abcdef12"

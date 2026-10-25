@@ -281,7 +281,24 @@ def build_plan(system: str, user: str) -> S.ImplementationPlan:
     )
 
 
+def build_plan_extension(system: str, user: str) -> S.PlanExtension:
+    """New work on a built app: one task after the highest built id, covering every MVP feature with it."""
+    import json as _json
+    mvp = _json.loads(tag("mvp_features", user) or "[]")
+    built = _json.loads(tag("built_plan", user))
+    next_id = f"T{max(int(t['id'][1:]) for t in built['tasks']) + 1}"
+    base = build_plan(system, user)
+    return S.PlanExtension(**base.model_dump(exclude={"phases", "tasks", "feature_coverage", "summary"}),
+                           summary="The habit tracker plus the requested change.", phases=[],
+                           tasks=[S.PlanTask(id=next_id, phase=built["tasks"][-1]["phase"], title="The bigger change",
+                                             description="Add what the user asked for.", depends_on=[built["tasks"][-1]["id"]],
+                                             files=["src/extra.js"], acceptance_criteria=["the new feature works"],
+                                             verify_commands=["ls src/extra.js"])],
+                           feature_coverage=[S.FeatureCoverage(feature=f, task_ids=[next_id]) for f in mvp])
+
+
 DEFAULT_BUILDERS = {
+    S.PlanExtension: build_plan_extension,
     S.IntakeResult: build_intake,
     S.ClarificationResult: build_clarification,
     S.ResearchPlan: build_research_plan,

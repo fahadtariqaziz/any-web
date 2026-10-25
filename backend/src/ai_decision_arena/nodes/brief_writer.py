@@ -105,7 +105,12 @@ USER_REVISION_NOTE = """
 This is a REVISION requested by the USER while reviewing the brief. <previous_draft> is the draft they reviewed and
 <validation_issues> holds their change request (the last item of <brief_feedback>). Apply it in the sections of this
 call where it belongs, keep everything else as it was, and keep the labels honest: a fact the user states is
-user_provided; never invent evidence to satisfy the request."""
+user_provided; never invent evidence to satisfy the request. If the request adds a capability (it may come while the
+app is already built and running), move it into the MVP / in-scope items and out of the out-of-scope / future lists,
+and adjust requirements, architecture and risks only as far as the request needs. Features listed in
+<changes_built_after_approval> already exist in the running app (the user asked for them after the brief was approved):
+keep them in the MVP / in scope, never list them as out of scope, later or future; what they state is user_provided. <built_app> is the technology the
+running app is built with: keep it (libraries, framework, structure) unless the request explicitly changes it."""
 
 
 def brief_alternatives(state: ArenaState) -> list[dict]:
@@ -129,6 +134,8 @@ def revision_mode(state: ArenaState) -> str | None:
         return "validator"
     if state.get("current_node") == "brief_review_router" and state.get("brief_review_route") == "wording":
         return "user"
+    if state.get("current_node") == "change_request_router" and state.get("change_route") == "replan":
+        return "user"                              # a bigger change asked for while the app runs (M10)
     return None
 
 
@@ -166,6 +173,10 @@ def _user_content(state: ArenaState, mode: str | None, part: type, first: BriefP
         content += f"""
 <previous_draft>{json.dumps(previous, indent=1)}</previous_draft>
 <validation_issues>{json.dumps(_issues(state, mode), indent=1)}</validation_issues>"""
+        if mode == "user" and state.get("workspace_dir") and (plan := state.get("implementation_plan")):
+            stack = {"tech_stack": plan.get("tech_stack", []), "dependencies": plan.get("dependencies", []),
+                     "architecture": plan.get("architecture", "")}
+            content += f"\n<built_app>{json.dumps(stack, indent=1)}</built_app>"
     return content
 
 

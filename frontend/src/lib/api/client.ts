@@ -9,6 +9,7 @@ import type {
   BriefResponse,
   PlanResponse,
   ChatTranscript,
+  CodeExportResponse,
   CreateDecisionRequest,
   DecisionStatus,
   EvidenceResponse,
@@ -126,6 +127,16 @@ export function stopPreview(threadId: string): Promise<PreviewResponse> {
   return request(`${BASE}/${encodeURIComponent(threadId)}/preview/stop`, { method: "POST" });
 }
 
+/** The generated project's files (JSON, base64) for writing them into a folder the user picks. */
+export function getCode(threadId: string): Promise<CodeExportResponse> {
+  return request(`${BASE}/${encodeURIComponent(threadId)}/code`);
+}
+
+/** The same files as a zip (one top-level folder): a plain link, for browsers without a folder picker. */
+export function codeZipUrl(threadId: string): string {
+  return `${API_URL}${BASE}/${encodeURIComponent(threadId)}/code.zip`;
+}
+
 /** Approved versions of the brief (and later the plan). 503 if the database cannot be read. */
 export function getArtifacts(threadId: string): Promise<ArtifactList> {
   return request(`${BASE}/${encodeURIComponent(threadId)}/artifacts`);
@@ -146,7 +157,7 @@ export function listDecisions(limit = 20, mode?: SessionMode): Promise<SessionLi
   return request(`${BASE}?limit=${limit}${mode ? `&mode=${mode}` : ""}`);
 }
 
-// --- patient chat ---------------------------------------------------------------------------------
+// --- builder chat (conversation + Ask mode) ---------------------------------------------------------
 
 /** The chat's onboarding (first message, answered questions, summary) and its messages. */
 export function getChat(threadId: string): Promise<ChatTranscript> {

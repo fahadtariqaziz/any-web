@@ -79,16 +79,81 @@ def test_change_request_adds_a_task_rebuilds_and_restarts_the_preview(graph, fak
     assert state["metrics"]["change_requests"] == 2
 
 
-def test_replan_goes_back_to_the_planner_and_needs_a_new_approval(graph, fake_llm, fake_search):
+def test_bigger_change_updates_the_brief_first_then_plans_only_the_new_work(graph, fake_llm, fake_search):
     to_preview(graph, "d-replan")
-    plans_before = fake_llm.count("ImplementationPlan")
-    state, snapshot = reply(graph, "d-replan", action="replan", request="Use a SQLite backend instead")
-    assert fake_llm.count("ImplementationPlan") == plans_before + 1
-    planner_call = [k for k in fake_llm.kwargs if k["schema"].__name__ == "ImplementationPlan"][-1]
-    assert "Use a SQLite backend instead" in planner_call["user"] and "<previous_plan>" in planner_call["user"]
-    assert snapshot.next == ("await_plan_review",) and not state["plan_approved_at"]
+    state, _ = reply(graph, "d-replan", action="change", request="Add a percent key")      # C1, built and done
+    built_files = {t["id"] for t in state["implementation_tasks"]}
+    agent_calls = len(fake_llm.agent.calls)
+    briefs_before = fake_llm.count("BriefPartOne")
+
+    # 1. the request goes to the brief writer (edit of the approved brief), both approvals are cleared
+    state, snapshot = reply(graph, "d-replan", action="replan", request="Make it a scientific calculator as well")
+    assert snapshot.next == ("await_brief_review",)
+    assert fake_llm.count("BriefPartOne") == briefs_before + 1
+    writer_call = [k for k in fake_llm.kwargs if k["schema"].__name__ == "BriefPartOne"][-1]
+    assert "Make it a scientific calculator as well" in writer_call["user"] and "<previous_draft>" in writer_call["user"]
+    # the brief must not call already built changes out of scope
+    # every agent (writer AND validator) sees the built change as the user's own statement (shared user block)
+    validator_call = [k for k in fake_llm.kwargs if k["schema"].__name__ == "BriefReview"][-1]
+    for call in (writer_call, validator_call):
+        assert "<changes_built_after_approval>\n<change>Add a percent key</change>" in call["user"]
+    assert not state["brief_approved_at"] and not state["plan_approved_at"]
+
+    # the app is built: the brief can only be EDITED (no re-research / new proposal that would describe another app);
+    # "auto" goes to wording without the routing LLM call, and the writer keeps the built stack
+    payload = snapshot.interrupts[0].value
+    assert payload["wording_only"] is True and payload["wording_only_reason"] == "built"
+    _, snapshot = reply(graph, "d-replan", action="request_changes", feedback="Use another approach", target="proposal")
+    assert "already built" in snapshot.interrupts[0].value["error"]
+    routings, proposals = fake_llm.count("FeedbackRouting"), fake_llm.count("ProposerOutput")
+    state, snapshot = reply(graph, "d-replan", action="request_changes", feedback="Keep the percent key in scope", target="auto")
+    assert snapshot.next == ("await_brief_review",) and state["brief_feedback"][-1]["resolved_target"] == "wording"
+    assert fake_llm.count("FeedbackRouting") == routings and fake_llm.count("ProposerOutput") == proposals
+    writer_call = [k for k in fake_llm.kwargs if k["schema"].__name__ == "BriefPartOne"][-1]
+    assert "<built_app>" in writer_call["user"] and "Vite (fast dev server)" in writer_call["user"]
+
+    # 2. brief approved → the planner writes a plan EXTENSION on top of the built tasks
     state, snapshot = reply(graph, "d-replan", action="approve")
-    assert snapshot.next == ("await_change_request",) and state["plan_revision_count"] == 1
+    assert snapshot.next == ("await_plan_review",)
+    planner_call = [k for k in fake_llm.kwargs if k["schema"].__name__ == "PlanExtension"][-1]
+    for part in ("<built_plan>", "<built_tasks>", "<project_files>", "Make it a scientific calculator as well"):
+        assert part in planner_call["user"]
+    assert '"src/main.js"' in planner_call["user"]                      # the real files of the built app
+    tasks = {t["id"]: t["status"] for t in state["implementation_tasks"]}
+    assert tasks == {**{i: "done" for i in built_files}, "T3": "pending"}  # built work kept (T1, T2, C1), only T3 is new
+    payload = snapshot.interrupts[0].value
+    assert payload["task_count"] == 3 and payload["new_task_count"] == 1 and payload["round"] == 2
+    assert "Add a percent key" in planner_call["user"]                  # <later_changes>: the C1 request
+    assert "1 new task (T3)" in state["plan_markdown"] and "T1. Scaffold the project** · *built*" in state["plan_markdown"]
+
+    # 3. plan approved → the coding agent does ONLY the new task, then build check + preview again
+    state, snapshot = reply(graph, "d-replan", action="approve")
+    assert snapshot.next == ("await_change_request",)
+    assert [c["task"] for c in fake_llm.agent.calls[agent_calls:]] == ["T3"]
+    assert all(t["status"] == "done" for t in state["implementation_tasks"]) and state["build_results"]["passed"]
+
+
+def test_a_plan_extension_must_merge_into_a_valid_plan():
+    import pytest as _pytest
+
+    from ai_decision_arena import schemas as S
+    from ai_decision_arena.plan import extension_schema_for
+    from tests.conftest import build_plan, build_plan_extension
+    built = build_plan("", "<mvp_features>[\"Track habits\"]</mvp_features>")
+    schema = extension_schema_for(["Track habits"], built)
+    user = f"<mvp_features>[\"Track habits\"]</mvp_features><built_plan>{built.model_dump_json()}</built_plan>"
+    good = build_plan_extension("", user)
+    assert schema.model_validate(good.model_dump()).tasks[0].id == "T3"
+    reused = good.model_dump() | {"tasks": [good.tasks[0].model_copy(update={"id": "T2"}).model_dump()]}
+    with _pytest.raises(ValueError, match="must not reuse built task ids"):
+        schema.model_validate(reused)
+    bad_dep = good.model_dump() | {"tasks": [good.tasks[0].model_copy(update={"depends_on": ["T9"]}).model_dump()]}
+    with _pytest.raises(ValueError, match="merged with the built tasks"):
+        schema.model_validate(bad_dep)
+    uncovered = good.model_dump() | {"feature_coverage": []}
+    with _pytest.raises(ValueError, match="Missing: Track habits"):
+        schema.model_validate(uncovered)
+    assert S.PlanExtension.__name__ == "PlanExtension"
 
 
 def test_change_request_cap(graph, fake_llm, fake_search, monkeypatch):
@@ -125,7 +190,7 @@ def test_broken_dev_server_is_reported_not_hidden(graph, fake_llm, fake_search):
 
 def test_route_after_change_request(monkeypatch):
     assert G.route_after_change_request({"change_route": "finish"}) == "completion"
-    assert G.route_after_change_request({"change_route": "replan"}) == "planner"
+    assert G.route_after_change_request({"change_route": "replan"}) == "brief_writer"
     assert G.route_after_change_request({"change_route": "change"}) == "await_change_request"   # not approved
     monkeypatch.setattr(G, "plan_is_approved", lambda state: True)
     assert G.route_after_change_request({"change_route": "change"}) == "implementer"

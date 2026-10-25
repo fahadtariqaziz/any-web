@@ -167,7 +167,7 @@ function EvidenceItem({ e }: { e: Evidence }) {
         )}
         {e.feedback_context && (
           <div className="sm:col-span-2">
-            <p className="font-semibold text-slate-500">Patient context</p>
+            <p className="font-semibold text-slate-500">Feedback context</p>
             <p className="text-slate-700">
               {e.feedback_context.experience_described}
               <span className="ml-1 text-slate-500">({e.feedback_context.is_recurring ? "reported by several people" : "one person's report"})</span>

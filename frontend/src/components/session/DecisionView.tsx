@@ -28,7 +28,7 @@ import { ClarificationForm } from "@/components/session/ClarificationForm";
 import { InterruptedPanel } from "@/components/session/InterruptedPanel";
 import { NowPanel } from "@/components/session/NowPanel";
 import { PipelineStepper } from "@/components/session/PipelineStepper";
-import { RedFlagBanner } from "@/components/session/RedFlagBanner";
+import { RiskFlagBanner } from "@/components/session/RiskFlagBanner";
 import { SessionHeader } from "@/components/session/SessionHeader";
 import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
@@ -106,7 +106,7 @@ export function DecisionView() {
   const act = activity!;
   const states = stageStates(status, act);
   const pending = status.pending;
-  const showRedFlagBanner = status.risk_flags.length > 0;
+  const showRiskFlagBanner = status.risk_flags.length > 0;
 
   let main: React.ReactNode;
   if (resuming || running) {
@@ -192,7 +192,7 @@ export function DecisionView() {
           </p>
         </Callout>
       )}
-      {showRedFlagBanner && <RedFlagBanner flags={status.risk_flags} withdrawn={live?.case.withdrawn_risk_flags ?? []} />}
+      {showRiskFlagBanner && <RiskFlagBanner flags={status.risk_flags} withdrawn={live?.case.withdrawn_risk_flags ?? []} />}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-6">
@@ -203,14 +203,14 @@ export function DecisionView() {
               items={[
                 { key: "plans", label: <span className="inline-flex items-center gap-1.5"><Scale className="size-4" aria-hidden /> Plans & debate</span>, count: planCount },
                 { key: "evidence", label: <span className="inline-flex items-center gap-1.5"><Search className="size-4" aria-hidden /> Evidence</span>, count: evidenceCount },
-                { key: "profile", label: <span className="inline-flex items-center gap-1.5"><UserRound className="size-4" aria-hidden /> Your profile</span> },
+                { key: "profile", label: <span className="inline-flex items-center gap-1.5"><UserRound className="size-4" aria-hidden /> Project facts</span> },
               ]}
               value={tab}
               onChange={setTab}
             />
             {tab === "plans" && (live ? <DebateView live={live} /> : <LoadingLine text="Loading the agents' work…" />)}
             {tab === "evidence" && <EvidencePanel data={evidence} loading={evidenceLoading} error={evidenceError} />}
-            {tab === "profile" && (live ? <CaseCard view={live.case} /> : <LoadingLine text="Loading your profile…" />)}
+            {tab === "profile" && (live ? <CaseCard view={live.case} /> : <LoadingLine text="Loading the project facts…" />)}
           </section>
 
           {finishedWithReport && !reportData && !reportError && (

@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Hammer } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
@@ -32,6 +33,10 @@ export function SessionHeader({ status, now }: { status: DecisionStatus; now: nu
           {copied ? "Link copied" : "Copy link"}
         </button>
         {status.started_at && <span>• started {relativeTime(status.started_at, now)}</span>}
+        <Link href={`/c/${status.thread_id}`} className="no-print inline-flex items-center gap-1 rounded px-1 font-medium text-brand hover:underline">
+          <Hammer className="size-3.5" aria-hidden />
+          Open in the builder
+        </Link>
       </div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">

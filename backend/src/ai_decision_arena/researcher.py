@@ -1,14 +1,14 @@
 """The research SUB-AGENT: the chat agent delegates a research question to it (the ask_researcher tool).
 
 Why a sub-agent instead of more tools on the chat agent:
-- Own context: it sees only the question and the condition, not the whole chat, the report and the examples.
+- Own context: it sees only the question and the project, not the whole chat, the report and the examples.
   Its search results (long, noisy) stay in ITS context; the chat agent only gets the short answer back. So the
   chat's context stays small and focused, however many searches the research needed.
-- Own job and prompt: a careful researcher (compare lanes, weigh evidence, cite) instead of a warm companion.
+- Own job and prompt: a careful researcher (compare domains, weigh evidence, cite) instead of a project assistant.
 - Own tool budget: up to MAX_ROUNDS rounds of search_knowledge / web_search, shared web-search limit per turn.
 
-It never talks to the patient and has no memory or skill tools: it answers the chat agent, which decides what
-to tell the patient.
+It never talks to the user and has no memory or skill tools: it answers the chat agent, which decides what
+to tell the user.
 """
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -21,14 +21,15 @@ from ai_decision_arena.tools import ToolContext, invoke_with_tools, search_knowl
 MAX_ROUNDS = 3
 MAX_TOKENS = 1200
 
-SYSTEM_PROMPT = """You are the research assistant of a health support companion. Another agent (the companion
-talking to the patient) asks you one research question. Find the answer and report back to it, not to the patient.
+SYSTEM_PROMPT = """You are the research assistant of an AI application builder. Another agent (the project assistant
+talking to the user) asks you one research question about their app project. Find the answer and report back to it,
+not to the user.
 
 How to work:
-- First search_knowledge (fast, already collected). Then web_search only for what is still missing, one lane
+- First search_knowledge (fast, already collected). Then web_search only for what is still missing, one domain
   at a time: "apps" for products and user feedback, "papers" for studies, "tech" for libraries, APIs and docs.
-- Compare what the lanes say. Prefer guidelines and systematic reviews over single studies, and studies over
-  single patient stories; say how strong the evidence is.
+- Compare what the domains say. Prefer official documentation, maintained repositories and aggregated reviews over
+  single blog posts or single user reports; say how strong the evidence is.
 - Answer in at most 8 short bullet points, each ending with its source as [title](url) or [kb_id title].
   Then one line "Confidence: low / medium / high" with the reason.
 - If you found nothing reliable, say so plainly. Never invent a source, a number or a study.

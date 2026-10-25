@@ -114,7 +114,7 @@ class Settings(BaseSettings):
     fallback_model: str = Field(default="claude-haiku-5-5", description="Backup model: a graph agent's call is repeated "
                                 "once on it when the main model fails. Empty = no fallback.")
     quick_fallback_model: str = Field(default="claude-sonnet-5-5", description="Backup model of a quick session.")
-    chat_model: str = Field(default="claude-sonnet-5-5", description="Model that answers the patient in the chat.")
+    chat_model: str = Field(default="claude-sonnet-5-5", description="Model of the builder chat's Ask mode.")
     session_mode: SessionMode = Field(default="full", description="Set by session_mode(); not meant for .env.")
     quick_double_check: bool = Field(default=False, description="Quick sessions also run the Critic and the Evidence "
                                      "Checker (about +20 s). Off by default to keep onboarding near 30 s.")

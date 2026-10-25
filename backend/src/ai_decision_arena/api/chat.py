@@ -1,10 +1,12 @@
-"""Patient chat endpoints (the ChatGPT-style page of the frontend).
+"""Builder chat endpoints (the Lovable-style page of the frontend, M10).
 
-A chat IS a quick session: POST /api/decisions {"mode": "quick"} starts its onboarding (intake → questions →
-the agents → report + short summary), and the usual GET / resume endpoints drive it. Once the report exists:
+A builder chat IS a session: POST /api/decisions starts it, and the usual GET / resume endpoints drive every pause
+(questions, brief review, plan review, change requests). These endpoints add the conversation around it:
 
-    GET  /api/chats/{id}             → transcript: first message, answered questions, summary, chat messages
-    POST /api/chats/{id}/messages    → {"content"}; the reply STREAMS back as plain text (read it chunk by chunk)
+    GET  /api/chats/{id}             → transcript: first message, answered questions, summary, review replies,
+                                       change requests (with their task), Ask-mode messages
+    POST /api/chats/{id}/messages    → Ask mode, once the report exists: {"content"}; the reply STREAMS back as
+                                       plain text (read it chunk by chunk). Asking never changes the session.
 
 The user's message is saved before the reply starts, the reply once it is complete. If the reply fails half
 way, the partial text ends with a note and is not saved (the user can simply ask again).
@@ -17,9 +19,11 @@ from fastapi.responses import StreamingResponse
 
 from ai_decision_arena.api.errors import ApiError
 from ai_decision_arena.api.runner import graph_config
-from ai_decision_arena.api.schemas import ChatMessageRequest, ChatMessageView, ChatTranscript, ClarificationTurn
+from ai_decision_arena.api.schemas import (ChangeTurn, ChatMessageRequest, ChatMessageView, ChatTranscript,
+                                           ClarificationTurn, ReviewTurn)
 from ai_decision_arena.chat import stream_reply, summary_from_report
 from ai_decision_arena.db.repository import add_chat_message, list_chat_messages
+from ai_decision_arena.nodes.delivery import change_task_title
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chats", tags=["chat"])
@@ -44,6 +48,28 @@ def _messages(thread_id: str) -> list[ChatMessageView]:
             for r in rows]
 
 
+def review_turns(values: dict) -> list[ReviewTurn]:
+    """Brief and plan review replies, oldest first. A bigger change asked at the change-request pause also lands in
+    brief_feedback (source "change_request"; plan_feedback before M10's brief-first route): shown once, as a change turn."""
+    turns = [ReviewTurn(kind="brief", round=f["round"], action=f["action"], feedback=f.get("feedback", ""),
+                        target=f.get("resolved_target") or f.get("target"), at=f["at"])
+             for f in values.get("brief_feedback", []) if f.get("source") != "change_request"]
+    turns += [ReviewTurn(kind="plan", round=f["round"], action=f["action"], feedback=f.get("feedback", ""), at=f["at"])
+              for f in values.get("plan_feedback", []) if f.get("source") != "change_request"]
+    return sorted(turns, key=lambda t: t.at)
+
+
+def change_turns(values: dict) -> list[ChangeTurn]:
+    """Change requests, each with the C<n> task the router created for it ("Change request <round>")."""
+    tasks = {t["title"]: t for t in values.get("implementation_tasks", []) if t.get("phase") == "change"}
+    turns = []
+    for c in values.get("change_requests", []):
+        task = tasks.get(change_task_title(c["round"])) if c["action"] == "change" else None
+        turns.append(ChangeTurn(round=c["round"], action=c["action"], request=c.get("request", ""), at=c["at"],
+                                task_id=task["id"] if task else None, task_status=task["status"] if task else None))
+    return turns
+
+
 @router.get("/{thread_id}", response_model=ChatTranscript)
 def get_chat(thread_id: str, request: Request):
     values = _values(request, thread_id)
@@ -56,6 +82,8 @@ def get_chat(thread_id: str, request: Request):
         clarifications=[ClarificationTurn(question=q, answer=a) for q, a in values.get("clarification_answers", {}).items()],
         onboarding_summary=summary_from_report(values.get("final_report")),
         ready=ready,
+        reviews=review_turns(values),
+        changes=change_turns(values),
         messages=_messages(thread_id) if ready else [],
     )
 
@@ -64,7 +92,7 @@ def get_chat(thread_id: str, request: Request):
 def send_message(thread_id: str, body: ChatMessageRequest, request: Request):
     values = _values(request, thread_id)
     if not values.get("final_report"):
-        raise ApiError(409, "onboarding_not_finished", "I'm still getting to know your situation; one moment please.")
+        raise ApiError(409, "onboarding_not_finished", "Ask mode opens once the research summary is ready; one moment please.")
     history = [{"role": m.role, "content": m.content} for m in _messages(thread_id)]
     try:
         add_chat_message(thread_id, "user", body.content)

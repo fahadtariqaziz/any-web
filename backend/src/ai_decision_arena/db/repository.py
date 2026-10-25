@@ -231,6 +231,7 @@ SELECT id, kind, title, url, domain, condition, thread_id, content,
 FROM knowledge_docs,
      to_tsquery('english', replace(plainto_tsquery('english', :query)::text, ' & ', ' | ')) AS q
 WHERE search_vector @@ q
+  AND (:include_curated OR kind = 'evidence')
 ORDER BY rank DESC
 LIMIT :limit
 """)
@@ -271,7 +272,8 @@ def backfill_knowledge_from_evidence() -> int:
             ON CONFLICT ON CONSTRAINT uq_knowledge_docs_kind_key DO NOTHING""")).rowcount
 
 
-def search_knowledge_docs(query: str, thread_id: str | None, limit: int) -> list[dict]:
+def search_knowledge_docs(query: str, thread_id: str | None, limit: int, include_curated: bool = True) -> list[dict]:
     with session_factory()() as db:
-        rows = db.execute(SEARCH_SQL, {"query": query, "thread_id": thread_id or "", "limit": limit}).mappings()
+        rows = db.execute(SEARCH_SQL, {"query": query, "thread_id": thread_id or "", "limit": limit,
+                                       "include_curated": include_curated}).mappings()
         return [dict(r) for r in rows]

@@ -7,7 +7,7 @@ import { FileText, Printer, Trophy } from "lucide-react";
 import { useState } from "react";
 
 import { ProposalDetails } from "@/components/debate/ProposalDetails";
-import { RedFlagBanner } from "@/components/session/RedFlagBanner";
+import { RiskFlagBanner } from "@/components/session/RiskFlagBanner";
 import { Badge } from "@/components/ui/Badge";
 import { BulletList } from "@/components/ui/BulletList";
 import { Button } from "@/components/ui/Button";
@@ -52,7 +52,7 @@ export function ReportView({ report, workflowStatus, live }: { report: FinalRepo
           }
         />
         <CardBody className="space-y-4">
-          <RedFlagBanner flags={report.risk_flags} withdrawn={withdrawn} />
+          <RiskFlagBanner flags={report.risk_flags} withdrawn={withdrawn} />
           {report.is_conditional && (
             <Callout tone="warning" title="Read this as conditional">
               <p>

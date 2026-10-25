@@ -21,7 +21,7 @@
     build_check ─┬─(failed, fix round left: a fix task was added)─► implementer
                  └─────────────────────────────────────────────────► preview → await_change_request (pause)
     await_change_request → change_request_router ─┬─(change: new task)─► implementer
-                                                  ├─(replan)──────────► planner (plan review again)
+                                                  ├─(replan)──────────► brief_writer (bigger change: brief review, then a plan extension and plan review)
                                                   └─(finish)──────────► completion → END
     Any node that raises → its error is stored (nodes/node_wrapper.py) → completion (status failed).
 
@@ -155,13 +155,13 @@ def route_after_build_check(state: ArenaState) -> Literal["implementer", "previe
     return "implementer" if _has_pending_task(state) and plan_is_approved(state) else "preview"
 
 
-def route_after_change_request(state: ArenaState) -> Literal["implementer", "planner", "completion",
+def route_after_change_request(state: ArenaState) -> Literal["implementer", "brief_writer", "completion",
                                                              "await_change_request"]:
     route = state.get("change_route")
     if route == "change":
         return "implementer" if plan_is_approved(state) else "await_change_request"
     if route == "replan":
-        return "planner"
+        return "brief_writer"                      # bigger change: brief → approval → plan extension → approval
     return "completion"
 
 
@@ -210,7 +210,7 @@ def build_graph(checkpointer: BaseCheckpointSaver | None = None):
     connect("preview", "await_change_request", ["await_change_request"])
     connect("await_change_request", "change_request_router", ["change_request_router"])
     connect("change_request_router", route_after_change_request,
-            ["implementer", "planner", "completion", "await_change_request"])
+            ["implementer", "brief_writer", "completion", "await_change_request"])
     builder.add_edge("completion", END)
 
     return builder.compile(checkpointer=checkpointer)

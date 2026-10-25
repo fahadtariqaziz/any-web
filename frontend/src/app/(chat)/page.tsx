@@ -1,5 +1,5 @@
-import { NewChat } from "@/components/chat/NewChat";
+import { NewProject } from "@/components/builder/NewProject";
 
-export default function NewChatPage() {
-  return <NewChat />;
+export default function HomePage() {
+  return <NewProject />;
 }

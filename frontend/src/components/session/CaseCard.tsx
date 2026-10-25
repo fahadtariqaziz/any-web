@@ -11,7 +11,7 @@ export function CaseCard({ view }: { view: CaseView }) {
   return (
     <Card>
       <CardHeader
-        eyebrow="Your profile as the agents understand it"
+        eyebrow="Your project as the agents understand it"
         title={<span className="capitalize">{view.project_name ?? "Not yet known"}</span>}
         description={view.idea_summary ?? "The intake agent fills this in from your message."}
         aside={view.project_category && <Badge tone="slate">{titleCase(view.project_category)}</Badge>}

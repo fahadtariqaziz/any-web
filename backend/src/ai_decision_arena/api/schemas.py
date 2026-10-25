@@ -42,8 +42,9 @@ class CreateDecisionRequest(BaseModel):
     question: str = Field(min_length=MIN_QUESTION_CHARS, max_length=MAX_QUESTION_CHARS,
                           examples=["A habit tracker app for university students"])
     context: str = Field(default="", max_length=MAX_CONTEXT_CHARS, description="Optional extra context.")
-    mode: Literal["full", "quick"] = Field(default="full", description='"full": every pause (admin view). "quick": the '
-                                           "patient chat: faster, fewer loops, ends with a short summary.")
+    mode: Literal["full", "quick"] = Field(default="full", description='"full": every agent, every loop (the builder '
+                                           'and the admin view). "quick": legacy fast profile (Haiku, one proposal); '
+                                           "no longer started by the UI.")
 
 
 class ClarificationResume(BaseModel):
@@ -79,6 +80,15 @@ class ChangeRequestResume(BaseModel):
     request: str = Field(default="", max_length=4000)
 
 
+class ReopenResume(BaseModel):
+    """A FINISHED project takes another change (or a new plan): it reopens at the change-request step (M10). Allowed
+    while DecisionStatus.reopen_actions lists the action (same limits as the change-request pause)."""
+
+    type: Literal["reopen"]
+    action: Literal["change", "replan"]
+    request: str = Field(min_length=3, max_length=4000)
+
+
 class ContinueResume(BaseModel):
     """Restart an interrupted run from its last checkpoint (like run_graph.py --resume)."""
 
@@ -86,7 +96,7 @@ class ContinueResume(BaseModel):
 
 
 ResumeRequest = Annotated[
-    ClarificationResume | BriefReviewResume | PlanReviewResume | ChangeRequestResume | ContinueResume,
+    ClarificationResume | BriefReviewResume | PlanReviewResume | ChangeRequestResume | ReopenResume | ContinueResume,
     Field(discriminator="type"),
 ]
 
@@ -141,6 +151,9 @@ class DecisionStatus(BaseModel):
     has_report: bool = False
     has_brief: bool = Field(default=False, description="True once a validated brief exists (GET /brief).")
     has_plan: bool = Field(default=False, description="True once the planner wrote a plan (GET /plan).")
+    has_build: bool = Field(default=False, description="True once the coding agent has a project folder (GET /implementation).")
+    reopen_actions: list[Literal["change", "replan"]] = Field(
+        default_factory=list, description='A finished, built project still accepts these as {"type": "reopen"} replies.')
     # Pipeline view (9.3): where the graph is, independent of the in-memory progress lines.
     current_node: str | None = Field(default=None, description="Last node that finished (written by the node itself).")
     next_nodes: list[str] = Field(default_factory=list,
@@ -207,6 +220,21 @@ class PreviewResponse(BaseModel):
     log_tail: str = ""
     started_at: str | None = None
     ready_at: str | None = None
+
+
+class CodeFile(BaseModel):
+    path: str = Field(description="Relative POSIX path inside the project folder.")
+    content_b64: str
+
+
+class CodeExportResponse(BaseModel):
+    """The generated project's files for "Download code" (node_modules, build output, .git, .env* left out)."""
+
+    thread_id: str
+    folder_name: str = Field(description='Suggested folder name, e.g. "simple-calculator-web-app".')
+    total_bytes: int
+    skipped: list[str] = Field(default_factory=list, description="What was left out, with the reason.")
+    files: list[CodeFile]
 
 
 class ArtifactView(BaseModel):
@@ -314,7 +342,7 @@ class SessionList(BaseModel):
     sessions: list[SessionSummary]
 
 
-# --- patient chat (api/chat.py) -------------------------------------------------------------------
+# --- builder chat (api/chat.py) -------------------------------------------------------------------
 
 class ChatMessageView(BaseModel):
     role: Literal["user", "assistant"]
@@ -327,9 +355,32 @@ class ClarificationTurn(BaseModel):
     answer: str
 
 
+class ReviewTurn(BaseModel):
+    """One reply of the user to a brief or plan review (approve, or a change request with its text)."""
+
+    kind: Literal["brief", "plan"]
+    round: int
+    action: Literal["approve", "request_changes"]
+    feedback: str = ""
+    target: str | None = Field(default=None, description="Brief only: where the change went (resolved target if known).")
+    at: str
+
+
+class ChangeTurn(BaseModel):
+    """One reply at the change-request pause, with the coding-agent task it created (change only)."""
+
+    round: int
+    action: Literal["change", "replan", "finish"]
+    request: str = ""
+    at: str
+    task_id: str | None = Field(default=None, description="The C<n> task of a change (None for replan / finish).")
+    task_status: str | None = Field(default=None, description="pending | done | failed | blocked | skipped.")
+
+
 class ChatTranscript(BaseModel):
-    """Everything the chat page shows besides the live status: the onboarding (first message, the questions
-    already answered, the summary) and the chat messages that followed."""
+    """Everything the builder chat shows besides the live status: the onboarding (first message, the questions
+    already answered, the summary), the user's review replies and change requests (with timestamps, so the page
+    can order them) and the Ask-mode messages."""
 
     thread_id: str
     mode: str
@@ -337,8 +388,10 @@ class ChatTranscript(BaseModel):
     project_name: str | None = None
     clarifications: list[ClarificationTurn] = Field(default_factory=list, description="Answered onboarding questions, in order.")
     onboarding_summary: dict[str, str] | None = Field(default=None, description="Short summary of the outcome once the report exists: opening, details (markdown), invitation.")
-    ready: bool = Field(description="True once the report exists: the patient can chat.")
-    messages: list[ChatMessageView] = Field(default_factory=list)
+    ready: bool = Field(description="True once the report exists: Ask mode is available.")
+    reviews: list[ReviewTurn] = Field(default_factory=list, description="Brief and plan review replies, oldest first.")
+    changes: list[ChangeTurn] = Field(default_factory=list, description="Change-request replies, oldest first.")
+    messages: list[ChatMessageView] = Field(default_factory=list, description="Ask-mode messages, oldest first.")
 
 
 class ChatMessageRequest(BaseModel):

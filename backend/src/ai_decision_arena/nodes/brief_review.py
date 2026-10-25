@@ -54,7 +54,10 @@ def await_brief_review_node(state: ArenaState) -> dict:
     settings = get_settings()
     validation = state.get("brief_validation") or {}
     rounds_used = state.get("brief_review_round_count", 0)
-    wording_only = rounds_used >= settings.max_review_rounds
+    # Once the app is BUILT (M10: a bigger change reopened the brief), the brief may only be edited: re-research, a new
+    # proposal or new requirements would re-run the debate and describe a different app than the one that exists.
+    built = bool(state.get("workspace_dir"))
+    wording_only = built or rounds_used >= settings.max_review_rounds
     checks = validation.get("checks", [])
     payload = {
         "type": "brief_review",
@@ -71,6 +74,7 @@ def await_brief_review_node(state: ArenaState) -> dict:
         "round": rounds_used + 1,
         "max_rounds": settings.max_review_rounds,
         "wording_only": wording_only,
+        "wording_only_reason": "built" if built else "rounds" if wording_only else None,
     }
 
     error = None
@@ -82,8 +86,9 @@ def await_brief_review_node(state: ArenaState) -> dict:
             error = f"Invalid reply: {exc.errors()[0]['msg']}"
             continue
         if reply.action == "request_changes" and wording_only and reply.target not in ("auto", "wording"):
-            error = (f"The brief was already revised {rounds_used} times: only wording changes (or approval) are "
-                     "accepted now.")
+            error = ("Your app is already built: changes to the brief are applied as edits (wording) only."
+                     if built else f"The brief was already revised {rounds_used} times: only wording changes (or "
+                     "approval) are accepted now.")
             continue
         break
 

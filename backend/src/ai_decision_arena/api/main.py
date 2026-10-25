@@ -7,13 +7,14 @@ Then open http://localhost:8000/docs (Swagger UI: try every endpoint from the br
 Flow:
     POST /api/decisions                   → 202 {thread_id}; the graph runs in the background
     GET  /api/decisions/{id}              → poll every ~2 s: run_state, progress lines, pending pause
-    POST /api/decisions/{id}/resume       → answer the pending pause (or "continue" an interrupted run)
+    POST /api/decisions/{id}/resume       → answer the pending pause ("continue" an interrupted run, "reopen" a finished one)
     GET  /api/decisions/{id}/report       → the final report, once finished
     GET  /api/decisions/{id}/brief        → the validated problem statement + solution brief
     GET  /api/decisions/{id}/plan         → the implementation plan (from the plan review on)
     GET  /api/decisions/{id}/artifacts    → approved versions of the brief and the plan
     GET  /api/decisions/{id}/implementation → the coding agent's tasks, attempt log and last build check
     GET  /api/decisions/{id}/preview      → the live preview (dev server) state; POST .../preview/restart | stop
+    GET  /api/decisions/{id}/code         → the generated project's files (JSON, base64) for "Download code"; /code.zip
     GET  /api/decisions/{id}/evidence     → kept evidence with verification status
     GET  /api/decisions/{id}/live         → everything produced so far (case, evidence counts, plans, scores, verdicts)
     GET  /api/decisions                   → recent sessions (from the app tables); ?mode=quick for the chat list
@@ -34,7 +35,7 @@ from typing import Annotated, Literal
 from fastapi import FastAPI, Header, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.types import Command
 from psycopg.rows import dict_row
@@ -50,8 +51,10 @@ from ai_decision_arena.api.errors import ApiError
 from ai_decision_arena.api.schemas import (
     Accepted,
     ChangeRequestResume,
+    CodeExportResponse,
     ImplementationResponse,
     PreviewResponse,
+    ReopenResume,
     CaseView,
     ClarificationResume,
     ContinueResume,
@@ -84,6 +87,8 @@ from ai_decision_arena.graph import build_graph
 from ai_decision_arena.llm import resolve_model
 from ai_decision_arena.memory import valid_user_id
 from ai_decision_arena.triggers import CheckInScheduler
+from ai_decision_arena.nodes.delivery import reopen_actions, reopen_update
+from ai_decision_arena.workspace import export as code_export
 from ai_decision_arena.workspace.paths import PathError, workspace_for
 from ai_decision_arena.workspace.processes import IdleStopper, RuntimeRecord, get_manager
 
@@ -298,6 +303,8 @@ def get_decision(thread_id: str, request: Request):
         has_report=bool(values.get("final_report")),
         has_brief=_validated_brief(values) is not None,
         has_plan=bool(values.get("implementation_plan")),
+        has_build=bool(values.get("workspace_dir")),
+        reopen_actions=reopen_actions(values) if run_state == "finished" else [],
         current_node=values.get("current_node"),
         next_nodes=list(snapshot.next or ()),
         started_at=values.get("started_at"),
@@ -322,6 +329,19 @@ def resume_decision(thread_id: str, body: ResumeRequest, request: Request):
             raise ApiError(409, "not_interrupted", f"Nothing to continue: the session is {run_state}.")
         _start(runner, thread_id, None)            # None = continue from the last checkpoint
         return Accepted(thread_id=thread_id)
+    if isinstance(body, ReopenResume):
+        if run_state != "finished":
+            raise ApiError(409, "not_finished", f"Only a finished project can be reopened (it is {run_state}).")
+        allowed = reopen_actions(snapshot.values or {})
+        if body.action not in allowed:
+            reason = ("the maximum number of change requests or plan revisions was reached" if allowed or
+                      (snapshot.values or {}).get("change_requests") else "it was not built and finished in the builder")
+            raise ApiError(422, "invalid_input", f"This project cannot take a {body.action} any more: {reason}.")
+        config = graph_config(thread_id)
+        request.app.state.graph.update_state(config, reopen_update(snapshot.values, body.action, body.request),
+                                             as_node="await_change_request")
+        _start(runner, thread_id, None)            # continues at change_request_router
+        return Accepted(thread_id=thread_id)
     if run_state != "paused":
         raise ApiError(409, "nothing_pending", f"The session is not waiting for input (it is {run_state}).")
 
@@ -339,8 +359,10 @@ def resume_decision(thread_id: str, body: ResumeRequest, request: Request):
         if body.action == "request_changes" and len(body.feedback.strip()) < 3:
             raise ApiError(422, "invalid_input", "Describe the change you want: feedback is required to request changes.")
         if body.action == "request_changes" and payload.get("wording_only") and body.target not in ("auto", "wording"):
-            raise ApiError(422, "invalid_input", "The brief was revised the maximum number of times: only wording changes "
-                                                 "(or approval) are accepted now.")
+            raise ApiError(422, "invalid_input", "Your app is already built: changes to the brief are edits (wording) only."
+                           if payload.get("wording_only_reason") == "built" else
+                           "The brief was revised the maximum number of times: only wording changes (or approval) are "
+                           "accepted now.")
 
     if isinstance(body, PlanReviewResume):
         if body.action == "request_changes" and len(body.feedback.strip()) < 3:
@@ -471,6 +493,30 @@ def restart_preview(thread_id: str, request: Request):
 def stop_preview(thread_id: str, request: Request):
     _preview_record(request, thread_id)
     return _preview_response(thread_id, get_manager().stop(thread_id, reason="user"))
+
+
+def _code_export(request: Request, thread_id: str) -> code_export.CodeExport:
+    values = _snapshot(request, thread_id).values or {}
+    if not values.get("workspace_dir"):
+        raise ApiError(409, "no_implementation", "Nothing built yet: there is no code to download.")
+    try:
+        return code_export.collect(workspace_for(thread_id), values.get("project_name"))
+    except PathError as exc:
+        raise ApiError(422, "invalid_input", str(exc)) from exc
+
+
+@app.get("/api/decisions/{thread_id}/code", response_model=CodeExportResponse, tags=["preview"])
+def get_code(thread_id: str, request: Request):
+    """The project's files as JSON (base64), for the browser to write into a folder the user picks."""
+    return CodeExportResponse(thread_id=thread_id, **code_export.as_json(_code_export(request, thread_id)))
+
+
+@app.get("/api/decisions/{thread_id}/code.zip", tags=["preview"])
+def get_code_zip(thread_id: str, request: Request):
+    """The same files as a zip with one top-level folder (browsers without a folder picker)."""
+    export = _code_export(request, thread_id)
+    return Response(content=code_export.as_zip(export), media_type="application/zip",
+                    headers={"Content-Disposition": f'attachment; filename="{export.folder_name}.zip"'})
 
 
 @app.get("/api/decisions/{thread_id}/artifacts", response_model=ArtifactList, tags=["decisions"])

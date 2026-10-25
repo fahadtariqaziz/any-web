@@ -1105,9 +1105,8 @@ class PlanCommands(BaseModel):
                                  "environment variable, e.g. 'npm run dev'.")
 
 
-class ImplementationPlan(BaseModel):
-    """LLM output of the Planner: a Claude-Code-style plan from the approved brief. Python checks ids, the dependency
-    graph, files and commands (validators below: call_structured retries with the exact problem)."""
+class PlanFields(BaseModel):
+    """The fields of a plan, shared by ImplementationPlan (a whole plan) and PlanExtension (new work on a built app)."""
 
     summary: str = Field(description="What will be built and how, 2-4 sentences, consistent with the approved brief.")
     tech_stack: list[str] = Field(description="Each choice with its reason, e.g. 'Vite (fast dev server, no framework needed)'.")
@@ -1130,6 +1129,24 @@ class ImplementationPlan(BaseModel):
     commands: PlanCommands
     risks_and_decisions: list[str] = Field(description="Technical risks and decisions settled here (with the choice made) "
                                                        "or still to confirm, 1-6 items.")
+
+
+class PlanExtension(PlanFields):
+    """LLM output of the Planner when the app is ALREADY BUILT (M10): only the NEW work. Python merges it with the built
+    tasks (plan.merge_extension) and validates the merged plan like any ImplementationPlan (plan.extension_schema_for)."""
+
+    phases: list[PlanPhase] = Field(description="Only NEW phases (ids not used by the built plan). Empty list when the new "
+                                                "tasks belong to existing phases.")
+    tasks: list[PlanTask] = Field(description="Only the NEW tasks, in execution order, ids continuing after the highest "
+                                              "built task id. depends_on may name built tasks. Never repeat built work.")
+    feature_coverage: list[FeatureCoverage] = Field(description="One entry per MVP feature of the approved brief; features "
+                                                                "that are already built cite their built task ids.")
+    summary: str = Field(description="The whole project after this change, 2-4 sentences (what is new first).")
+
+
+class ImplementationPlan(PlanFields):
+    """LLM output of the Planner: a Claude-Code-style plan from the approved brief. Python checks ids, the dependency
+    graph, files and commands (validators below: call_structured retries with the exact problem)."""
 
     @model_validator(mode="after")
     def plan_is_executable(self) -> "ImplementationPlan":

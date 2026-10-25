@@ -92,7 +92,11 @@ export function BriefReviewPanel({
           )}
           {payload.wording_only && (
             <Callout tone="info" title="Only wording changes now">
-              <p>The brief was revised {payload.max_rounds} times. You can still approve it or change its wording.</p>
+              <p>
+                {payload.wording_only_reason === "built"
+                  ? "The app is already built: the brief can be approved or edited, not re-researched."
+                  : `The brief was revised ${payload.max_rounds} times. You can still approve it or change its wording.`}
+              </p>
             </Callout>
           )}
           <label htmlFor="brief-feedback" className="block text-sm font-medium text-slate-900">

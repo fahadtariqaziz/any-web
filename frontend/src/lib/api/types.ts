@@ -39,7 +39,8 @@ export interface BriefReviewPayload {
   unresolved_questions: string[];
   round: number; // 1 + change requests so far
   max_rounds: number;
-  wording_only: boolean; // max_rounds reached: only wording changes (or approval) are accepted
+  wording_only: boolean; // only wording changes (or approval) are accepted
+  wording_only_reason?: "built" | "rounds" | null; // the app is already built, or max_rounds was reached
   error?: string;
 }
 
@@ -53,6 +54,7 @@ export interface PlanReviewPayload {
   changes_allowed: boolean; // false once max_revisions rewrites were made: approve only
   model: string; // model that wrote the plan
   task_count: number;
+  new_task_count?: number; // tasks still to build; less than task_count when the app is already built (plan extension)
   error?: string;
 }
 
@@ -131,6 +133,8 @@ export interface DecisionStatus {
   has_report: boolean;
   has_brief: boolean; // a validated problem brief exists (GET /brief)
   has_plan: boolean; // the planner wrote a plan (GET /plan)
+  has_build: boolean; // the coding agent has a project folder (GET /implementation)
+  reopen_actions: ("change" | "replan")[]; // a finished, built project still accepts these as {type: "reopen"}
   current_node: string | null; // last node that finished
   next_nodes: string[]; // while running, [0] is the node in progress
   started_at: string | null;
@@ -242,7 +246,7 @@ export interface LiveSnapshot {
 
 // --- session list (GET /api/decisions) ---------------------------------------------------------
 
-/** "full" = admin view (every pause), "quick" = fast profile (fewer searches, one proposal). */
+/** "full" = every agent and loop (the builder and the admin view). "quick" = legacy fast profile, no longer started. */
 export type SessionMode = "full" | "quick";
 
 export interface SessionSummary {
@@ -281,6 +285,7 @@ export type ResumeRequest =
   | { type: "brief_review"; action: "approve" | "request_changes"; feedback?: string; target?: ReviewTarget }
   | { type: "plan_review"; action: "approve" | "request_changes"; feedback?: string }
   | { type: "change_request"; action: "change" | "replan" | "finish"; request?: string }
+  | { type: "reopen"; action: "change" | "replan"; request: string } // a finished project takes another change
   | { type: "continue" };
 
 // --- evidence (GET /evidence) --------------------------------------------------------------------
@@ -561,6 +566,14 @@ export interface PlanTask {
   verify_commands: string[];
 }
 
+/** How the build check installs, tests, builds and previews the app (all checked against the sandbox policy). */
+export interface PlanCommands {
+  install: string[];
+  test: string[];
+  build: string[];
+  dev: string;
+}
+
 export interface ImplementationPlan {
   summary: string;
   tech_stack: string[];
@@ -577,7 +590,7 @@ export interface ImplementationPlan {
   tasks: PlanTask[];
   feature_coverage: { feature: string; task_ids: string[] }[];
   testing_strategy: string[];
-  commands: { install: string[]; test: string[]; build: string[]; dev: string };
+  commands: PlanCommands;
   risks_and_decisions: string[];
 }
 
@@ -639,6 +652,17 @@ export interface PlanResponse {
   tasks: ImplementationTask[];
 }
 
+// --- code export (GET /code, /code.zip) ------------------------------------------------------------
+
+/** The generated project's files for "Download code" (node_modules, build output, .git, .env* left out). */
+export interface CodeExportResponse {
+  thread_id: string;
+  folder_name: string; // e.g. "simple-calculator-web-app"
+  total_bytes: number;
+  skipped: string[]; // what was left out, with the reason
+  files: { path: string; content_b64: string }[];
+}
+
 // --- approved versions (GET /artifacts) -----------------------------------------------------------
 
 export interface ArtifactView {
@@ -661,7 +685,7 @@ export interface ReportResponse {
   report: FinalReport;
 }
 
-// --- project chat (backend api/chat.py) ----------------------------------------------------------
+// --- builder chat (backend api/chat.py) ----------------------------------------------------------
 
 /** The short message that ends the research phase (built from the report, backend chat.summary_from_report). */
 export interface OnboardingSummary {
@@ -676,7 +700,27 @@ export interface ChatMessage {
   created_at: string;
 }
 
-/** GET /api/chats/{thread_id}: the onboarding so far and the chat messages after it. */
+/** One reply of the user to a brief or plan review. */
+export interface ReviewTurn {
+  kind: "brief" | "plan";
+  round: number;
+  action: "approve" | "request_changes";
+  feedback: string;
+  target: string | null; // brief only: where the change went
+  at: string;
+}
+
+/** One reply at the change-request pause, with the C<n> task it created (change only). */
+export interface ChangeTurn {
+  round: number;
+  action: "change" | "replan" | "finish";
+  request: string;
+  at: string;
+  task_id: string | null;
+  task_status: TaskStatus | null;
+}
+
+/** GET /api/chats/{thread_id}: the whole conversation of a builder session (the pauses themselves come from the status). */
 export interface ChatTranscript {
   thread_id: string;
   mode: SessionMode;
@@ -684,6 +728,8 @@ export interface ChatTranscript {
   project_name: string | null;
   clarifications: { question: string; answer: string }[]; // answered questions, in order
   onboarding_summary: OnboardingSummary | null;
-  ready: boolean; // the report exists: the user can chat
-  messages: ChatMessage[];
+  ready: boolean; // the report exists: Ask mode is available
+  reviews: ReviewTurn[]; // brief and plan review replies, oldest first
+  changes: ChangeTurn[]; // change requests, oldest first
+  messages: ChatMessage[]; // Ask-mode messages, oldest first
 }

@@ -28,7 +28,8 @@ from pydantic import ValidationError
 from ai_decision_arena.brief import brief_is_approved
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.llm import call_structured, resolve_model
-from ai_decision_arena.plan import plan_hash, plan_schema_for, render_plan_markdown, tasks_from_plan
+from ai_decision_arena.plan import (built_part, extension_schema_for, merge_extension, plan_hash, plan_schema_for,
+                                   render_plan_markdown, tasks_from_plan)
 from ai_decision_arena.progress import report
 from ai_decision_arena.prompting import BUILDER_RULES
 from ai_decision_arena.schemas import (ALLOWED_EXECUTABLES, BriefContent, ImplementationPlan, MAX_PLAN_TASKS,
@@ -67,17 +68,61 @@ requests (the last one is new). Apply them, keep what they did not ask to change
 if a request contradicts the brief, follow the brief and say so in risks_and_decisions."""
 
 
+EXTENSION_NOTE = """
+The app is ALREADY BUILT and running: <built_plan> lists the tasks that were built (their code exists), <built_tasks>
+their verified status, <later_changes> the change requests done after the plan, <project_files> the files in the
+project now. The approved brief was updated; <requested_change> is what the user asked for. Write a PlanExtension:
+ONLY the new work that takes the built app to the updated brief, as few small tasks as possible, ids continuing after
+the highest built task id. Never repeat or rebuild built work: change existing files where needed (name them in
+`files`) and keep every built feature, test and later change working. depends_on may name built tasks.
+feature_coverage covers every MVP feature of the brief, citing built task ids for features that already exist. The
+descriptive fields (summary, tech_stack, project_structure, architecture, commands...) describe the whole project
+after the change; keep the built project's commands unless the change needs new ones."""
+
+MAX_PROJECT_FILES = 150
+
+
+def _project_files(state: ArenaState) -> list[str]:
+    """Relative paths in the session's app/ (without dependency / build folders), for the extension planner."""
+    from ai_decision_arena.workspace.export import collect
+    from ai_decision_arena.workspace.paths import workspace_for
+    thread_id = (get_config().get("configurable") or {}).get("thread_id", "")
+    try:
+        return [rel for rel, _ in collect(workspace_for(thread_id), state.get("project_name")).files][:MAX_PROJECT_FILES]
+    except Exception:                                            # noqa: BLE001 - the list is context, not a requirement
+        return []
+
+
+def requested_change(state: ArenaState) -> str:
+    """The user's latest bigger-change request (it went to the brief first: brief_feedback source change_request)."""
+    for f in reversed(state.get("brief_feedback", [])):
+        if f.get("source") == "change_request":
+            return f["feedback"]
+    return ""
+
+
 def _approved_brief(state: ArenaState) -> ProblemBrief:
     return ProblemBrief.model_validate(state["brief"])
 
 
-def _user_content(state: ArenaState, brief: ProblemBrief, revising: bool) -> str:
+def _user_content(state: ArenaState, brief: ProblemBrief, revising: bool, built: ImplementationPlan | None = None) -> str:
     content = brief.model_dump(mode="json", include=set(BriefContent.model_fields))
     references = [{"number": r.number, "title": r.title, "url": str(r.url)} for r in brief.references]
     text = f"""<project_name>{state.get("project_name", "")}</project_name>
 <approved_brief>{json.dumps(content, indent=1)}</approved_brief>
 <brief_references>{json.dumps(references, indent=1)}</brief_references>
 <mvp_features>{json.dumps(brief.proposed_solution.mvp_features, indent=1)}</mvp_features>"""
+    if built is not None:
+        status = {t["id"]: t["status"] for t in state.get("implementation_tasks", [])}
+        later = [{"id": t["id"], "title": t["title"], "status": t["status"],
+                  "request": ((t.get("spec") or {}).get("description") or "")[-400:]}
+                 for t in state.get("implementation_tasks", []) if t.get("phase") in ("change", "fix")]
+        text += f"""
+<built_plan>{json.dumps(built.model_dump(mode="json"), indent=1)}</built_plan>
+<built_tasks>{json.dumps([{"id": t.id, "status": status.get(t.id)} for t in built.tasks])}</built_tasks>
+<later_changes>{json.dumps(later, indent=1)}</later_changes>
+<project_files>{json.dumps(_project_files(state))}</project_files>
+<requested_change>{requested_change(state) or "(see the brief: bring the app in line with it)"}</requested_change>"""
     if revising:
         previous = ImplementationPlan.model_validate(state["implementation_plan"]).model_dump(mode="json")
         requests = [f["feedback"] for f in state.get("plan_feedback", []) if f["action"] == "request_changes"]
@@ -95,28 +140,43 @@ def planner_node(state: ArenaState) -> dict:
     settings = get_settings()
     brief = _approved_brief(state)
     revising = bool(state.get("implementation_plan")) and state.get("plan_review_route") == "changes"
-    revision = state.get("plan_revision_count", 0) + (1 if revising else 0)
+    stored = ImplementationPlan.model_validate(state["implementation_plan"]) if state.get("implementation_plan") else None
+    built = built_part(stored, state.get("implementation_tasks", [])) if stored else None      # the app already exists
+    revision = state.get("plan_revision_count", 0) + (1 if revising or built is not None else 0)
     model, note = resolve_model(settings.planner_model)
     if note:
         report("planner", note)
-    report("planner", f"{'revising the plan with your changes' if revising else 'writing the implementation plan'} "
-                      f"with {model} (effort {settings.planner_effort}); this takes a few minutes")
+    doing = ("planning only the new work on top of the built app" if built is not None
+             else "revising the plan with your changes" if revising else "writing the implementation plan")
+    report("planner", f"{doing} with {model} (effort {settings.planner_effort}); this takes a few minutes")
 
     system = (SYSTEM_PROMPT.replace("{max_tasks}", str(MAX_PLAN_TASKS))
-              .replace("{executables}", ", ".join(ALLOWED_EXECUTABLES)) + (REVISION_NOTE if revising else ""))
-    plan = call_structured(plan_schema_for(brief.proposed_solution.mvp_features), system,
-                           _user_content(state, brief, revising), max_tokens=settings.planner_max_tokens,
-                           run_name="planner_llm", model=model, effort=settings.planner_effort,
-                           timeout=settings.planner_timeout_seconds)
-    plan = ImplementationPlan.model_validate(plan.model_dump())         # store the plain schema
-    markdown = render_plan_markdown(plan, state.get("project_name", ""), revision, model)
-    report("planner", f"plan ready: {len(plan.phases)} phases, {len(plan.tasks)} tasks, "
-                      f"{len(plan.feature_coverage)} MVP features covered")
+              .replace("{executables}", ", ".join(ALLOWED_EXECUTABLES))
+              + (EXTENSION_NOTE if built is not None else "") + (REVISION_NOTE if revising else ""))
+    mvp = brief.proposed_solution.mvp_features
+    schema = extension_schema_for(mvp, built) if built is not None else plan_schema_for(mvp)
+    out = call_structured(schema, system, _user_content(state, brief, revising, built),
+                          max_tokens=settings.planner_max_tokens, run_name="planner_llm", model=model,
+                          effort=settings.planner_effort, timeout=settings.planner_timeout_seconds)
+    if built is not None:
+        # Built tasks keep their status / attempts / results (and the C / F tasks after the plan); new ones are pending.
+        plan = ImplementationPlan.model_validate(merge_extension(built, out))
+        worked = [t for t in state.get("implementation_tasks", []) if t.get("status") != "pending"]
+        new_ids = {t.id for t in out.tasks}
+        tasks = worked + [t for t in tasks_from_plan(plan) if t["id"] in new_ids]
+        built_ids = frozenset(t.id for t in built.tasks)
+    else:
+        plan = ImplementationPlan.model_validate(out.model_dump())      # store the plain schema
+        tasks, built_ids = tasks_from_plan(plan), frozenset()
+    markdown = render_plan_markdown(plan, state.get("project_name", ""), revision, model, built_ids)
+    report("planner", f"plan ready: {len(plan.phases)} phases, {len(plan.tasks)} tasks"
+                      + (f" ({len(plan.tasks) - len(built_ids)} new, {len(built_ids)} built)" if built_ids else "")
+                      + f", {len(plan.feature_coverage)} MVP features covered")
     return {
         "implementation_plan": plan.model_dump(mode="json"),
         "plan_markdown": markdown,
         "plan_revision_count": revision,
-        "implementation_tasks": tasks_from_plan(plan),
+        "implementation_tasks": tasks,
         "models_used": {**state.get("models_used", {}), "planner": model},
         "status": "awaiting_plan_review",
         "current_node": "planner",
@@ -138,6 +198,7 @@ def await_plan_review_node(state: ArenaState) -> dict:
         "changes_allowed": changes_allowed,
         "model": (state.get("models_used") or {}).get("planner", ""),
         "task_count": len(plan.get("tasks", [])),
+        "new_task_count": sum(t.get("status") == "pending" for t in state.get("implementation_tasks", [])),
     }
 
     error = None

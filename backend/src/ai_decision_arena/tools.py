@@ -4,10 +4,10 @@ The onboarding graph never lets Claude pick tools: there, Python calls Tavily at
 cost stay predictable (~30 s). In the chat a turn is open-ended, so Claude chooses:
 
     search_knowledge(query)          the knowledge base: curated docs + research from this and earlier sessions
-    web_search(query, domain)   a fresh Tavily search in one lane (research / doctor / patient)
-    remember_fact(fact)              save a lasting fact about the patient (long-term memory)
-    load_skill(name)                 load a skill's instructions (skills.py) when the conversation needs it
+    web_search(query, domain)        a fresh Tavily search in one domain (apps / papers / tech)
+    remember_fact(fact)              save a lasting fact about the user or their project (long-term memory)
     ask_researcher(question)         delegate a research question to the research SUB-AGENT (researcher.py)
+    load_skill(name)                 (not offered to the chat until M11 brings builder skills; skills.py)
 
 Guardrails: at most MAX_TOOL_ROUNDS model calls with tools per turn (then one final answer without tools),
 at most MAX_WEB_SEARCHES web searches per turn, every tool result is wrapped as <source> data (never
@@ -51,17 +51,17 @@ def _sources(items: list[dict]) -> str:
 
 def search_knowledge_tool(ctx: ToolContext) -> BaseTool:
     def search_knowledge(query: str) -> str:
-        """Search the knowledge base: curated health-safety docs plus the research gathered for this patient and
-        for earlier sessions. Fast and free: try this before web_search. Cite results by their id and title."""
+        """Search the knowledge base: the research gathered for this project and for earlier sessions. Fast and
+        free: try this before web_search. Cite results by their id and title."""
         return _sources(knowledge.search(query, thread_id=ctx.thread_id))
     return StructuredTool.from_function(search_knowledge, handle_tool_error=True)
 
 
 def web_search_tool(ctx: ToolContext) -> BaseTool:
     def web_search(query: str, domain: Literal["apps", "papers", "tech"]) -> str:
-        """Search the web in one domain: "research" (studies, reviews), "doctor" (guidelines, NHS, Mayo Clinic...)
-        or "patient" (forums, real experiences). Use short keyword queries. Only when search_knowledge did not
-        have the answer; limited to a few searches per message."""
+        """Search the web in one domain: "apps" (existing products, reviews, what their users say), "papers"
+        (research and technical literature) or "tech" (libraries, frameworks, APIs, docs, repositories). Use short
+        keyword queries. Only when search_knowledge did not have the answer; limited to a few searches per message."""
         if ctx.web_searches >= MAX_WEB_SEARCHES:
             return f"Search limit reached ({MAX_WEB_SEARCHES} per message): answer with what you have."
         ctx.web_searches += 1
@@ -74,12 +74,12 @@ def web_search_tool(ctx: ToolContext) -> BaseTool:
 
 def remember_fact_tool(ctx: ToolContext) -> BaseTool:
     def remember_fact(fact: str) -> str:
-        """Save ONE lasting fact about the patient for future chats, e.g. "allergic to penicillin", "works night
-        shifts", "started walking 20 minutes daily (Oct 2026)". Short and factual, only what the patient said:
-        no guesses about causes, no pronouns. Not for passing moods or things already in
-        <remembered_from_earlier_sessions>. Do not tell the patient each time you save something."""
+        """Save ONE lasting fact about the user or their projects for future sessions, e.g. "prefers TypeScript and
+        React", "deploys on Vercel", "team of two, no designer". Short and factual, only what the user said: no
+        guesses, no pronouns. Not for one-off requests or things already in <remembered_from_earlier_sessions>.
+        Do not tell the user each time you save something."""
         if not ctx.user_id:
-            return "Not saved: this browser has no patient id."
+            return "Not saved: this browser has no user id."
         saved = memory.remember(ctx.user_id, [fact], "chat", ctx.thread_id)
         return "Saved." if saved else "Not saved (database unavailable)."
     return StructuredTool.from_function(remember_fact, handle_tool_error=True)
@@ -95,17 +95,17 @@ def load_skill_tool(ctx: ToolContext) -> BaseTool:
 def ask_researcher_tool(ctx: ToolContext) -> BaseTool:
     def ask_researcher(question: str) -> str:
         """Delegate a research question to the research assistant (a separate agent with its own tools). Use it
-        for questions that need several searches or comparing sources (e.g. "Is intermittent fasting safe with
-        metformin? What do guidelines and patients say?"). Slower than search_knowledge: say a short sentence
-        to the patient first. Returns a short answer with sources."""
+        for questions that need several searches or comparing sources (e.g. "Which offline-storage libraries do
+        PWA calculators use, and what do their users complain about?"). Slower than search_knowledge: say a short
+        sentence to the user first. Returns a short answer with sources."""
         from ai_decision_arena.researcher import research    # imported here: researcher.py imports this module
         return research(question, ctx)
     return StructuredTool.from_function(ask_researcher, handle_tool_error=True)
 
 
 def chat_tools(ctx: ToolContext) -> list[BaseTool]:
-    return [search_knowledge_tool(ctx), web_search_tool(ctx), remember_fact_tool(ctx), load_skill_tool(ctx),
-            ask_researcher_tool(ctx)]
+    """The Ask-mode tools. load_skill comes back in M11, when builder skills replace the old health skills."""
+    return [search_knowledge_tool(ctx), web_search_tool(ctx), remember_fact_tool(ctx), ask_researcher_tool(ctx)]
 
 
 # --- the tool loop -----------------------------------------------------------------------------------
