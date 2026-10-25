@@ -82,13 +82,22 @@ def tokens_from_anthropic(usage: dict | None) -> Tokens:
                   cache_read=int(usage.get("cache_read_input_tokens") or 0), cache_write_5m=w5, cache_write_1h=w1)
 
 
+FREE = Price(0.0, 0.0, 0.0, 0.0, 0.0)
+
+
+def _price_of(model: str) -> Price | None:
+    """PRICES[model]; with LLM_PROVIDER=local every model is a local one and costs nothing."""
+    from ai_decision_arena.config import get_settings
+    return PRICES.get(model) or (FREE if get_settings().is_local else None)
+
+
 def is_priced(model: str) -> bool:
-    return model in PRICES
+    return _price_of(model) is not None
 
 
 def cost_usd(model: str, tokens: Tokens) -> float:
     """USD for one call; 0.0 for a model missing from PRICES (callers flag it with is_priced)."""
-    price = PRICES.get(model)
+    price = _price_of(model)
     if price is None:
         return 0.0
     if price.long and price.long_prompt_tokens and tokens.prompt > price.long_prompt_tokens:

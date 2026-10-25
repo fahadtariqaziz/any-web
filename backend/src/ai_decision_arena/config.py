@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILE = Path(__file__).resolve().parents[2] / ".env"   # backend/.env
@@ -52,9 +52,34 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 
     # --- secrets (SecretStr prints as '**********', so keys never leak into logs) ---
-    anthropic_api_key: SecretStr
+    anthropic_api_key: SecretStr | None = None      # required unless LLM_PROVIDER=local
     tavily_api_key: SecretStr
     langsmith_api_key: SecretStr | None = None
+
+    # --- provider switch: "anthropic" = Claude API; "local" = every model call goes to Ollama on this machine ---
+    llm_provider: Literal["anthropic", "local"] = Field(default="anthropic", description="local: the graph agents, "
+                                                        "the chat and the coding agent all use LOCAL_MODEL (see "
+                                                        "_apply_local below); nothing is sent to Anthropic.")
+    local_base_url: str = Field(default="http://localhost:11434", description="Ollama server (native API for the "
+                                "graph / chat; its Anthropic-compatible /v1/messages for the coding agent).")
+    local_model: str = Field(default="qwen3.5-4b-q4-32k", description="Ollama model for every role. The default is "
+                             "qwen3.5:4b-q4_K_M with a 32K context (scripts/verify_local.py creates it): Claude Code's "
+                             "own prompt (~12K tokens) does not fit Ollama's default context.")
+    local_coder_model: str = Field(default="", description="Ollama model of the coding agent; empty = local_model "
+                                   "(one model in memory: on an 8 GB Mac two do not fit).")
+    local_base_model: str = Field(default="qwen3.5:4b-q4_K_M", description="What verify_local.py builds local_model "
+                                  "from. A GGUF tag (q4_K_M / q8_0), NOT the Mac default qwen3.5:4b = MLX: Ollama's MLX "
+                                  "runner keeps a prompt cache of up to ~8 GB (measured 4 -> 12 GB in one session on "
+                                  "the 8 GB M2: swap, timeouts); the llama.cpp runner stays flat (~4 GB).")
+    local_context_tokens: int = Field(default=32768, ge=8192, description="num_ctx of the model verify_local.py creates.")
+    local_max_parallel: int = Field(default=1, ge=1, le=8, description="Local model calls at the same time. The graph "
+                                    "runs some calls in parallel (critic, extractor, brief parts); Ollama queues them, "
+                                    "and the wait would count against each call's timeout. 1 = they take turns here.")
+    local_think: bool = Field(default=False, description="Let the local model think first: better answers, several "
+                              "times slower (small models also run out of tokens mid-thought).")
+    local_time_multiplier: float = Field(default=6.0, ge=1, le=50, description="A local model is ~5-10x slower than "
+                                         "Claude: the LLM / planner / agent-task timeouts and the session time budget "
+                                         "are multiplied by this when llm_provider=local.")
 
     # --- Claude ---
     anthropic_model: str = "claude-sonnet-5-5"
@@ -144,6 +169,28 @@ class Settings(BaseSettings):
     persist_results: bool = True   # completion saves session/evidence/report to the app tables (PERSIST_RESULTS=false to skip)
     frontend_url: str = "http://localhost:3000"
     backend_url: str = "http://localhost:8000"
+
+    @model_validator(mode="after")
+    def _apply_local(self) -> "Settings":
+        """LLM_PROVIDER=local: every role uses the local model, no fallback model, slower timeouts. Done here once, so
+        the rest of the code keeps reading anthropic_model / planner_model / ... as before."""
+        if self.llm_provider == "anthropic":
+            if self.anthropic_api_key is None:
+                raise ValueError("ANTHROPIC_API_KEY is required unless LLM_PROVIDER=local")
+            return self
+        self.anthropic_model = self.planner_model = self.chat_model = self.local_model
+        self.implementer_model = self.local_coder_model or self.local_model
+        self.fallback_model = ""
+        m = self.local_time_multiplier
+        self.llm_timeout_seconds *= m
+        self.planner_timeout_seconds *= m
+        self.implementer_task_timeout_seconds *= m
+        self.session_time_budget_seconds *= m
+        return self
+
+    @property
+    def is_local(self) -> bool:
+        return self.llm_provider == "local"
 
     @field_validator("rubric_weights")
     @classmethod

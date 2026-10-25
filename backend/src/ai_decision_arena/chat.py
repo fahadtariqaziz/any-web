@@ -249,8 +249,8 @@ def stream_reply(thread_id: str, state: ArenaState, history: list[dict], message
     # same for every tool round of a reply and for follow-up questions while the project does not move; cached reads
     # cost 0.1x. A cache write costs 1.25x once, so only this repeated prefix is marked (one-shot graph calls are not).
     system = SYSTEM_PROMPT.replace("{context}", build_context(state))
-    messages: list[BaseMessage] = [SystemMessage(content=[{"type": "text", "text": system,
-                                                           "cache_control": {"type": "ephemeral"}}])]
+    messages: list[BaseMessage] = [SystemMessage(content=system if get_settings().is_local else  # Ollama: no caching
+                                                 [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}])]
     for turn in history[-MAX_HISTORY_MESSAGES:]:
         cls = HumanMessage if turn["role"] == "user" else AIMessage
         messages.append(cls(content=turn["content"]))

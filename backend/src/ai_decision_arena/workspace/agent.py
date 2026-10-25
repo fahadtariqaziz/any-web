@@ -9,6 +9,8 @@ Code CLI as a subprocess; this module decides what that agent may do:
   every tool that is not pre-approved;
 - isolation from the user's own Claude Code: setting_sources=[] (no settings / CLAUDE.md), CLAUDE_CONFIG_DIR inside
   .builder/ (no user memory, history or login), skills=[]; auth = ANTHROPIC_API_KEY from backend/.env;
+- LLM_PROVIDER=local: the same CLI talks to Ollama's Anthropic-compatible /v1/messages (ANTHROPIC_BASE_URL), every
+  model slot it may use points to the local model, thinking off unless LOCAL_THINK, and cost is 0 (no USD cap);
 - caps per attempt: max_turns, max_budget_usd, a wall-clock timeout;
 - every tool call, denial and command is written to .builder/logs/<label>.log.
 What the agent SAYS is never a success signal: the implementer runs the task's verify commands itself.
@@ -97,10 +99,19 @@ async def _run(ws: Workspace, prompt: str, system_append: str, model: str, label
 
     config_dir = ws.builder / "claude-config"
     config_dir.mkdir(parents=True, exist_ok=True)
+    if settings.is_local:
+        auth = {"ANTHROPIC_BASE_URL": settings.local_base_url, "ANTHROPIC_AUTH_TOKEN": "ollama", "ANTHROPIC_API_KEY": "",
+                # the CLI's background calls (titles, summaries) use the "small fast" / haiku slot: keep them local too
+                **{slot: model for slot in ("ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
+                                            "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_SMALL_FAST_MODEL")},
+                "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+                **({} if settings.local_think else {"MAX_THINKING_TOKENS": "0"})}
+    else:
+        auth = {"ANTHROPIC_API_KEY": settings.anthropic_api_key.get_secret_value()}
     options = ClaudeAgentOptions(
         cwd=str(ws.app),
         model=model,
-        effort=settings.implementer_effort,
+        effort=None if settings.is_local else settings.implementer_effort,
         system_prompt={"type": "preset", "preset": "claude_code", "append": system_append},
         tools=FILE_TOOLS,
         allowed_tools=[*FILE_TOOLS, COMMAND_TOOL],
@@ -110,18 +121,19 @@ async def _run(ws: Workspace, prompt: str, system_append: str, model: str, label
         setting_sources=[],
         skills=[],
         max_turns=settings.implementer_max_turns,
-        max_budget_usd=settings.implementer_task_budget_usd,
-        env={"ANTHROPIC_API_KEY": settings.anthropic_api_key.get_secret_value(), "CLAUDE_CONFIG_DIR": str(config_dir),
-             **{name: "" for name in SCRUBBED_FOR_CLI}},
+        max_budget_usd=None if settings.is_local else settings.implementer_task_budget_usd,
+        env={**auth, "CLAUDE_CONFIG_DIR": str(config_dir), **{name: "" for name in SCRUBBED_FOR_CLI}},
         stderr=lambda line: log(f"[cli] {line[:300]}"),
     )
-    log(f"--- attempt start: model {model}, effort {settings.implementer_effort}")
+    log(f"--- attempt start: model {model}" + (f" (local, {settings.local_base_url})" if settings.is_local
+                                               else f", effort {settings.implementer_effort}"))
 
     async def consume() -> None:
         async for message in query(prompt=prompt, options=options):
             if isinstance(message, ResultMessage):
                 run.subtype, run.num_turns, run.session_id = message.subtype, message.num_turns, message.session_id
-                run.cost_usd = float(message.total_cost_usd or 0.0)
+                # local: the CLI prices unknown models with its own guess; Ollama costs nothing
+                run.cost_usd = 0.0 if settings.is_local else float(message.total_cost_usd or 0.0)
                 run.usage = message.usage or {}
                 run.final_text = (message.result or "")[:4000]
                 run.ok = not message.is_error and message.subtype == "success"

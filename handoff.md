@@ -38,7 +38,7 @@
 | **Where we are** | **M0–M11 done and pushed (2026-10-25; last commit `a3a514a` "Added platform hardening (tool log, prompt registry and evals, knowledge, skills, cleanup)", before it `5562c8b` "Added cost and usage tracking").** The pipeline works end to end: idea → clarification → research (3 domains) → proposals / critic / judge / checker → validated brief → **user approval** → Opus plan → **user approval** → Sonnet coding agent builds task by task (verified by real commands) → build check → **live preview** → change requests / bigger change (brief first, plan extension) / Ask / reopen / download → finish. **M10** made the Lovable-style builder UI (`/`, `/c/<id>`: chat left, Preview / Brief / Plan / Build / Activity right; admin view at `/admin`). **M11 hardened the platform itself (spec §10):** every model call and agent attempt is metered (Cost card per stage and per change, limits in `.env`, `/usage`, `/api/metrics`, `/admin/metrics`); every tool call is logged (`tool_calls`); all 19 prompts are versioned and locked with 13 eval cases (offline + live, Haiku-judged where needed; the evals already caught and fixed one real prompt defect); Ask is prompt-cached; builder knowledge docs and skills replaced the health ones; memory is project-scoped; one trigger table; the quick profile and all health leftovers are gone. Proven live: verify_m11 sections 1–9, live evals 7/7 ($0.19). |
 | **Milestones** | M0 harness · M1 intake + clarification · M2 research · M3 debate · M4 brief writer + validator · M5 brief review · M6 Opus planner + plan review · M7 workspace / sandbox / processes · M8 coding agent (Claude Agent SDK) · M9 build check / preview / change requests · M10 Lovable UI · M11 platform hardening (cost, tool log, prompts + evals, knowledge, skills, memory, triggers, cleanup). Details: section 8 (✅ blocks), section 14 (progress log with real numbers), section 12 (decisions). |
 | **Next milestone** | **The first brand-new idea end to end in the builder UI** (never done since M10; ~$2–3 real money: ask the user first, propose an idea or let them pick). Everything is measured now, so it doubles as the first per-stage cost baseline. Then **M12 (optional): Docker runtime per session** (needs the Docker daemon: open question 2) + a cleanup CLI. See "▶ Next step". |
-| **Models (verified 2026-10-24 via `client.models.list()`)** | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` are all available to the key in `backend/.env`. Configured default: `ANTHROPIC_MODEL=claude-sonnet-5-5`. |
+| **Models (verified 2026-10-24 via `client.models.list()`)** | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` are all available to the key in `backend/.env`. Configured default: `ANTHROPIC_MODEL=claude-sonnet-5-5`. **Local switch (2026-10-25):** `LLM_PROVIDER=local` in `backend/.env` (+ restart the backend) runs EVERY role on Ollama (`LOCAL_MODEL=qwen3.5-4b-q4-32k` = `qwen3.5:4b-q4_K_M` with 32K context; never the MLX tags, see section 16) — graph, planner, Ask and the coding agent; free, ~5–10x slower, weaker. Check: `uv run python scripts/verify_local.py`. Section 12 "Local models". |
 | **Environment (verified 2026-10-24/25)** | macOS, zsh · uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head `c7d8e9f0a1b2` (M11: `usage_events`, `tool_calls`, `knowledge_docs.topic`) · `claude-agent-sdk` 0.2.174 (ships its own Claude Code CLI 2.1.310) · `psutil` 7.2 · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are the original ai-lab** → ai-lab-2 runs on **8001/3001** (the user starts them with `--reload`; section 11) · previews use ports **4100–4199** · generated apps in `generated_projects/` (git-ignored). |
 | **Tests** | `bash backend/scripts/verify_m0.sh` = 268 pytest (incl. the offline evals) + eslint + tsc, ~40 s. Offline: fake LLM, fake Tavily, `FakeAgent` for the coding agent, in-memory checkpoints, no DB; but sandbox commands, git and dev servers (`python3 -m http.server {port}`) run for REAL under tmp dirs. Live checks: `backend/scripts/verify_m1..m11.py` (real APIs, node level; m10 = UI contract + rendered page) and `scripts/api_flow.py --auto` (full HTTP E2E); what each needs, writes and costs: section 11. No frontend unit tests (lint + tsc + `next build` + headless-Chrome DOM checks + the user's browser check). Free UI walk-through of every pause: `scripts/fake_api.py` (section 11). |
 
@@ -725,6 +725,7 @@ others are rough guesses from before M11 (re-measure them when you next run them
 | `verify_m11.py [--session id]` sections 1–9: cost / usage, tool calls (a tiny real coding-agent task in a throwaway project, deleted after), a Tavily search, prompt lock + offline and live evals, Ask caching + skill, knowledge, triggers, metrics page | dev servers on 8001/3001, one built session, Chrome | usage_events / tool_calls rows under `verify-m11-*` threads (not the reference project) | measured ~$0.45 (agent $0.025, live evals $0.19, Ask ~$0.2), ~6 min |
 | `run_evals.py [--live] [--prompt id]` prompt eval cases | offline: nothing; live: API keys | — | offline free (also in pytest); live measured $0.19 for the 7 live cases (+ Haiku judge calls) |
 | `prompt_versions.py [--update]` / `make_eval_fixtures.py` / `load_knowledge.py` | — / — / DB | prompts.lock.json / evals/fixtures / knowledge_docs | free |
+| `verify_local.py [--skip-agent]` local-model mode (forces `LLM_PROVIDER=local`): creates `LOCAL_MODEL` from `LOCAL_BASE_MODEL` if missing, settings mapping, intake + clarification nodes, a streamed chat reply, one real coding-agent task on Ollama (throwaway project, deleted) | Ollama running, `qwen3.5:4b` pulled | nothing (`PERSIST_RESULTS=false`) | free; measured ~1.5 min on the 8 GB M2 (nodes 16–18 s each, agent 4 turns 47 s) |
 | `fake_api.py` offline API (port 8002) for UI work | nothing (fake LLM / search / agent from tests/conftest.py, in-memory everything) | a throwaway tmp generated-projects folder | free; a full session in seconds |
 | `api_flow.py --auto [--change "..."]` full E2E over HTTP | dev servers on 8001/3001 | a real session | agent $0.74 measured + research/brief/plan LLM calls (unmetered, guess $1–2); ~15 min active |
 
@@ -753,6 +754,29 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 ---
 
 ## 12. Decisions log
+- 2026-10-25 (**Local models**, user request: "turn Claude off and local on from env"): `LLM_PROVIDER=anthropic|local`
+  (config.py). `_apply_local` (model validator) maps anthropic / planner / chat / implementer model to `LOCAL_MODEL`
+  (coder: `LOCAL_CODER_MODEL` or the same), empties `fallback_model`, multiplies llm / planner / agent-task timeouts and
+  the session time budget by `LOCAL_TIME_MULTIPLIER=6`; `ANTHROPIC_API_KEY` is optional in local mode. The rest of the
+  code still reads `anthropic_model` etc. unchanged. Graph + Ask: `llm.get_llm` returns `ChatOllama` (new dependency
+  `langchain-ollama`; structured output = Ollama `format` JSON schema, enforced while generating; truncation =
+  `done_reason == "length"`; thinking off unless `LOCAL_THINK`; effort ignored); `available_models` reads Ollama's
+  `/api/tags`; Ollama / httpx errors join `FALLBACK_ERRORS` with readable messages ("is the Ollama app running?");
+  the fallback chain drops empty / duplicate models (also fixes the old [model, ""] case when FALLBACK_MODEL is empty).
+  Ask's system block is sent without `cache_control` locally. Coding agent: the SAME Claude Agent SDK / CLI, pointed at
+  Ollama's Anthropic-compatible `/v1/messages` (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN=ollama`, every model slot
+  incl. haiku / small-fast = the local model, `MAX_THINKING_TOKENS=0`, no effort, no `max_budget_usd`, cost forced to 0
+  because the CLI guesses prices for unknown models). Pricing: every model is free in local mode (not "unpriced").
+  Why one model for all roles: on the user's **8 GB M2** two models do not fit in memory, and a different `num_ctx`
+  per caller would reload the model; the 32K variant is needed because Claude Code's own prompt does not fit Ollama's
+  default context. Model choice (researched + measured 2026-10-25): qwen3.5:4b (24 tok/s, thinking off) beat the
+  installed qwen2.5-coder:7b (15 tok/s, 75 tok/s prompt reading, weaker in published 8 GB tests); 16 GB → qwen3.5:9b,
+  32 GB+ → qwen3-coder:30b. **Changed the same night to the GGUF tag `qwen3.5:4b-q4_K_M`** (llama.cpp runner): the
+  Mac default `qwen3.5:4b` is an MLX/nvfp4 build and Ollama's MLX runner keeps a prompt cache of up to ~8 GB with no
+  setting (ollama issues #18131, #17875); see section 16. Local calls take turns (`LOCAL_MAX_PARALLEL=1`, a semaphore
+  in `llm.model_slot()` around every `call_structured` attempt): the critic / extractor / brief parts run in parallel
+  threads and Ollama queues them, so the wait counted against each call's timeout. Not done: the live evals' Haiku judge has no local equivalent (it uses the local model,
+  quality unknown); no UI badge for the provider (the Cost card shows $0, model names show the local model).
 - 2026-10-24: Copied from ai-lab into ai-lab-2; new GitHub repo `github.com/fahadtariqaziz/any-web`.
 - 2026-10-24: Root `.gitignore`; `__pycache__`, `backend/.cache/`, generated graph images untracked.
 - 2026-10-24: Separate local database `ai_decision_arena_2`; `docker-compose.yml` default DB updated to match.
@@ -885,6 +909,19 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 5. Rename LangSmith project from `ai-decision-arena` (shared with ai-lab) to `ai-app-builder`? (one `.env` line)
 
 ## 14. Progress log
+- 2026-10-26: **Local mode fix after the user's first local project failed** (critic timeout; cause and fix in
+  section 16). 273 pytest green. `verify_local.py` **PASS** on `qwen3.5-4b-q4-32k` (llama.cpp runner, 4.9 GB estimate,
+  34%/66% CPU/GPU because the Mac was short of free memory): intake 78 s (incl. model load), clarification 26 s, Ask
+  5 s, coding agent 4 turns 78 s, $0. Removed the MLX models (`qwen3.5:4b`, `qwen3.5-4b-32k`). The failed project
+  (cbf315d4…) is not resumable: start a new one.
+- 2026-10-25: **Local-model switch** (`LLM_PROVIDER=local`). Offline: 273 pytest (new `test_local_provider.py` 5) +
+  eslint + tsc. One full run had a one-off failure in `test_usage.py::test_usage_endpoint_after_a_build_and_a_change`
+  that did not reproduce (3 more full runs and 9 file runs green, with and without the change): watch for a flake.
+  **Live `verify_local.py` PASS** on the 8 GB M2 with qwen3.5-4b-32k: all roles mapped, intake 16 s + clarification
+  18 s (3 sensible questions, $0, tokens metered), Ask-style stream 2 s, coding agent 4 turns **47 s** (Claude: the
+  same M11 task in a few seconds): denied `.env` read, Write + `ls index.html` via run_command, cost 0. Earlier probe:
+  a bare `claude -p` counter page took 128 s. Not run yet: a whole project end to end in local mode (expect 5–10x the
+  Claude time, and more failed build checks with a 4B model).
 - 2026-10-24: Project set up as ai-lab-2. `.gitignore` + first push. New DB `ai_decision_arena_2` created, migrated, knowledge docs loaded. `backend/.venv` rebuilt.
 - 2026-10-24: Codebase + graph analysed; environment and model availability verified; this plan written (the old health-app handoff lives in git history).
 - 2026-10-24: **M0 done.** `pytest` + `httpx` dev deps; `backend/tests/` with a fake `call_structured` (builds valid schema instances from the prompt text) and a fake Tavily search; 48 tests: graph shape + routing, loop limits, URL/source classifier, schema validators, intake/clarification/proposer/judge nodes, full pipeline pause→resume→report on InMemorySaver (full + quick mode + failure path), API start/poll/resume/report/409/422/404 with TestClient on an in-memory graph. `scripts/verify_m0.sh` = pytest + eslint + tsc, all green. README rewritten for the new concept and ports 8001/3001.
@@ -1147,6 +1184,13 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
     (all); report those numbers.
 
 ## 16. Gotchas met so far (read before you repeat them)
+- **Local mode: never use Ollama's MLX models on the 8 GB Mac** (2026-10-25/26). The user's first local project failed in
+  the critic: "timeout: no answer from the local model in time". Cause: `qwen3.5:4b` on a Mac resolves to an MLX build
+  (`ollama ps` → runner `mlx`); its memory "held" grew 4.2 → 11.4 GB request by request (`~/.ollama/logs/server.log`,
+  `pipeline.go ... memory peak/held`), swap 6.6 of 7.2 GB, plus the critic's 3 parallel calls queued inside Ollama.
+  Fix: `qwen3.5:4b-q4_K_M` (llama.cpp runner, measured flat at ~3.5–4 GB RSS over 10 requests) + local calls take
+  turns. `verify_local.py` fails if the loaded runner is `mlx`. Claude Code's own prompt is ~12K tokens (measured), so
+  keep 32K context. `ollama ps` showing "25%/75% CPU/GPU" means the Mac is short of free memory (close apps), not a bug.
 
 **Shell / tooling on this Mac**
 - The shell is **zsh**, and `grep` is **ugrep**. Unquoted `--include=*.py` fails with "no matches found": always quote globs.
@@ -1492,6 +1536,11 @@ is what you will see)
   is in the prompt, a stricter check (count of "or" clauses) would be an M11 eval, not a hard filter.
 
 ## ▶ Next step
+**Local-model switch built (2026-10-25), waiting for the user's commit.** To try it in the builder UI: set
+`LLM_PROVIDER=local` in `backend/.env`, restart the 8001 backend (settings are read once per process; `--reload` only
+watches .py files), keep the Ollama app open, then start a SMALL idea (one-page app). Switch back with
+`LLM_PROVIDER=anthropic` + restart.
+
 M11 is pushed (`5562c8b` part 1, `a3a514a` parts 2–4). Next, in this order:
 1. **First brand-new idea end to end in the builder UI** (never done since M10). Costs real money (~$2–3: research,
    brief, Opus plan, ~10 coding tasks): **ask the user first**, suggest an idea (or let them pick; the standard

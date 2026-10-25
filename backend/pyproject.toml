@@ -12,6 +12,7 @@ dependencies = [
     "fastapi>=0.158.1",
     "grandalf>=0.8",
     "langchain-anthropic>=1.7.6",
+    "langchain-ollama>=1.0",
     "langgraph>=1.2.16",
     "langgraph-checkpoint-postgres>=3.2.0",
     "langsmith>=0.14.11",
