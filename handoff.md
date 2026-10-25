@@ -5,7 +5,7 @@
 >
 > **New agent / new session? Start here (10 minutes):**
 > 1. Read section 0 (where we are), "▶ Next step" at the very end, and the next milestone's block in section 8.
-> 2. Read **section 15 (how to work here)** and **section 16 (gotchas)** in full: they are the lessons of M0–M10.
+> 2. Read **section 15 (how to work here)** and **section 16 (gotchas)** in full: they are the lessons of M0–M11.
 > 3. Check the machine: `git status` (clean = the user committed the last milestone; if not, ask), the user's dev
 >    servers (`lsof -nP -iTCP:8001 -sTCP:LISTEN`, `lsof -nP -iTCP:3001 -sTCP:LISTEN`; reuse them, never start a second
 >    one), `bash backend/scripts/verify_m0.sh` (must end with `M0 VERIFY: PASS`).
@@ -13,10 +13,19 @@
 > 5. To see the whole product working, open the reference project: http://localhost:3001/c/e39ceeb5-cf6b-4950-b518-b656ec65515b
 >    (the calculator built in M9 and extended live in M10: dark theme, percent key, then a scientific mode through the
 >    brief-first "bigger change"; its conversation shows every pause). Its preview idle-stops after 30 min: press Start.
+> 6. Platform checks (M11), all free: `cd backend && uv run python scripts/prompt_versions.py` (must end "all prompts
+>    locked at their versions"), `uv run python scripts/run_evals.py` (offline evals, also inside pytest), and
+>    http://localhost:3001/admin/metrics (costs, node failures, tool outcomes across projects). A project's own cost:
+>    its Build tab (Cost card) or `GET /api/decisions/<id>/usage`. Before you change ANY prompt, read section 15 rule 23.
 >
 > **Working rule (agreed 2026-10-24):** one milestone at a time. For each: build → run its verify script(s) → report
 > the real result → the user commits and pushes (**Claude never commits or pushes**) → wait for "pushed" → next
 > milestone. Ask the user when a decision is theirs (section 13) or before a live run that costs real money.
+> **"Can we commit this?" means "is it ready, what is the commit name?"**: answer with the name and the file list, never
+> run `git commit` (2026-10-25 Claude committed after that question; the user had to reset and redo it). The user
+> writes their own message (e.g. "Added platform hardening (...)"); record the hash they pushed.
+> **If the user stops a tool call** (e.g. a paid live run), do not repeat it on "continue": finish the free work and
+> say what was not re-run; run it only when they ask (2026-10-25: they asked for the full live evals afterwards).
 
 ---
 
@@ -26,9 +35,9 @@
 |---|---|
 | **Spec** | `docs/app-builder-spec.md` — the user's original brief, verbatim (clarification §1, research §2, proposals §3, brief §4.1–4.10, validation §5, review §6, planning §7, implementation §8, preview + isolation §9, platform §10.1–10.11, constraints §12, outcome §13). The milestone blocks below quote the parts each one needs. |
 | **Concept (decided 2026-10-24)** | An AI application builder like Lovable: the user describes an app or website; the system clarifies, researches, proposes, critiques, judges, writes a validated problem statement + solution brief, gets approval, plans (Opus 5.5), implements (Sonnet 5.5) in an isolated session folder, and shows a live preview beside the chat. |
-| **Where we are** | **M0–M10 done and pushed (2026-10-25; last commit `1a8c0c7` "Frontend UI with live preview."). The pipeline works end to end:** idea → clarification → research (3 domains) → proposals / critic / judge / checker → validated brief → **user approval** → Opus plan → **user approval** → Sonnet coding agent builds task by task (verified by real commands) → build check → **live preview** → change requests → finish. Proven by the M9 E2E over HTTP: a 12-task Opus plan built 12/12 on the first attempt, build + preview + one change request, agent cost $0.74 (section 14). **M10: the Lovable-style builder UI** is the main UI: `/` = "What do you want to build?" + recent projects, `/c/<id>` = conversation left (questions, review cards, change requests, Ask mode) + live preview / Brief / Plan / Build / Activity right. The admin view (`/admin`, `/decisions/<id>`) stays as the detailed view; both link to each other. Also in M10 (from the user's live browser testing): **Ask about app** (project assistant, never changes anything), **Reopen** a finished project, **Plan a bigger change** = brief edited first → approval → a **plan extension** with only the new tasks → approval → only those tasks built, resizable chat | preview split, **Download code** (folder picker / zip). Proven live on the reference calculator: 24/24 tasks, build check 4 passed, scientific results checked independently (section 14). |
-| **Milestones** | M0 harness · M1 intake + clarification · M2 research · M3 debate · M4 brief writer + validator · M5 brief review · M6 Opus planner + plan review · M7 workspace / sandbox / processes · M8 coding agent (Claude Agent SDK) · M9 build check / preview / change requests · M10 Lovable UI. Details: section 8 (✅ blocks), section 14 (progress log with real numbers), section 12 (decisions). |
-| **Next milestone** | **M11 — Platform hardening: done 2026-10-25 (all four parts), waiting for the user's commit** (part 1 was pushed as `5562c8b`). Cost / usage per node and change + budgets; `tool_calls` log; prompt registry + lock + 13 eval cases (offline + live, LLM-judged where a regex cannot tell); Ask prompt caching; builder knowledge + skills; project-scoped memory; trigger table; quick profile and health leftovers removed; `/admin/metrics`. Next: **M12** (Docker runtime, optional) and the first brand-new idea end to end in the builder UI (~$2–3, ask first). |
+| **Where we are** | **M0–M11 done and pushed (2026-10-25; last commit `a3a514a` "Added platform hardening (tool log, prompt registry and evals, knowledge, skills, cleanup)", before it `5562c8b` "Added cost and usage tracking").** The pipeline works end to end: idea → clarification → research (3 domains) → proposals / critic / judge / checker → validated brief → **user approval** → Opus plan → **user approval** → Sonnet coding agent builds task by task (verified by real commands) → build check → **live preview** → change requests / bigger change (brief first, plan extension) / Ask / reopen / download → finish. **M10** made the Lovable-style builder UI (`/`, `/c/<id>`: chat left, Preview / Brief / Plan / Build / Activity right; admin view at `/admin`). **M11 hardened the platform itself (spec §10):** every model call and agent attempt is metered (Cost card per stage and per change, limits in `.env`, `/usage`, `/api/metrics`, `/admin/metrics`); every tool call is logged (`tool_calls`); all 19 prompts are versioned and locked with 13 eval cases (offline + live, Haiku-judged where needed; the evals already caught and fixed one real prompt defect); Ask is prompt-cached; builder knowledge docs and skills replaced the health ones; memory is project-scoped; one trigger table; the quick profile and all health leftovers are gone. Proven live: verify_m11 sections 1–9, live evals 7/7 ($0.19). |
+| **Milestones** | M0 harness · M1 intake + clarification · M2 research · M3 debate · M4 brief writer + validator · M5 brief review · M6 Opus planner + plan review · M7 workspace / sandbox / processes · M8 coding agent (Claude Agent SDK) · M9 build check / preview / change requests · M10 Lovable UI · M11 platform hardening (cost, tool log, prompts + evals, knowledge, skills, memory, triggers, cleanup). Details: section 8 (✅ blocks), section 14 (progress log with real numbers), section 12 (decisions). |
+| **Next milestone** | **The first brand-new idea end to end in the builder UI** (never done since M10; ~$2–3 real money: ask the user first, propose an idea or let them pick). Everything is measured now, so it doubles as the first per-stage cost baseline. Then **M12 (optional): Docker runtime per session** (needs the Docker daemon: open question 2) + a cleanup CLI. See "▶ Next step". |
 | **Models (verified 2026-10-24 via `client.models.list()`)** | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` are all available to the key in `backend/.env`. Configured default: `ANTHROPIC_MODEL=claude-sonnet-5-5`. |
 | **Environment (verified 2026-10-24/25)** | macOS, zsh · uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head `c7d8e9f0a1b2` (M11: `usage_events`, `tool_calls`, `knowledge_docs.topic`) · `claude-agent-sdk` 0.2.174 (ships its own Claude Code CLI 2.1.310) · `psutil` 7.2 · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are the original ai-lab** → ai-lab-2 runs on **8001/3001** (the user starts them with `--reload`; section 11) · previews use ports **4100–4199** · generated apps in `generated_projects/` (git-ignored). |
 | **Tests** | `bash backend/scripts/verify_m0.sh` = 268 pytest (incl. the offline evals) + eslint + tsc, ~40 s. Offline: fake LLM, fake Tavily, `FakeAgent` for the coding agent, in-memory checkpoints, no DB; but sandbox commands, git and dev servers (`python3 -m http.server {port}`) run for REAL under tmp dirs. Live checks: `backend/scripts/verify_m1..m11.py` (real APIs, node level; m10 = UI contract + rendered page) and `scripts/api_flow.py --auto` (full HTTP E2E); what each needs, writes and costs: section 11. No frontend unit tests (lint + tsc + `next build` + headless-Chrome DOM checks + the user's browser check). Free UI walk-through of every pause: `scripts/fake_api.py` (section 11). |
@@ -573,7 +582,8 @@ Spec §10.1–10.11 (platform-level requirements; section 7 of this file maps ea
 the builder itself, **not** to every generated app: a generated project gets only the AI infrastructure its approved requirements need.
 - `prompts/` registry + versions in state/DB; `backend/evals/` cases + `scripts/run_evals.py`; `token_usage`/USD per node + session budget + `/metrics`; `tool_calls` log; curated builder knowledge docs + builder skills (replace health ones); `user_memories`; idle-preview trigger (replaces check-ins); `chat.py` re-pointed as "ask about this project" (optional).
 - **Verify:** pytest + `scripts/run_evals.py` (fake-LLM cases offline; real cases behind `--live`).
-- **Commit:** `M11: platform hardening`
+- **Commit:** `M11: platform hardening` (pushed by the user in two commits: `5562c8b` "Added cost and usage tracking" =
+  part 1, `a3a514a` "Added platform hardening (tool log, prompt registry and evals, knowledge, skills, cleanup)" = parts 2–4)
 - **Done in parts** (agreed way of working: each part verified, then the user commits it):
   - **Part 1 — cost + usage ✅ 2026-10-25** (commit `M11.1: cost and usage tracking`). `pricing.py`: `PRICES` per
     model ($/MTok input, output, cache read, cache write 5 m = 1.25× input, 1 h = 2× input; Haiku 5.5's > 100K-token
@@ -1051,7 +1061,8 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
   timeline preferences…?" → clarification prompt **v2** (constraints = one chosen topic, no topic lists). Measured with
   the same Haiku judge: **v1 packed topics in 3/3 runs, v2 in 0/4** (~$0.012 per run). The other live cases passed
   (routing wording / research, intake ×2, proposer); full live set **6/7 then all fixed, $0.19**. Final full run (user's
-  request): **live evals 7/7 PASS, $0.19**; offline 10/10; all 19 prompts locked.
+  request): **live evals 7/7 PASS, $0.19**; offline 10/10; all 19 prompts locked. Pushed by the user as `a3a514a` "Added platform
+  hardening (tool log, prompt registry and evals, knowledge, skills, cleanup)" (parts 2–4; part 1 = `5562c8b`).
 
 ## 15. How to work on this repo (the loop every milestone follows)
 
@@ -1401,7 +1412,52 @@ is what you will see)
 - Renaming a column used by a Postgres GENERATED column works with a plain `ALTER ... RENAME` (Postgres rewrites the
   expression); update the model's `Computed(...)` text by hand (alembic check does not compare it).
 
+*Live findings of M11 (evals, prompts, live verify), symptom → cause → fix*
+- *Symptom:* the live eval `clarification/one_question_per_item` failed on "Do you have any technology, hosting, budget
+  or timeline preferences…?" (the section-16 observation, now measured). → Cause: the prompt's first-round topic (4)
+  itself listed "technology preferences, budget, timeline, hosting, compliance" as ONE topic. → **Fix:** clarification
+  prompt v2 (platform and "the ONE constraint that matters most" are separate topics; no topic lists). Proof with the
+  same judge: v1 packed topics in 3/3 runs, v2 in 0/4. Rule: an eval that fails on a prompt's own wording is a prompt
+  bug; fix the prompt, bump the version, keep the case.
+- *Symptom:* the same eval flagged correct questions twice: first a regex (`, … or`) caught "(e.g. +, −, or also %)",
+  then a strict Haiku judge caught "Who will use it, and what for?". → Cause: the check measured wording, not the
+  defect. → **Fix:** `ignore_parentheses` for regex checks, and an `llm_judge` question worded after the real finding
+  ("a LIST of three or more separate topics"; options for one topic and a natural follow-up do not count). Rule:
+  calibrate every new check on several real outputs (pass AND fail examples) before trusting a red result.
+- *Symptom:* `brief_writer/bigger_change_keeps_built_changes` failed live although the brief had "sin, cos, tan" in the
+  MVP. → Cause: the check looked for the word "scientific". → **Fix:** `json_matches` with the functions; plus the
+  check that mattered in M10 ("percent" stays in scope). Rule: check the behaviour, not one word the model may avoid.
+- *Symptom:* the registry test failed right after removing the quick profile ("proposer has no attribute QUICK_RULE",
+  "text changed but version is still 1"). → Cause: working as designed: a prompt changed. → **Fix:** proposer v2 +
+  changelog + eval case, then `prompt_versions.py --update`. Every prompt edit goes this way (rule 23).
+- *Symptom:* `run_evals.py` crashed with `KeyError: '__pregel_runtime'` for every node case. → Cause: nodes call
+  `progress.report` (stream writer) and `get_config`, which need a LangGraph run; a RunnableLambda is not enough. →
+  **Fix:** each node runs in a one-node StateGraph that captures its update (`node_runner`).
+- *Symptom:* eval cases on a built project needed a realistic built state. → **Fix:** `scripts/make_eval_fixtures.py`
+  drives ONE fake-pipeline run (test fakes, free) and saves the checkpoints just before the nodes under test
+  (`evals/fixtures/*.json`, committed). Live scripts must not import `tests.conftest` (it sets fake API keys before
+  `.env` is read); offline ones must import it first.
+- *Symptom:* Ask cost ~$0.055 per reply. → Cause: its system block (instructions + brief / plan / build context) is
+  ~27k tokens and was resent every tool round and every question. → **Fix:** `cache_control` on that block: measured
+  cache reads of 27,435 tokens per later round (~10x cheaper input). Not for one-shot graph calls (a cache write costs
+  1.25x and nothing reads it). Next lever: trim the context.
+- *Symptom:* a project's facts ("budget: free") could show up in the NEXT project's prompts as if about it. → Cause:
+  completion saved session facts as plain user memories. → **Fix:** facts are labelled `[project: <name>]` and a
+  project's earlier session facts are replaced when it completes again.
+- *Symptom (M10 leftovers):* "C2 Change request 3", the header kept intake's name, 4 skipped tests hidden behind a
+  passing exit code. → **Fixes:** change tasks titled "Change: <request>" and linked by the `task_id` stored on the
+  change request (old sessions by the old title); the header uses the brief's proposed name; the build check records
+  the runner's reported skipped / todo count (amber badge, in Ask's context) and implementer v2 forbids leaving skips.
+- *Symptom:* the live verify showed the coding agent trying to Read `backend/.env` (asked to, as a test). → Result:
+  denied by the path hook, logged in `tool_calls` with the reason, no secret in any row. Keep that check in verify_m11.
+
 **Working with the user / this environment**
+- 2026-10-25: the user asked "can we commit this?" and Claude committed: wrong (the user resets and commits
+  themselves). Answer such questions with the commit name + file list only (also in the memory and the top rule).
+- 2026-10-25: the user stopped a paid tool call (a $0.20 live eval re-run) and then said "continue": continue the free
+  work, report what was not re-run, and run the paid step only when asked (they asked for it in the next message).
+- The user asks for whole milestones at once ("do full M11") and reports "pushed"; after "pushed", update this file
+  (status, hashes, next step) before starting new work.
 - The user watches the admin page while things run and sends screenshots: they found bugs lint + tsc could not
   (M5: 5 bugs; M9: stale page while a script resumed, wrong task count, finished session hiding the app). Ask for a
   browser check after every UI change and say exactly what to look at.
@@ -1436,12 +1492,16 @@ is what you will see)
   is in the prompt, a stricter check (count of "or" clauses) would be an M11 eval, not a hard filter.
 
 ## ▶ Next step
-**M11 is built and verified** (all four parts; part 1 already pushed as `5562c8b`). The user commits the rest, e.g.
-`M11: platform hardening (tool log, prompt registry and evals, knowledge, skills, cleanup)`. After "pushed":
-1. **First brand-new idea end to end in the builder UI** (never done since M10; ~$2–3: ask first). Everything is now
-   measured: report the per-stage cost from `GET /usage`, the tool failures from `/admin/metrics`, and replace the
-   guesses in section 11. Watch: the clarification v2 questions, the skills the agent got (`<skills>` in
-   `.builder/logs/<task>.log`), skipped-test badges, change titles "Change: …".
-2. **M12 (optional)**: Docker runtime per session (memory / CPU / network limits; needs the Docker daemon: open
-   question 2), cleanup CLI for old `generated_projects/` folders.
-3. Small follow-ups found in M11: trim Ask's ~27k-token context; more live eval cases as findings come in (rule 23).
+M11 is pushed (`5562c8b` part 1, `a3a514a` parts 2–4). Next, in this order:
+1. **First brand-new idea end to end in the builder UI** (never done since M10). Costs real money (~$2–3: research,
+   brief, Opus plan, ~10 coding tasks): **ask the user first**, suggest an idea (or let them pick; the standard
+   "simple calculator" is already the reference project, so pick a different small one) and whether they drive it in
+   the browser or `scripts/api_flow.py --auto` does. While it runs, follow rule 15 (no backend edits). Afterwards
+   report from data: `GET /api/decisions/<id>/usage` (per stage / per change), `/admin/metrics` (tool failures,
+   refusals, node failures), the build check (skipped-test badge), and check: clarification v2 questions (no packed
+   topic lists), the skills the agent got (`<skills>` in `generated_projects/<id>/.builder/logs/T1.log`), change task
+   titles "Change: …". Replace the cost guesses in section 11 with the measured numbers; turn any new finding into an
+   eval case (rule 23).
+2. **M12 (optional): Docker runtime per session** (memory / CPU / network limits; the Docker daemon is not running:
+   open question 2 to the user first) + a cleanup CLI for old `generated_projects/` folders.
+3. Small follow-ups from M11: trim Ask's ~27k-token context (first-reply cost); more live eval cases as findings come in.
