@@ -151,6 +151,7 @@ def test_judge_computes_totals_in_python_and_picks_the_winner(fake_llm, base_sta
     assert out["status"] == "verifying"
 
 
+@pytest.mark.usefixtures("auto_loops")
 def test_judge_requests_research_when_evidence_is_insufficient(fake_llm, base_state):
     def insufficient(system, user):
         j = build_judgement(system, user)
@@ -164,6 +165,7 @@ def test_judge_requests_research_when_evidence_is_insufficient(fake_llm, base_st
     assert "pricing data" in out["research_focus"]
 
 
+@pytest.mark.usefixtures("auto_loops")
 def test_judge_asks_the_user_when_a_contradiction_needs_resolving(fake_llm, base_state):
     def contradiction(system, user):
         return build_judgement(system, user).model_copy(update={"material_contradictions": ["Offline use vs. cloud sync requirement."]})
@@ -186,6 +188,7 @@ def test_judge_stops_looping_at_the_caps(fake_llm, base_state):
     assert "research_retry_count" not in out
 
 
+@pytest.mark.usefixtures("auto_loops")
 def test_judge_with_no_proposals_requests_research_without_calling_the_llm(fake_llm, base_state):
     out = judge_node(dict(base_state, proposals=[], proposer_status="thin", proposer_notes="too thin"))
     assert out["verdict"]["decision"] == "request_more_research"

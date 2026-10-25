@@ -149,6 +149,8 @@ class DecisionStatus(BaseModel):
     error: ErrorInfo | None = Field(default=None, description="The graph's stored error, or a crash of the background run.")
     has_report: bool = False
     has_brief: bool = Field(default=False, description="True once a validated brief exists (GET /brief).")
+    has_draft_brief: bool = Field(default=False, description="True while the validator checks a fresh draft: GET /brief "
+                                  "returns it with is_draft=true (shown early, marked as being checked).")
     has_plan: bool = Field(default=False, description="True once the planner wrote a plan (GET /plan).")
     has_build: bool = Field(default=False, description="True once the coding agent has a project folder (GET /implementation).")
     reopen_actions: list[Literal["change", "replan"]] = Field(
@@ -169,13 +171,15 @@ class ReportResponse(BaseModel):
 
 
 class BriefResponse(BaseModel):
-    """The validated problem statement + solution brief (spec §4-5)."""
+    """The validated problem statement + solution brief (spec §4-5), or the draft the validator is checking right now."""
 
     thread_id: str
     workflow_status: str | None = None
     brief: ProblemBrief
     markdown: str = Field(description="Rendered brief: main part (about one page), references, appendix.")
-    validation: BriefValidation
+    validation: BriefValidation | None = Field(description="The validator's result; null while is_draft.")
+    is_draft: bool = Field(default=False, description="True = the validator is still checking this draft (speed: the "
+                           "user can read it ~15 s earlier); the checks and open issues arrive with the validated brief.")
     approved_at: str | None = Field(default=None, description="Set once the user approved exactly this brief.")
     review_round: int = Field(default=0, description="Change requests made so far.")
 

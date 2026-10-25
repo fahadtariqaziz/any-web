@@ -1,9 +1,12 @@
 """Node 7 — Evidence Checker: do the winning proposal's claims really follow from the cited evidence?
 
-One LLM call for the winning proposal. The checker sees the proposal, the evidence it cites IN FULL, the rest of the
-evidence in compact form, and the Critic's points. It returns a verdict per claim (verified / partially_supported /
-unsupported / contradicted / irrelevant / unavailable) and the MATERIAL gaps (claims whose failure would change the
-design).
+The claim check itself (verify_proposal: one LLM call per proposal) runs in the CRITIC node, in parallel with the
+critiques, for every proposal (speed: the check no longer waits for the critic and the judge; it no longer sees the
+Critic's points). It sees the proposal, the evidence it cites IN FULL and the rest of the evidence in compact form,
+and returns a verdict per claim (verified / partially_supported / unsupported / contradicted / irrelevant /
+unavailable) and the MATERIAL gaps (claims whose failure would change the design). This node takes the winner's
+check from `proposal_checks` (no LLM call); only if it is missing (e.g. a state from before this change) it runs the
+check itself.
 
 Python then:
 - stores ClaimVerification records and updates evidence[].verification_status,
@@ -17,11 +20,11 @@ Writes (owner): verification_results, checker_verdict, evidence[].verification_s
 from ai_decision_arena.limits import loops_allowed
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
-from ai_decision_arena.prompting import BUILDER_RULES, criticisms_block, evidence_block, proposals_block, user_case_block
+from ai_decision_arena.prompting import BUILDER_RULES, evidence_block, proposals_block, user_case_block
 from ai_decision_arena.schemas import ClaimVerification, ProposalVerification
 from ai_decision_arena.state import ArenaState
 
-MAX_CLAIMS = 10
+MAX_CLAIMS = 6                         # the most important claims (speed: fewer output tokens)
 STATUS_RANK = {"contradicted": 0, "unsupported": 1, "irrelevant": 2, "partially_supported": 3, "verified": 4}
 
 SYSTEM_PROMPT = """You are the Evidence Checker of an AI application builder. You verify the factual claims of ONE proposed
@@ -60,6 +63,31 @@ def _evidence_status(statuses: list[str]) -> str:
     return min(statuses, key=lambda s: STATUS_RANK.get(s, 9))
 
 
+def verify_proposal(state: ArenaState, proposal: dict, node: str = "evidence_checker") -> ProposalVerification:
+    """One LLM call: the claims of ONE proposal against the evidence it cites (called by the critic node, in parallel
+    with the critiques, and as a fallback by evidence_checker_node)."""
+    evidence = state.get("evidence", [])
+    cited_ids = set(proposal.get("supporting_evidence_ids", []))
+    cited = [e for e in evidence if e["evidence_id"] in cited_ids]
+    others = [e for e in evidence if e["evidence_id"] not in cited_ids]
+    report(node, f"checking the claims of {proposal['proposal_id']} against the {len(cited)} evidence record(s) it cites")
+    user_content = f"""{user_case_block(state)}
+{proposals_block([proposal])}
+<cited_evidence>
+{evidence_block(cited, max_excerpt_chars=700)}
+</cited_evidence>
+<other_evidence>
+{evidence_block(others, max_excerpt_chars=200)}
+</other_evidence>"""
+    return call_structured(
+        ProposalVerification,
+        SYSTEM_PROMPT.replace("{max_claims}", str(MAX_CLAIMS)),
+        user_content,
+        max_tokens=5000,
+        run_name=f"evidence_checker_{proposal['proposal_id']}_llm",
+    )
+
+
 def evidence_checker_node(state: ArenaState) -> dict:
     winner_id = (state.get("verdict") or {}).get("winning_proposal_id")
     proposals = {p["proposal_id"]: p for p in state.get("proposals", [])}
@@ -75,27 +103,12 @@ def evidence_checker_node(state: ArenaState) -> dict:
 
     proposal = proposals[winner_id]
     evidence = state.get("evidence", [])
-    cited_ids = set(proposal.get("supporting_evidence_ids", []))
-    cited = [e for e in evidence if e["evidence_id"] in cited_ids]
-    others = [e for e in evidence if e["evidence_id"] not in cited_ids]
-    criticisms = [c for c in state.get("criticisms", []) if c["proposal_id"] == winner_id]
-    report("evidence_checker", f"verifying {winner_id} against the {len(cited)} evidence record(s) it cites")
-    user_content = f"""{user_case_block(state)}
-{proposals_block([proposal])}
-<cited_evidence>
-{evidence_block(cited, max_excerpt_chars=700)}
-</cited_evidence>
-<other_evidence>
-{evidence_block(others, max_excerpt_chars=200)}
-</other_evidence>
-{criticisms_block(criticisms)}"""
-    out = call_structured(
-        ProposalVerification,
-        SYSTEM_PROMPT.replace("{max_claims}", str(MAX_CLAIMS)),
-        user_content,
-        max_tokens=5000,
-        run_name="evidence_checker_llm",
-    )
+    stored = (state.get("proposal_checks") or {}).get(winner_id)
+    if stored is not None:
+        report("evidence_checker", f"using the claim check of {winner_id} made in parallel with the critic")
+        out = ProposalVerification.model_validate(stored)
+    else:
+        out = verify_proposal(state, proposal)
 
     known_ids = {e["evidence_id"] for e in evidence}
     results: list[dict] = []

@@ -11,8 +11,9 @@ def test_every_prompt_is_locked_at_its_version():
 
 
 def test_every_model_calling_node_has_a_registered_prompt():
+    # final_report makes no call since the speed work (its narrative is written by brief_writer, in parallel).
     llm_nodes = {"intake", "clarification", "research", "proposer", "critic", "judge", "evidence_checker",
-                 "final_report", "brief_writer", "brief_validator", "brief_review_router", "planner", "implementer"}
+                 "brief_writer", "brief_validator", "brief_review_router", "planner", "implementer"}
     assert llm_nodes <= set(build_graph().nodes)
     for node in llm_nodes | {"ask"}:
         assert set(prompts.versions_for(node)) - {"builder_rules"}, f"no prompt registered for {node}"

@@ -57,12 +57,14 @@ class ArenaState(TypedDict, total=False):
     research_retry_count: int            # +1 only when going BACK to research (first pass = 0)
     research_focus: list[str]            # what the next research pass must look for; written by the node that
                                          # sends the graph back (judge / evidence_checker), cleared by research
+    research_plan: dict | None           # ResearchPlan planned ahead by clarification; consumed by research
 
     # --- debate ------------------------------------------- (proposer/critic/judge)
     proposals: list[dict]                # SolutionProposal, 2-3 per round        (proposer)
     proposer_notes: str                  # why fewer than 2 proposals             (proposer)
     proposer_status: str                 # ok | thin | declined | no_evidence     (proposer)
     criticisms: list[dict]               # Criticism, one per proposal            (critic)
+    proposal_checks: dict                # proposal id -> ProposalVerification, made in parallel with the critiques (critic)
     scores: list[dict]                   # ProposalScore, one per proposal        (judge)
     verdict: dict                        # Verdict                                (judge)
     debate_round: int                    # +1 each time the proposer starts a new round

@@ -2,8 +2,10 @@
 
 One LLM call per proposal, in parallel. Each call sees that proposal, the user's requirements and ALL the evidence,
 so a proposal can be challenged with findings from any research domain.
+In the same thread pool, every proposal's claims are checked against its cited evidence (evidence_checker.
+verify_proposal): the Evidence Checker node then only picks the winner's check, so the check costs no extra wait.
 
-Writes (owner): criticisms, status, current_node.
+Writes (owner): criticisms, proposal_checks (ProposalVerification per proposal id), status, current_node.
 """
 
 import json
@@ -11,12 +13,13 @@ import json
 from langsmith.utils import ContextThreadPoolExecutor
 
 from ai_decision_arena.llm import call_structured
+from ai_decision_arena.nodes.evidence_checker import verify_proposal
 from ai_decision_arena.progress import report
 from ai_decision_arena.prompting import BUILDER_RULES, evidence_block, proposals_block, user_case_block
 from ai_decision_arena.schemas import Criticism
 from ai_decision_arena.state import ArenaState
 
-MAX_POINTS_PER_PROPOSAL = 6
+MAX_POINTS_PER_PROPOSAL = 4           # the most severe points only (speed: fewer output tokens)
 
 SYSTEM_PROMPT = """You are the Critic agent of an AI application builder. You review ONE proposed solution against the user's
 requirements and ALL the research evidence.
@@ -72,8 +75,11 @@ def critic_node(state: ArenaState) -> dict:
     proposals = state.get("proposals", [])
     if not proposals:
         report("critic", "no proposals to review")
-        return {"criticisms": [], "status": "debating", "current_node": "critic"}
-    report("critic", f"reviewing {len(proposals)} proposal(s) against all evidence (in parallel)")
-    with ContextThreadPoolExecutor(max_workers=len(proposals)) as pool:
-        criticisms = list(pool.map(lambda p: _critique(state, p), proposals))
-    return {"criticisms": criticisms, "status": "debating", "current_node": "critic"}
+        return {"criticisms": [], "proposal_checks": {}, "status": "debating", "current_node": "critic"}
+    report("critic", f"reviewing {len(proposals)} proposal(s) against all evidence and checking their claims (in parallel)")
+    with ContextThreadPoolExecutor(max_workers=2 * len(proposals)) as pool:
+        critiques = [pool.submit(_critique, state, p) for p in proposals]
+        checks = {p["proposal_id"]: pool.submit(verify_proposal, state, p, "critic") for p in proposals}
+        criticisms = [f.result() for f in critiques]
+        proposal_checks = {pid: f.result().model_dump(mode="json") for pid, f in checks.items()}
+    return {"criticisms": criticisms, "proposal_checks": proposal_checks, "status": "debating", "current_node": "critic"}

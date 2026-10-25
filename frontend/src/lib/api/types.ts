@@ -133,6 +133,7 @@ export interface DecisionStatus {
   error: ErrorInfo | null;
   has_report: boolean;
   has_brief: boolean; // a validated problem brief exists (GET /brief)
+  has_draft_brief: boolean; // the validator is checking a fresh draft: GET /brief returns it with is_draft
   has_plan: boolean; // the planner wrote a plan (GET /plan)
   has_build: boolean; // the coding agent has a project folder (GET /implementation)
   reopen_actions: ("change" | "replan")[]; // a finished, built project still accepts these as {type: "reopen"}
@@ -549,7 +550,8 @@ export interface BriefResponse {
   workflow_status: string | null;
   brief: ProblemBrief;
   markdown: string; // main part (~1 page), references, appendix
-  validation: BriefValidation;
+  validation: BriefValidation | null; // null while is_draft
+  is_draft: boolean; // the validator is still checking this draft (shown early); checks arrive with the validated brief
   approved_at: string | null; // set once the user approved exactly this brief
   review_round: number; // change requests so far
 }

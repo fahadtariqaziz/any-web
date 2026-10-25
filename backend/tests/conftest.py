@@ -366,6 +366,12 @@ def process_manager():
 
 
 @pytest.fixture
+def auto_loops(monkeypatch):
+    """The thorough mode: the judge / checker / validator may send the graph back by themselves (AUTO_LOOPS=true)."""
+    monkeypatch.setattr(get_settings(), "auto_loops", True)
+
+
+@pytest.fixture
 def fake_llm(monkeypatch) -> FakeLLM:
     fake = FakeLLM()
     for module in LLM_USERS:

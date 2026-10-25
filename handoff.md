@@ -725,6 +725,7 @@ others are rough guesses from before M11 (re-measure them when you next run them
 | `verify_m11.py [--session id]` sections 1–9: cost / usage, tool calls (a tiny real coding-agent task in a throwaway project, deleted after), a Tavily search, prompt lock + offline and live evals, Ask caching + skill, knowledge, triggers, metrics page | dev servers on 8001/3001, one built session, Chrome | usage_events / tool_calls rows under `verify-m11-*` threads (not the reference project) | measured ~$0.45 (agent $0.025, live evals $0.19, Ask ~$0.2), ~6 min |
 | `run_evals.py [--live] [--prompt id]` prompt eval cases | offline: nothing; live: API keys | — | offline free (also in pytest); live measured $0.19 for the 7 live cases (+ Haiku judge calls) |
 | `prompt_versions.py [--update]` / `make_eval_fixtures.py` / `load_knowledge.py` | — / — / DB | prompts.lock.json / evals/fixtures / knowledge_docs | free |
+| `time_to_brief.py ["idea"] [--target 60]` live timing of the real graph from the idea to the brief review pause (clarifications auto-answered); per-node seconds / calls / output tokens, progress lines, validator open issues | `.env` with Anthropic + Tavily keys; run with `PERSIST_RESULTS=false` | nothing (InMemorySaver) | measured ~$1.25 per run (calculator, 2026-10-26), 4–5 min until the fast path |
 | `verify_local.py [--skip-agent]` local-model mode (forces `LLM_PROVIDER=local`): creates `LOCAL_MODEL` from `LOCAL_BASE_MODEL` if missing, settings mapping, intake + clarification nodes, a streamed chat reply, one real coding-agent task on Ollama (throwaway project, deleted) | Ollama running, `qwen3.5:4b` pulled | nothing (`PERSIST_RESULTS=false`) | free; measured ~1.5 min on the 8 GB M2 (nodes 16–18 s each, agent 4 turns 47 s) |
 | `fake_api.py` offline API (port 8002) for UI work | nothing (fake LLM / search / agent from tests/conftest.py, in-memory everything) | a throwaway tmp generated-projects folder | free; a full session in seconds |
 | `api_flow.py --auto [--change "..."]` full E2E over HTTP | dev servers on 8001/3001 | a real session | agent $0.74 measured + research/brief/plan LLM calls (unmetered, guess $1–2); ~15 min active |
@@ -1100,6 +1101,67 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
   (routing wording / research, intake ×2, proposer); full live set **6/7 then all fixed, $0.19**. Final full run (user's
   request): **live evals 7/7 PASS, $0.19**; offline 10/10; all 19 prompts locked. Pushed by the user as `a3a514a` "Added platform
   hardening (tool log, prompt registry and evals, knowledge, skills, cleanup)" (parts 2–4; part 1 = `5562c8b`).
+- 2026-10-26: **Speed, step 1 (idea → validated brief; goal ≤ 60 s active, planner later).** Baseline from 97
+  LangSmith graph runs: one pass ≈ 330 s (research 70, critic 71, proposer 44, validator 48, brief 41, checker 28,
+  judge 22 s avg); Sonnet ≈ 135 output tok/s, ≈ 2,800 output tokens per call because no node set `effort` (Sonnet
+  5.5 default = high). Changes: `config.DEFAULT_NODE_EFFORT` / `settings.node_effort` (low: intake, clarification,
+  research, final_report, brief_review_router; medium: proposer, critic, judge, evidence_checker, brief_writer,
+  brief_validator), applied in `call_structured` from the LangGraph node name when the caller passes none (nodes
+  called outside a graph, e.g. verify_m3/m4, get no node effort); `extractor_model` and `validator_model` =
+  Haiku 5.5 (fallback Sonnet; local mode maps both to LOCAL_MODEL); brief parts 1-4 / 5-6 / 7-9 in PARALLEL
+  (brief_writer prompt **v2**: parts anchor MVP / in_scope on the winner's core_features instead of seeing sections
+  1-4). 275 pytest, offline evals 10/10, lock updated. New `scripts/time_to_brief.py` (real graph, auto-answers,
+  per-node seconds / tokens, progress lines, validator open issues; exit 1 over `--target`, default 60). **Measured
+  (calculator idea, 3 runs): 287 s / 264 s / 285 s, ~$1.25 each.** One clean pass is now ≈ 140 s (intake → judge
+  91 s, checker 12, report 8, brief 13, validator 17); the rest is loops: the judge chose request_clarification →
+  clarification asked nothing → focused research + a whole second debate round (+91 s), and the validator revised
+  twice without converging (13/15 → 12/15 → 13/15 passed, approved at the cap; +54 s). Next: fast path without
+  automatic loops (max 1 debate round, validator revises only on deterministic / high-severity failures, gaps become
+  open questions), then merge steps (intake+clarification+queries; critic+judge+checker) to reach ≤ 60 s.
+- 2026-10-26: **Speed, step 2 — fast path without automatic loops.** `settings.auto_loops` (default **false**;
+  `AUTO_LOOPS=true` = the old thorough loops): `limits.loops_allowed` blocks every automatic loop ("fast path"), so
+  the judge / evidence checker / validator never send the graph back by themselves; the judge's unaskable questions go
+  to `unresolved_questions` as "Question for you: …" (new: the judge writes that field); the validator rewrites at
+  most once and only for a failed deterministic or high-severity check (medium failures → open issues in the
+  appendix). The human clarification rounds at the start are unchanged. Tests: `auto_loops` fixture for the 12 tests
+  of the thorough loops + a fast-path limits test and a medium-failure case; 277 pytest, offline evals 10/10, prompts
+  locked. **Live `time_to_brief.py`: 126 s active, $0.435** (was 264–287 s, ~$1.25): intake 3, clarification 9,
+  research 23, proposer 20, critic 13, judge 15, checker 11, report 8, brief 12, validator 13 s; approved, 13/15, two
+  medium open issues — one says sections 4-5 decide precedence / rounding while the appendix still lists them as open
+  questions (watch: may come from the judge's questions now kept as unresolved). Next for ≤ 60 s: merge steps
+  (intake + clarification + search queries; critic + judge + checker), report narrative off the critical path.
+- 2026-10-26: **Speed, step 3 — "Option A": same nodes, calls in parallel instead of in a row.** A single merged
+  critic+judge+checker call was rejected after measuring: their outputs (~6,700 tokens) in ONE answer ≈ 50 s at
+  ~135 tok/s, slower than the 38 s of three calls; time follows output tokens, not the number of calls. Done instead:
+  (1) the critic node runs `evidence_checker.verify_proposal` for EVERY proposal in the same pool as the critiques →
+  `proposal_checks` (new state field); `evidence_checker_node` takes the winner's check (no LLM call; falls back to a
+  call when the field is missing); the check no longer sees the Critic's points; +1 small call (the loser's check).
+  (2) `final_report_node` is Python only (overview / why / uncertainties / next steps empty); `brief_writer` runs
+  `final_report.add_narrative` (effort low) in parallel with the three brief parts when the overview is empty.
+  (3) `clarification_node` runs `plan_queries` in parallel with its call before the first research pass; no more
+  questions → `research_plan` (new state field), consumed by `research_node`; questions asked → the plan is discarded
+  (one wasted small call per round of questions). Prompt owners: research_planner (research, clarification),
+  evidence_checker (critic, evidence_checker), final_report (brief_writer); no prompt text changed. Not done: merging
+  intake + clarification (≈ 3 s for a schema + prompt rewrite). 281 pytest (new `test_speed.py` 4), offline evals
+  10/10, prompts locked. **Live: 116 s active, $0.49** (was 126 s): intake 3, clarification 9 (2 calls + the plan),
+  research 17, proposer 21, critic 21 (4 parallel calls; the slowest critique took 21 s, 13 s in the last run — run
+  variance is large), judge 16, checker 0, report 0, brief 13.5, validator 15.5 (Haiku, 3.3k output tokens at medium).
+  Approved 13/15, two medium open issues (pending-status evidence cited as research; rounding settled vs conflicting).
+- 2026-10-26: **Speed, step 4 — fewer output tokens + the draft shown early.** (1) `DEFAULT_NODE_EFFORT`: proposer,
+  critic (incl. the claim checks), judge, evidence_checker and brief_validator → `low`; only brief_writer stays
+  `medium`. (2) Tighter outputs: critic at most 4 points (v2), evidence checker at most 6 claims (v2, also records the
+  step-3 change), proposer "be concise, low end of every list" (v3); lock updated. (3) Draft brief readable while the
+  validator checks it: `GET /brief` returns the draft with `is_draft=true`, `validation=null` while status is
+  `validating_brief` (`api.main._draft_brief`); status `has_draft_brief`; the builder fetches it, opens the Brief tab
+  and `BriefView` shows a "Being checked" badge + notice without checks (this reverses the old rule "an unvalidated
+  draft is never shown", deliberately, user's request). 282 pytest (new API test), tsc + eslint clean, offline evals
+  10/10, **live evals 7/7 ($0.147; run_evals runs each node in a one-node graph, so node effort applies)**. Not
+  checked in a browser yet (verify_m10 needs the dev servers). **Live `time_to_brief.py`: 83 s active, $0.417, first
+  draft readable at 79.7 s**: intake 4, clarification 10, research 15, proposer 13.4 (1.9k tok), critic 11.1, judge
+  14.9 (2.1k tok, now the slowest debate step), brief 11.4, validator 3.4 (Haiku low: 630 tokens — fast, but watch
+  whether it still finds real problems); approved 14/15, one medium open issue (labels "verified" on partially
+  supported sources). Remaining ideas: judge output (reasoning + per-criterion reasons), research extraction (~8-10 s),
+  intake + clarification merge (~3 s).
 
 ## 15. How to work on this repo (the loop every milestone follows)
 

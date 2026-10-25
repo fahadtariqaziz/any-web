@@ -12,20 +12,27 @@ Loop: clarification → await_clarification → clarification → ... → resear
 The Judge can also send the graph back here with its own questions (verdict.clarification_questions), and so can
 the brief validator (brief_validation.clarification_questions).
 
+Speed: before the first research pass, the research planner (research.planner.plan_queries) runs in parallel with
+the clarification call. When no more questions are asked, its plan goes to `research_plan` and the research node
+uses it instead of planning again (saves one call's wait). When questions ARE asked the plan is discarded (one wasted
+small call per round of questions).
+
 Writes (owner): need_clarification, clarification_questions, clarification_answers, assumptions,
-clarification_round_count, withdrawn_risk_flags; also merges new project facts / features / constraints / risk flags,
+clarification_round_count, withdrawn_risk_flags, research_plan (see Speed); also merges new project facts / features / constraints / risk flags,
 and refines project_name / idea_summary when the answers make them more precise.
 """
 
 import json
 
 from langgraph.types import interrupt
+from langsmith.utils import ContextThreadPoolExecutor
 from pydantic import ValidationError
 
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
 from ai_decision_arena.prompting import BUILDER_RULES, user_case_block
+from ai_decision_arena.research.planner import plan_queries
 from ai_decision_arena.schemas import ClarificationAnswers, ClarificationResult
 from ai_decision_arena.state import ArenaState
 
@@ -98,14 +105,27 @@ def clarification_node(state: ArenaState) -> dict:
 
     report("clarification", "deciding which questions would change the solution" if rounds_used == 0
            else "reading your answers and deciding whether to ask more")
-    result = call_structured(
-        ClarificationResult,
-        SYSTEM_PROMPT.replace("{max_questions}", str(MAX_QUESTIONS_PER_ROUND))
-                     .replace("{max_rounds}", str(settings.max_clarification_rounds)),
-        _build_user_content(state, can_ask_more),
-        max_tokens=2000,
-        run_name="clarification_llm",
-    )
+    def decide() -> ClarificationResult:
+        return call_structured(
+            ClarificationResult,
+            SYSTEM_PROMPT.replace("{max_questions}", str(MAX_QUESTIONS_PER_ROUND))
+                         .replace("{max_rounds}", str(settings.max_clarification_rounds)),
+            _build_user_content(state, can_ask_more),
+            max_tokens=2000,
+            run_name="clarification_llm",
+        )
+
+    def plan_ahead():
+        try:
+            return plan_queries(state)
+        except Exception:          # a failed speculative plan costs nothing: the research node plans itself
+            return None
+
+    first_research_pass = not state.get("evidence")
+    with ContextThreadPoolExecutor(max_workers=2) as pool:
+        planned = pool.submit(plan_ahead) if first_research_pass else None
+        result = decide()
+        research_plan = planned.result() if planned else None
 
     # Merge facts learned from the user's answers.
     profile = dict(state.get("project_profile", {}))
@@ -147,6 +167,8 @@ def clarification_node(state: ArenaState) -> dict:
             assumptions = [f"Not specified by user: {item}" for item in state.get("missing_information", [])]
         update["assumptions"] = list(state.get("assumptions", [])) + [a for a in assumptions if a not in state.get("assumptions", [])]
         update["status"] = "researching"
+        if research_plan is not None:
+            update["research_plan"] = research_plan.model_dump(mode="json")
     return update
 
 

@@ -10,6 +10,8 @@
                 each other, AND a clarification loop is allowed (limits.loops_allowed);
    - revise   → brief_writer: a deterministic check failed, a high-severity criterion failed, or at least
                 MEDIUM_FAILURES_TO_REVISE medium ones did, AND brief_revision_count < max_brief_revisions;
+                fast path (auto_loops=false): medium failures never revise (they become open issues) and at most
+                one rewrite;
    - approve  → the brief goes to the user's review (await_brief_review). Failed checks that could
                 not be fixed are listed as open issues: in the brief's appendix and in unresolved_questions.
 
@@ -77,7 +79,8 @@ def _review(state: ArenaState, markdown: str, det: list[ValidationCheck], words:
 <word_limit>{int(budget * WORD_BUDGET_TOLERANCE)}</word_limit>
 <check_order>{", ".join(BRIEF_CHECK_IDS)}</check_order>
 {evidence_block(state.get("evidence", []), max_excerpt_chars=200)}"""
-    return call_structured(BriefReview, SYSTEM_PROMPT, user, max_tokens=7000, run_name="brief_validator_llm")
+    return call_structured(BriefReview, SYSTEM_PROMPT, user, max_tokens=7000, run_name="brief_validator_llm",
+                           model=get_settings().validator_model)
 
 
 def brief_validator_node(state: ArenaState) -> dict:
@@ -87,7 +90,9 @@ def brief_validator_node(state: ArenaState) -> dict:
     alternatives = brief_alternatives(state)
     markdown, words = render_brief_markdown(brief, alternatives, word_budget=settings.brief_word_budget)
     revisions_used = state.get("brief_revision_count", 0)
-    can_revise = revisions_used < settings.max_brief_revisions
+    # Fast path: one rewrite at most (measured: further rounds did not converge, 13/15 → 12/15 → 13/15 checks passed).
+    max_revisions = settings.max_brief_revisions if settings.auto_loops else min(settings.max_brief_revisions, 1)
+    can_revise = revisions_used < max_revisions
     _, _, can_clarify, blocked = loops_allowed(state)
 
     det = deterministic_checks(brief, evidence, words, settings.brief_word_budget)
@@ -118,7 +123,7 @@ def brief_validator_node(state: ArenaState) -> dict:
         questions = questions[:MAX_QUESTIONS]
         high = [c for c in checks if c.source == "llm" and not c.passed and c.severity == "high"]
         medium = [c for c in checks if c.source == "llm" and not c.passed and c.severity == "medium"]
-        if len(medium) >= MEDIUM_FAILURES_TO_REVISE:
+        if len(medium) >= MEDIUM_FAILURES_TO_REVISE and settings.auto_loops:
             high += medium                       # several medium weaknesses together are worth a rewrite
         if review.needs_user_input and questions and can_clarify:
             verdict, reason = "clarify", "Critical information is missing or contradictory: asking the user before continuing."

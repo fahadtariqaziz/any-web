@@ -27,6 +27,7 @@ function suggestedTab(status: DecisionStatus): WorkTab {
   const pending = status.run_state === "paused" ? status.pending?.type : null;
   if (pending === "brief_review") return "brief";
   if (pending === "plan_review") return "plan";
+  if (status.run_state === "running" && status.has_draft_brief) return "brief";
   if (status.run_state === "running" && ["implementing", "building"].includes(status.workflow_status ?? "")) return "build";
   if (status.has_build) return "preview";
   return "activity";
@@ -43,7 +44,8 @@ export function BuilderView({ threadId }: { threadId: string }) {
   const pending = status?.run_state === "paused" ? status.pending : null;
   const round = pending ? `${pending.type}:${pending.payload.round}` : "";
   const moved = status ? `${status.workflow_status}|${status.run_state}|${round}` : "";
-  const brief = useFetch(() => getBrief(threadId), `${threadId}|${moved}`, Boolean(status?.has_brief));
+  // The draft (validator still checking) is fetched too: readable ~15 s before the validated brief.
+  const brief = useFetch(() => getBrief(threadId), `${threadId}|${moved}|${status?.has_draft_brief}`, Boolean(status?.has_brief || status?.has_draft_brief));
   const plan = useFetch(() => getPlan(threadId), `${threadId}|${moved}`, Boolean(status?.has_plan));
   // While the coding agent works, every task attempt adds progress lines: re-fetch the task list with them.
   const implementation = useFetch(() => getImplementation(threadId), `${threadId}|${moved}|${status?.progress.length}`, Boolean(status?.has_build));

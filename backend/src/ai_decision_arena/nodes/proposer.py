@@ -43,6 +43,8 @@ Rules:
   cannot be defended, and keep what the critic accepted.
 - If the evidence is too thin for any defensible solution, return an empty list, explain, and set
   evidence_too_thin to true.
+- Be concise: one short sentence per list item, and use the low end of every list's range. The Critic and the Judge
+  read every word, and the brief is written from the winner.
 """ + BUILDER_RULES
 
 

@@ -53,7 +53,7 @@ export function WorkPane({
   const running = status.run_state === "running";
   const tabs: { key: WorkTab; label: string; icon: React.ReactNode; disabled: boolean }[] = [
     { key: "preview", label: "Preview", icon: <MonitorPlay className="size-4" aria-hidden />, disabled: false },
-    { key: "brief", label: "Brief", icon: <FileText className="size-4" aria-hidden />, disabled: !status.has_brief },
+    { key: "brief", label: "Brief", icon: <FileText className="size-4" aria-hidden />, disabled: !status.has_brief && !status.has_draft_brief },
     { key: "plan", label: "Plan", icon: <ListChecks className="size-4" aria-hidden />, disabled: !status.has_plan },
     { key: "build", label: "Build", icon: <Hammer className="size-4" aria-hidden />, disabled: !status.has_build },
     { key: "activity", label: "Activity", icon: <ActivityIcon className="size-4" aria-hidden />, disabled: false },

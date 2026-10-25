@@ -1,5 +1,6 @@
 """The whole graph end to end on an InMemorySaver, with Claude and Tavily faked: pause, resume, report."""
 
+import pytest
 from langgraph.types import Command
 
 from ai_decision_arena import schemas as S
@@ -18,7 +19,8 @@ def test_full_pipeline_pauses_for_clarification_then_completes(graph, fake_llm, 
     assert payload["type"] == "clarification" and payload["round"] == 1
     assert len(payload["questions"]) == 2
     assert result["status"] == "awaiting_clarification"
-    assert fake_llm.count("ResearchPlan") == 0
+    # The research plan made in parallel with the clarification call is discarded when questions are asked.
+    assert fake_llm.count("ResearchPlan") == 1 and not result.get("research_plan") and not result.get("evidence")
 
     # 2) answer → research → debate → verification → report → brief → paused for the user's review
     answers = {q: "about 2 years" for q in payload["questions"]}
@@ -86,11 +88,12 @@ def test_an_old_quick_session_runs_the_full_pipeline(graph, fake_llm, fake_searc
     assert result["status"] == "completed"
     assert len(result["proposals"]) >= 2
     assert fake_llm.count("Criticism") == len(result["proposals"])
-    assert fake_llm.count("ProposalVerification") == 1
+    assert fake_llm.count("ProposalVerification") == len(result["proposals"])   # checked with the critiques
     assert result["final_report"]["winner"]["proposal"]["proposal_id"].startswith("proposal_")
     assert all(v == "(skipped by user)" for v in result["clarification_answers"].values())
 
 
+@pytest.mark.usefixtures("auto_loops")
 def test_judge_can_send_the_graph_back_to_research_once(graph, fake_llm, fake_search):
     from tests.conftest import build_judgement
     calls = {"n": 0}
@@ -107,7 +110,8 @@ def test_judge_can_send_the_graph_back_to_research_once(graph, fake_llm, fake_se
     result = finish_session(graph, config)
     assert result["status"] == "completed"
     assert result["research_retry_count"] == 1 and result["debate_round"] == 2
-    assert fake_llm.count("ResearchPlan") == 2 and fake_llm.count("ProposerOutput") == 2
+    # 1 plan discarded (round 1 asked questions) + 1 planned ahead for the first pass + 1 focused follow-up
+    assert fake_llm.count("ResearchPlan") == 3 and fake_llm.count("ProposerOutput") == 2
     assert result["verdict"]["decision"] == "proceed"
 
 

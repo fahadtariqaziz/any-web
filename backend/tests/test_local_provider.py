@@ -16,7 +16,8 @@ def local(monkeypatch):
 
 
 def test_every_role_uses_the_local_model(local):
-    assert {local.anthropic_model, local.planner_model, local.chat_model, local.implementer_model} == {"qwen-test"}
+    assert {local.anthropic_model, local.planner_model, local.chat_model, local.implementer_model,
+            local.extractor_model, local.validator_model} == {"qwen-test"}
     assert local.fallback_model == "" and local.is_local
     assert local.llm_timeout_seconds == 360
 
@@ -46,3 +47,15 @@ def test_local_error_is_readable(local):
     import httpx
 
     assert "is the Ollama app" in llm.describe_llm_error(httpx.ConnectError("refused"))
+
+
+def test_node_effort_is_used_when_the_node_passes_none(monkeypatch):
+    s = Settings(llm_provider="anthropic", anthropic_api_key="k")
+    monkeypatch.setattr(llm, "get_settings", lambda: s)
+    seen = []
+    monkeypatch.setattr(llm, "_call_structured", lambda *a, effort=None, **k: seen.append(effort) or "ok")
+    for node, explicit, expected in [("intake", None, "low"), ("brief_writer", None, "medium"), ("intake", "high", "high"),
+                                     ("unknown_node", None, None)]:
+        monkeypatch.setattr(llm, "_current_node", lambda node=node: node)
+        llm.call_structured(Tokens, "s", "u", effort=explicit)
+        assert seen[-1] == expected

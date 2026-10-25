@@ -6,7 +6,8 @@ Python then:
 - makes the routing decision by combining sufficiency, contradictions, questions AND the loop limits.
 
 Writes (owner): scores, verdict, research_retry_count (+1 when sending the graph back to research or
-clarification), research_focus (when looping), status, current_node.
+clarification), research_focus (when looping), unresolved_questions (questions it could not ask), status,
+current_node.
 """
 
 import json
@@ -181,6 +182,11 @@ def judge_node(state: ArenaState) -> dict:
         material_contradictions=contradictions,
         clarification_questions=questions if decision == "request_clarification" else [],
     ).model_dump(mode="json")
+    if questions and decision != "request_clarification":
+        # Not asked (fast path or no clarification round left): the brief lists them, the user's review answers them.
+        unresolved = list(state.get("unresolved_questions", []))
+        unresolved += [f"Question for you: {q}" for q in questions if f"Question for you: {q}" not in unresolved]
+        update["unresolved_questions"] = unresolved
     update["status"] = status_text
     report("judge", f"decision: {decision}; winner: {winner}")
     return update

@@ -113,6 +113,7 @@ def test_wrapped_node_appends_one_usage_entry_also_when_it_fails():
     assert "usage_log" not in pause({})                      # no calls → no entry
 
 
+@pytest.mark.usefixtures("auto_loops")
 def test_llm_budget_stops_automatic_loops(monkeypatch):
     state = {"usage_log": [{"cost_usd": 3.0}, {"cost_usd": 2.5}], "debate_round": 1}
     can_debate, can_research, can_clarify, blocked = loops_allowed(state)

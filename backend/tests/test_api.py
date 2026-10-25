@@ -291,3 +291,18 @@ def test_reopen_respects_the_change_limit_and_needs_a_finished_build(client, mon
     r = client.post(f"/api/decisions/{paused}/resume", json={"type": "reopen", "action": "change", "request": "More."})
     assert r.status_code == 409 and r.json()["error"]["code"] == "not_finished"
     assert client.get(f"/api/decisions/{paused}/code").json()["error"]["code"] == "no_implementation"   # nothing built
+
+
+def test_draft_brief_is_readable_while_the_validator_checks_it(client):
+    thread_id = client.post("/api/decisions", json={"question": "A habit tracker app for students"}).json()["thread_id"]
+    status = wait_until_not_running(client, thread_id)
+    questions = status["pending"]["payload"]["questions"]
+    client.post(f"/api/decisions/{thread_id}/resume", json={"type": "clarification", "answers": {questions[0]: "2 years"}})
+    wait_until_not_running(client, thread_id)
+    # Rewind to "the writer finished, the validator is running": a fresh draft without a validation of it.
+    graph, config = app.state.graph, {"configurable": {"thread_id": thread_id}}
+    graph.update_state(config, {"status": "validating_brief", "brief_validation": {}})
+    status = client.get(f"/api/decisions/{thread_id}").json()
+    assert status["has_brief"] is False and status["has_draft_brief"] is True
+    draft = client.get(f"/api/decisions/{thread_id}/brief").json()
+    assert draft["is_draft"] is True and draft["validation"] is None and draft["markdown"].startswith("# ")

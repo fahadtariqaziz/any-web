@@ -2,7 +2,8 @@
 
 // The problem statement + solution brief (M4), read-only once the session moved past the review (the review itself is
 // BriefReviewPanel). The markdown is rendered by the backend (labels, reference numbers, appendix); this view adds
-// what the validator found: the verdict, the checks, the open issues.
+// what the validator found: the verdict, the checks, the open issues. A draft the validator is still checking
+// (is_draft) is shown early with a "being checked" notice; its checks arrive with the validated brief.
 
 import { ClipboardCheck, FileText, Printer } from "lucide-react";
 import { useState } from "react";
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Markdown } from "@/components/ui/Markdown";
+import { Spinner } from "@/components/ui/Spinner";
 import type { BriefResponse, ValidationCheck } from "@/lib/api/types";
 import { formatDateTime, LEVEL_TONE } from "@/lib/format";
 
@@ -36,8 +38,8 @@ const CHECK_LABEL: Record<string, string> = {
 export function BriefView({ data }: { data: BriefResponse }) {
   const [showChecks, setShowChecks] = useState(false);
   const { brief, validation } = data;
-  const passed = validation.checks.filter((c) => c.passed).length;
-  const failed = validation.checks.filter((c) => !c.passed);
+  const passed = validation ? validation.checks.filter((c) => c.passed).length : 0;
+  const failed = validation ? validation.checks.filter((c) => !c.passed) : [];
 
   return (
     <Card className="animate-fade-up">
@@ -49,7 +51,10 @@ export function BriefView({ data }: { data: BriefResponse }) {
             <span className="capitalize">{brief.project_overview.proposed_name || brief.project_name}</span>
           </span>
         }
-        description={`Draft ${brief.revision + 1} · ${formatDateTime(brief.generated_at)} · ${validation.word_count} words before the appendix`}
+        description={
+          `Draft ${brief.revision + 1} · ${formatDateTime(brief.generated_at)}` +
+          (validation ? ` · ${validation.word_count} words before the appendix` : "")
+        }
         aside={
           <>
             {data.approved_at && (
@@ -57,9 +62,15 @@ export function BriefView({ data }: { data: BriefResponse }) {
                 Approved {formatDateTime(data.approved_at)}
               </Badge>
             )}
-            <Badge tone={failed.length ? "amber" : "emerald"} size="md">
-              {passed} of {validation.checks.length} checks passed
-            </Badge>
+            {validation ? (
+              <Badge tone={failed.length ? "amber" : "emerald"} size="md">
+                {passed} of {validation.checks.length} checks passed
+              </Badge>
+            ) : (
+              <Badge tone="neutral" size="md">
+                <Spinner className="size-3" /> Being checked
+              </Badge>
+            )}
             <Button variant="secondary" size="sm" className="no-print" icon={<Printer className="size-4" aria-hidden />} onClick={() => window.print()}>
               Print / save PDF
             </Button>
@@ -67,21 +78,28 @@ export function BriefView({ data }: { data: BriefResponse }) {
         }
       />
       <CardBody className="space-y-4">
-        {validation.open_issues.length > 0 && (
+        {!validation && (
+          <Callout tone="info" title="Draft: being checked">
+            <p>You can read it now. The validator is checking it and may still fix a few points before you review it.</p>
+          </Callout>
+        )}
+        {validation && validation.open_issues.length > 0 && (
           <Callout tone="warning" title="Validated with open issues">
             <p>The validator could not resolve everything within its revision limit. The open issues are listed at the end of the brief.</p>
           </Callout>
         )}
-        <div className="no-print">
-          <button
-            type="button"
-            onClick={() => setShowChecks((v) => !v)}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline"
-          >
-            <ClipboardCheck className="size-4" aria-hidden /> {showChecks ? "Hide" : "Show"} the validation checks
-          </button>
-          {showChecks && <ChecksList checks={validation.checks} summary={validation.llm_summary} />}
-        </div>
+        {validation && (
+          <div className="no-print">
+            <button
+              type="button"
+              onClick={() => setShowChecks((v) => !v)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline"
+            >
+              <ClipboardCheck className="size-4" aria-hidden /> {showChecks ? "Hide" : "Show"} the validation checks
+            </button>
+            {showChecks && <ChecksList checks={validation.checks} summary={validation.llm_summary} />}
+          </div>
+        )}
         <Markdown>{data.markdown}</Markdown>
       </CardBody>
     </Card>

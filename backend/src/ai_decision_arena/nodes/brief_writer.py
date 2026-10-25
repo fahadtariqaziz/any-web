@@ -3,19 +3,20 @@
 Python gathers the facts (clarified requirements, the winning proposal and the alternatives, the Critic's points,
 the Judge's verdict, the verified claims, all the evidence); the LLM writes sections 4.1-4.9 with every statement
 labelled (verified / research_backed / user_provided / recommendation / assumption) and cited by evidence id, in
-THREE structured calls (the whole schema in one call exceeds the API's strict-output size limit): sections 1-4
-first, then 5-6 and 7-9 in parallel, both given sections 1-4 so the brief stays consistent. Then Python:
+THREE structured calls in parallel (the whole schema in one call exceeds the API's strict-output size limit):
+sections 1-4, 5-6 and 7-9, each from the same facts; the MVP is the winning proposal's core_features. Then Python:
 - fixes labels it knows better (brief.normalize: "verified" needs a verified source; only user-required technology
   is mandatory),
 - assembles section 4.10, the references, from the cited ids (titles and URLs from the evidence records),
 - renders the markdown (main part ~1 page, overflow to the appendix).
+The final report's narrative (final_report.add_narrative) is written in the same thread pool when it is still empty.
 
 On a revision the writer also gets its previous draft and what to change: the validator's failed checks with their
 fix instructions (verdict "revise"), or the user's change request when the review routed it to "wording". The
 draft number (`revision`) only grows within a session; a draft written after a research / proposal loop starts from
 the new facts (no previous draft), but keeps counting.
 
-Writes (owner): brief, brief_markdown, status, current_node.
+Writes (owner): brief, brief_markdown, status, current_node; final_report (only its narrative, when still empty).
 """
 
 import json
@@ -25,6 +26,7 @@ from langsmith.utils import ContextThreadPoolExecutor
 from ai_decision_arena.brief import assemble_references, normalize, render_brief_markdown
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.llm import call_structured
+from ai_decision_arena.nodes.final_report import add_narrative, needs_narrative
 from ai_decision_arena.progress import report
 from ai_decision_arena.prompting import BUILDER_RULES, criticisms_block, evidence_block, user_case_block
 from ai_decision_arena.schemas import BriefContent, BriefPartOne, BriefPartThree, BriefPartTwo, ProblemBrief
@@ -87,12 +89,14 @@ repetition between sections.
 """ + BUILDER_RULES
 
 PART_NOTE = {
-    BriefPartOne: "\nThis call writes sections 1-4 ONLY (the fields of the output schema); sections 5-9 are written "
-                  "separately from the same facts.",
-    BriefPartTwo: "\nThis call writes sections 5-6 ONLY. <sections_1_to_4> were already written: stay consistent with "
-                  "them (same MVP, same audience) and do not repeat them.",
-    BriefPartThree: "\nThis call writes sections 7-9 ONLY. <sections_1_to_4> were already written: stay consistent with "
-                    "them (in_scope = the MVP features) and do not repeat them.",
+    BriefPartOne: "\nThis call writes sections 1-4 ONLY (the fields of the output schema); sections 5-9 are written at the "
+                  "same time from the same facts. The MVP features follow the winning proposal's core_features.",
+    BriefPartTwo: "\nThis call writes sections 5-6 ONLY; sections 1-4 and 7-9 are written at the same time from the same "
+                  "facts. Stay consistent with them (the MVP = the winning proposal's core_features, the user's audience) "
+                  "and do not repeat what sections 1-4 cover (overview, problem, research findings, proposed solution).",
+    BriefPartThree: "\nThis call writes sections 7-9 ONLY; sections 1-6 are written at the same time from the same facts. "
+                    "in_scope = the MVP features (the winning proposal's core_features); do not repeat what sections 1-4 "
+                    "cover.",
 }
 PART_MAX_TOKENS = {BriefPartOne: 5000, BriefPartTwo: 4000, BriefPartThree: 4000}
 
@@ -148,7 +152,7 @@ def _issues(state: ArenaState, mode: str) -> list[dict]:
             for c in state["brief_validation"]["checks"] if not c["passed"]]
 
 
-def _user_content(state: ArenaState, mode: str | None, part: type, first: BriefPartOne | None = None) -> str:
+def _user_content(state: ArenaState, mode: str | None, part: type) -> str:
     winner = _winner(state)
     verdict = state.get("verdict") or {}
     winner_id = winner["proposal_id"] if winner else None
@@ -166,8 +170,6 @@ def _user_content(state: ArenaState, mode: str | None, part: type, first: BriefP
 <evidence_gaps>{json.dumps(state.get("evidence_gaps", []), indent=1)}</evidence_gaps>
 <unresolved_questions>{json.dumps(state.get("unresolved_questions", []), indent=1)}</unresolved_questions>
 {evidence_block(state.get("evidence", []), max_excerpt_chars=250)}"""
-    if first is not None:
-        content += f"\n<sections_1_to_4>{json.dumps(first.model_dump(mode='json'), indent=1)}</sections_1_to_4>"
     if mode:
         previous = ProblemBrief.model_validate(state["brief"]).model_dump(mode="json", include=set(part.model_fields))
         content += f"""
@@ -196,14 +198,18 @@ def brief_writer_node(state: ArenaState) -> dict:
         "{word_target}", str(int(settings.brief_word_budget * 0.8)))
     system += {"validator": REVISION_NOTE, "user": USER_REVISION_NOTE}.get(mode or "", "")
 
-    def write(part: type, first: BriefPartOne | None = None):
-        return call_structured(part, system + PART_NOTE[part], _user_content(state, mode, part, first),
+    def write(part: type):
+        return call_structured(part, system + PART_NOTE[part], _user_content(state, mode, part),
                                max_tokens=PART_MAX_TOKENS[part], run_name=f"brief_writer_{part.__name__}")
 
-    first = write(BriefPartOne)
-    report("brief_writer", "sections 1-4 written; writing requirements, architecture, scope, success criteria and risks")
-    with ContextThreadPoolExecutor(max_workers=2) as pool:
-        second, third = pool.map(lambda part: write(part, first), (BriefPartTwo, BriefPartThree))
+    # The three parts run in parallel (one call's time instead of two in a row); the shared facts, the winning
+    # proposal's core_features and the validator keep them consistent.
+    # The report's narrative (left empty by final_report) is written in the same pool: it costs no extra wait.
+    narrative_due = needs_narrative(state.get("final_report"))
+    with ContextThreadPoolExecutor(max_workers=4) as pool:
+        report_future = pool.submit(add_narrative, state, state["final_report"]) if narrative_due else None
+        first, second, third = pool.map(write, (BriefPartOne, BriefPartTwo, BriefPartThree))
+        final_report = report_future.result() if report_future else None
     content = BriefContent(**first.model_dump(), **second.model_dump(), **third.model_dump())
 
     evidence = state.get("evidence", [])
@@ -213,7 +219,8 @@ def brief_writer_node(state: ArenaState) -> dict:
                          references=assemble_references(content, evidence))
     markdown, words = render_brief_markdown(brief, brief_alternatives(state), word_budget=settings.brief_word_budget)
     report("brief_writer", f"brief drafted: {words} words in sections 1-9, {len(brief.references)} reference(s)")
-    return {
+    update = {"final_report": final_report} if final_report else {}
+    return update | {
         "brief": brief.model_dump(mode="json"),
         "brief_markdown": markdown,
         "status": "validating_brief",

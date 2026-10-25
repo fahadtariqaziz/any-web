@@ -3,7 +3,7 @@
 Three domains (apps / papers / tech) share one planner call, run their searches in parallel, and each domain
 gets its own extractor call (also in parallel).
 
-Writes (owner): research_queries, evidence, domain_summaries, research_summary, evidence_gaps,
+Writes (owner): research_plan (consumed: set to None), research_queries, evidence, domain_summaries, research_summary, evidence_gaps,
 conflicting_claims, rejected_sources, status, current_node.
 
 On a follow-up pass (Judge asked for more research or new clarification), only the open questions are searched
@@ -16,7 +16,7 @@ from ai_decision_arena.research.extractor import extract_evidence
 from ai_decision_arena.research.planner import plan_queries
 from ai_decision_arena.research.search import run_searches
 from ai_decision_arena.research.sources import normalize_url
-from ai_decision_arena.schemas import DOMAIN_LABELS, DOMAINS, SearchHit
+from ai_decision_arena.schemas import DOMAIN_LABELS, DOMAINS, ResearchPlan, SearchHit
 from ai_decision_arena.state import ArenaState
 
 
@@ -35,9 +35,14 @@ def research_node(state: ArenaState) -> dict:
     existing = list(state.get("evidence", []))
     focus = _focus_for_follow_up(state)
 
-    # 1) Claude plans the queries for all three domains.
-    report("research", "planning searches for the 3 domains" + (" (follow-up, focused on the open questions)" if focus else ""))
-    plan = plan_queries(state, focus=focus)
+    # 1) Claude plans the queries for all three domains (on the first pass usually already done by the clarification
+    #    node, in parallel with its last call).
+    planned = state.get("research_plan")
+    if planned and focus is None:
+        plan = ResearchPlan.model_validate(planned)
+    else:
+        report("research", "planning searches for the 3 domains" + (" (follow-up, focused on the open questions)" if focus else ""))
+        plan = plan_queries(state, focus=focus)
     report("research", f"planned {len(plan.queries)} searches; running them in parallel")
     queries = [f"[{q.domain}] {q.query}" for q in plan.queries]
 
@@ -74,6 +79,7 @@ def research_node(state: ArenaState) -> dict:
         "domain_summaries": summaries,
         "research_summary": combined or "No evidence was retrieved.",
         "research_focus": [],      # consumed
+        "research_plan": None,     # consumed (planned ahead by the clarification node)
         "status": "debating",
         "current_node": "research",
     }

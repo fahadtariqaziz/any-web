@@ -1,7 +1,12 @@
 """limits.loops_allowed: Python, not the LLM, decides whether a loop may start."""
 
+import pytest
+
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.limits import loops_allowed, time_budget_left
+
+
+pytestmark = pytest.mark.usefixtures("auto_loops")     # these tests are about the thorough mode's caps
 
 
 def test_fresh_session_allows_every_loop():
@@ -46,3 +51,10 @@ def test_time_budget():
     assert time_budget_left({"active_seconds": s.session_time_budget_seconds + 1}) is False
     _, _, _, blocked = loops_allowed({"active_seconds": s.session_time_budget_seconds + 1})
     assert any("time budget" in b for b in blocked)
+
+
+def test_fast_path_blocks_every_automatic_loop(monkeypatch):
+    monkeypatch.setattr(get_settings(), "auto_loops", False)
+    can_debate, can_research, can_clarify, blocked = loops_allowed({})
+    assert (can_debate, can_research, can_clarify) == (False, False, False)
+    assert any("fast path" in b for b in blocked)

@@ -47,6 +47,26 @@ RUBRIC_DESCRIPTIONS = {
     "completeness": "Covers users, MVP features, user journey, architecture, technologies, security / privacy and future scope.",
 }
 
+Effort = Literal["low", "medium", "high", "xhigh", "max"]
+
+# Reasoning effort per graph node (call_structured uses it when the node passes none). Without it every Sonnet call
+# ran at Sonnet 5.5's default `high`: measured ~2,800 output tokens (mostly thinking) and ~20 s per call. Time to the
+# brief follows output tokens, so every step before the brief runs at `low` (2026-10-26, speed step 4; the debate and
+# the validator were `medium` in steps 1-3); only the brief itself keeps `medium`. AUTO_LOOPS / evals show quality.
+DEFAULT_NODE_EFFORT: dict[str, Effort] = {
+    "intake": "low",
+    "clarification": "low",
+    "research": "low",
+    "proposer": "low",
+    "critic": "low",                     # also the claim checks, which run in the critic's thread pool
+    "judge": "low",
+    "evidence_checker": "low",
+    "final_report": "low",
+    "brief_writer": "medium",
+    "brief_validator": "low",
+    "brief_review_router": "low",
+}
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
@@ -111,8 +131,21 @@ class Settings(BaseSettings):
     fallback_model: str = Field(default="claude-haiku-5-5", description="Backup model: a graph agent's call is repeated "
                                 "once on it when the main model fails. Empty = no fallback.")
     chat_model: str = Field(default="claude-sonnet-5-5", description="Model of the builder chat's Ask mode.")
+    node_effort: dict[str, Effort] = Field(
+        default_factory=lambda: dict(DEFAULT_NODE_EFFORT), description="Reasoning effort per graph node when the node "
+        "passes none (JSON in .env: NODE_EFFORT={\"judge\":\"high\",...}). A node not listed uses the model's default.")
+    extractor_model: str = Field(default="claude-haiku-5-5", description="Model of the evidence extractor (research): "
+                                 "picking and quoting snippets needs speed more than depth; falls back to anthropic_model.")
+    validator_model: str = Field(default="claude-haiku-5-5", description="Model of the brief validator's review (after "
+                                 "the deterministic checks); falls back to anthropic_model.")
 
     # --- loop limits (see handoff.md for what each counter means) ---
+    auto_loops: bool = Field(default=False, description="False = fast path: the judge, the evidence checker and the "
+                             "brief validator never send the graph back by themselves (no follow-up research, no "
+                             "second debate round, no clarification from them); what they would have looped for goes "
+                             "into the brief as open questions, and the user's brief review is the loop. The validator "
+                             "rewrites at most once, and only for a failed deterministic or high-severity check. "
+                             "True = the original thorough loops (each one measured at +50-90 s).")
     max_clarification_rounds: int = Field(default=3, ge=0, le=5)
     max_research_retries: int = Field(default=2, ge=0, le=5)
     max_debate_rounds: int = Field(default=2, ge=1, le=5)
@@ -179,6 +212,7 @@ class Settings(BaseSettings):
                 raise ValueError("ANTHROPIC_API_KEY is required unless LLM_PROVIDER=local")
             return self
         self.anthropic_model = self.planner_model = self.chat_model = self.local_model
+        self.extractor_model = self.validator_model = self.local_model
         self.implementer_model = self.local_coder_model or self.local_model
         self.fallback_model = ""
         m = self.local_time_multiplier

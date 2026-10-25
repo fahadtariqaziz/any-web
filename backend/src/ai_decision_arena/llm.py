@@ -170,11 +170,13 @@ def call_structured(
 
     Tries the main model, then once the fallback model (see the module docstring). `model` replaces the main model
     (e.g. the planner's Opus; its fallback is then the session's default model); `effort` / `timeout` apply to the
-    main model only.
+    main model only. Without `effort`, the graph node's entry in settings.node_effort is used (if any).
     Raises LLMUnavailableError if both fail.
     """
     settings = get_settings()
     name = run_name or schema.__name__
+    if effort is None:
+        effort = settings.node_effort.get(_current_node())
     if model:
         models = [model] + ([settings.anthropic_model] if settings.anthropic_model != model else [settings.fallback_model])
     else:

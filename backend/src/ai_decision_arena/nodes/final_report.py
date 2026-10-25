@@ -2,8 +2,9 @@
 
 Final Report: Python assembles everything that is already known (the winning proposal and the alternatives with
 their scores, cited evidence with verification status, Critic objections, unsupported claims, unresolved questions,
-methodology); ONE LLM call writes the human-readable parts (overview, why this solution, uncertainties, next steps)
-from those facts only. In M4 the problem statement + solution brief becomes the document the user reviews; the data
+methodology), no LLM call. The human-readable parts (overview, why this solution, uncertainties, next steps) are
+written from those facts only by ONE LLM call (add_narrative) that the brief writer runs in parallel with the brief.
+In M4 the problem statement + solution brief becomes the document the user reviews; the data
 assembled here feeds it.
 
 Completion: sets the final status (completed / completed_with_uncertainty / failed), records metrics, saves
@@ -104,8 +105,38 @@ def _compact(result: ProposalResult) -> dict:
     }
 
 
+def needs_narrative(final_report: dict | None) -> bool:
+    return bool(final_report) and not final_report.get("overview")
+
+
+def add_narrative(state: ArenaState, final_report: dict) -> dict:
+    """ONE LLM call writes the report's human-readable parts from the assembled facts; returns the completed report.
+    Called by the brief writer in parallel with the brief parts (the brief does not use the narrative), so the
+    report costs no wait of its own."""
+    final = FinalReport.model_validate(final_report)
+    verdict = state.get("verdict") or {}
+    narrative = call_structured(
+        ReportNarrative,
+        SYSTEM_PROMPT,
+        f"""{user_case_block(state)}
+<winner>{json.dumps(_compact(final.winner), indent=1) if final.winner else "null"}</winner>
+<alternatives>{json.dumps([_compact(a) for a in final.alternatives], indent=1)}</alternatives>
+<verdict_reason>{verdict.get("reason", "")}</verdict_reason>
+<unsupported_claims>{json.dumps(final.unsupported_claims, indent=1)}</unsupported_claims>
+<unresolved_questions>{json.dumps(final.unresolved_questions, indent=1)}</unresolved_questions>""",
+        max_tokens=3500,
+        run_name="final_report_llm",
+        effort="low",
+    )
+    final.overview = narrative.overview
+    final.why_this_solution = narrative.why_this_solution if final.winner else []
+    final.uncertainties = narrative.key_uncertainties
+    final.next_steps = narrative.next_steps
+    return final.model_dump(mode="json")
+
+
 def final_report_node(state: ArenaState) -> dict:
-    report("final_report", "assembling the winning proposal and the alternatives, writing the overview")
+    report("final_report", "assembling the winning proposal and the alternatives")
     verdict = state.get("verdict") or {}
     winner_id = verdict.get("winning_proposal_id")
     proposals = state.get("proposals", [])
@@ -121,19 +152,6 @@ def final_report_node(state: ArenaState) -> dict:
     for c in verdict.get("material_contradictions", []):
         if f"Contradiction: {c}" not in unresolved:
             unresolved.append(f"Contradiction: {c}")
-
-    narrative = call_structured(
-        ReportNarrative,
-        SYSTEM_PROMPT,
-        f"""{user_case_block(state)}
-<winner>{json.dumps(_compact(winner), indent=1) if winner else "null"}</winner>
-<alternatives>{json.dumps([_compact(a) for a in alternatives], indent=1)}</alternatives>
-<verdict_reason>{verdict.get("reason", "")}</verdict_reason>
-<unsupported_claims>{json.dumps(unsupported, indent=1)}</unsupported_claims>
-<unresolved_questions>{json.dumps(unresolved, indent=1)}</unresolved_questions>""",
-        max_tokens=3500,
-        run_name="final_report_llm",
-    )
 
     statuses = verdict.get("domain_status", {})
     is_conditional = bool(
@@ -152,16 +170,16 @@ def final_report_node(state: ArenaState) -> dict:
         clarifications=state.get("clarification_answers", {}),
         assumptions=state.get("assumptions", []),
         research_methodology=_methodology(state),
-        overview=narrative.overview,
+        overview="",                    # the narrative is written later, in parallel with the brief (add_narrative)
         winner=winner,
         alternatives=alternatives,
         no_winner_reason="" if winner else (state.get("proposer_notes") or verdict.get("reason", "No defensible proposal.")),
-        why_this_solution=narrative.why_this_solution if winner else [],
+        why_this_solution=[],
         is_conditional=is_conditional,
-        uncertainties=narrative.key_uncertainties,
+        uncertainties=[],
         unsupported_claims=unsupported,
         unresolved_questions=unresolved,
-        next_steps=narrative.next_steps,
+        next_steps=[],
         risk_flags=state.get("risk_flags", []),
         withdrawn_risk_flags=[f"{w['flag']} ({w['reason']})" for w in state.get("withdrawn_risk_flags", [])],
         disclaimer=DISCLAIMER,

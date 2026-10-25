@@ -313,6 +313,7 @@ def get_decision(thread_id: str, request: Request):
         error=error,
         has_report=bool(values.get("final_report")),
         has_brief=_validated_brief(values) is not None,
+        has_draft_brief=_draft_brief(values) is not None,
         has_plan=bool(values.get("implementation_plan")),
         has_build=bool(values.get("workspace_dir")),
         reopen_actions=reopen_actions(values) if run_state == "finished" else [],
@@ -416,14 +417,27 @@ def _validated_brief(values: dict) -> tuple[dict, dict] | None:
     return brief, validation
 
 
+def _draft_brief(values: dict) -> dict | None:
+    """The draft the validator is checking right now (status validating_brief), when no validated version of it exists."""
+    if values.get("status") != "validating_brief" or not values.get("brief") or _validated_brief(values):
+        return None
+    return values["brief"]
+
+
 @app.get("/api/decisions/{thread_id}/brief", response_model=BriefResponse, tags=["decisions"])
 def get_brief(thread_id: str, request: Request):
     """The problem statement + solution brief, once the validator approved the current draft (also while the graph
-    is paused or still running later steps). 409 "no_brief" before that: an unvalidated draft is never shown."""
+    is paused or still running later steps). While the validator checks a draft, that draft with is_draft=true and
+    no validation (speed: readable ~15 s earlier, clearly marked). 409 "no_brief" otherwise."""
     values = _snapshot(request, thread_id).values or {}
     found = _validated_brief(values)
     if not found:
-        raise ApiError(409, "no_brief", f"No validated brief yet (status {values.get('status')}).")
+        draft = _draft_brief(values)
+        if draft is None:
+            raise ApiError(409, "no_brief", f"No validated brief yet (status {values.get('status')}).")
+        return BriefResponse(thread_id=thread_id, workflow_status=values.get("status"), brief=draft,
+                             markdown=values.get("brief_markdown", ""), validation=None, is_draft=True,
+                             review_round=values.get("brief_review_round_count", 0))
     brief, validation = found
     return BriefResponse(thread_id=thread_id, workflow_status=values.get("status"), brief=brief,
                          markdown=values.get("brief_markdown", ""), validation=validation,

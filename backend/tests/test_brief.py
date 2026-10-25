@@ -14,6 +14,7 @@ from ai_decision_arena.brief import (
     normalize,
     render_brief_markdown,
 )
+from ai_decision_arena.config import get_settings
 from ai_decision_arena.nodes.brief_validator import brief_validator_node
 from ai_decision_arena.nodes.brief_writer import brief_writer_node
 from tests.conftest import build_brief, build_brief_review, build_clarification, finish_session, tag
@@ -195,6 +196,16 @@ def test_writer_builds_brief_with_python_references(debated, fake_llm):
     assert brief.revision == debated["brief"]["revision"] + 1 and out["status"] == "validating_brief"
     assert "## 10. References" in out["brief_markdown"]
     assert [fake_llm.count(p) for p in ("BriefPartOne", "BriefPartTwo", "BriefPartThree")] == [1, 1, 1]
+    # The parts run in parallel from the same facts: no part waits for sections 1-4.
+    parts = [k for k in fake_llm.kwargs if k["schema"] in (S.BriefPartOne, S.BriefPartTwo, S.BriefPartThree)][-3:]
+    assert all("<sections_1_to_4>" not in k["user"] and "core_features" in k["user"] for k in parts)
+
+
+def test_validator_review_runs_on_the_validator_model(debated, fake_llm):
+    state = debated | brief_writer_node(debated) | {"brief_revision_count": 0}
+    fake_llm.kwargs.clear()
+    brief_validator_node(state)
+    assert [k["model"] for k in fake_llm.kwargs if k["schema"] is S.BriefReview] == [get_settings().validator_model]
 
 
 def test_validator_revises_without_llm_when_deterministic_checks_fail(debated, fake_llm):
@@ -246,8 +257,10 @@ def test_high_severity_llm_failure_revises(debated, fake_llm):
     assert [c["check_id"] for c in failed] == ["solution_not_a_copy"] and failed[0]["source"] == "llm"
 
 
-@pytest.mark.parametrize("mediums, verdict", [(1, "approve"), (2, "revise")])
-def test_several_medium_failures_revise(debated, fake_llm, mediums, verdict):
+@pytest.mark.parametrize("mediums, thorough, verdict", [(1, True, "approve"), (2, True, "revise"), (2, False, "approve")])
+def test_several_medium_failures_revise(debated, fake_llm, monkeypatch, mediums, thorough, verdict):
+    # Fast path (auto_loops=false): medium weaknesses never cost a rewrite; they become open issues.
+    monkeypatch.setattr(get_settings(), "auto_loops", thorough)
     def weak(system, user):
         r = build_brief_review(system, user)
         for i in range(mediums):
@@ -259,7 +272,7 @@ def test_several_medium_failures_revise(debated, fake_llm, mediums, verdict):
     out = brief_validator_node(state)
     assert out["brief_validation"]["verdict"] == verdict
     if verdict == "approve":
-        assert len(out["brief_validation"]["open_issues"]) == 1
+        assert len(out["brief_validation"]["open_issues"]) == mediums
 
 
 def _asks(system, user):
@@ -267,6 +280,7 @@ def _asks(system, user):
         "needs_user_input": True, "clarification_questions": ["Must it work offline?"]})
 
 
+@pytest.mark.usefixtures("auto_loops")
 def test_clarify_route_when_a_loop_is_allowed(debated, fake_llm):
     fake_llm.overrides[S.BriefReview] = _asks
     state = debated | brief_writer_node(debated) | {"debate_round": 1, "research_retry_count": 0, "clarification_round_count": 1}
@@ -293,6 +307,7 @@ def test_pipeline_ends_with_an_approved_brief(debated):
     assert all(f"## {t}" in debated["brief_markdown"] for t in SECTION_TITLES.values())
 
 
+@pytest.mark.usefixtures("auto_loops")
 def test_pipeline_validator_clarify_loops_back_to_the_user(graph, fake_llm, fake_search):
     calls = {"n": 0}
 
@@ -313,6 +328,6 @@ def test_pipeline_validator_clarify_loops_back_to_the_user(graph, fake_llm, fake
     result = finish_session(graph, config)
     assert result["status"] == "completed"
     assert fake_llm.count("BriefReview") == 2 and fake_llm.count("BriefPartOne") == 2
-    assert fake_llm.count("ResearchPlan") == 2 and result["research_retry_count"] == 1
+    assert fake_llm.count("ResearchPlan") == 3 and result["research_retry_count"] == 1   # 1 planned ahead, discarded
     assert result["brief_validation"]["verdict"] == "approve"
     assert "Must it work offline?" in tag("brief_questions", prompts[-1])     # the clarifier saw the question

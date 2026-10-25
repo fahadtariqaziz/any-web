@@ -93,4 +93,5 @@ def test_extract_evidence_assigns_ids_copies_urls_and_demotes_fake_quotes(fake_l
     assert "Checker" in by_url["https://e.com/2"]["reliability_notes"]
     assert by_url["https://e.com/1"]["feedback_context"]["feedback_type"] == "complaint"
     assert out["summaries"]["apps"].endswith("Opportunity: Nobody does offline well.")
+    assert {k["model"] for k in fake_llm.kwargs} == {get_settings().extractor_model}   # the fast extractor model
     assert out["rejected"] == []

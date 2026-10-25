@@ -133,6 +133,7 @@ def _extract_domain(state: ArenaState, domain: str, hits: list[SearchHit]) -> tu
         user_content,
         max_tokens=8000,
         run_name=f"evidence_extractor_{domain}_llm",
+        model=settings.extractor_model,
     )
     report("research", f"{domain} domain: kept {len(result.evidence)} of {len(hits)} sources, rejected {len(result.rejected)}")
     return hits, result
