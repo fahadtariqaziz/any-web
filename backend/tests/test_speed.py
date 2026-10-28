@@ -1,6 +1,7 @@
 """Speed work (2026-10-26): calls that used to wait for each other now run in parallel, the nodes stay the same.
 
-- the claim checks run with the critiques (critic node), the evidence checker only picks the winner's check;
+- the claim checks run with the critiques (critic node), the judge only consolidates the winner's check (the
+  separate evidence checker node was folded into the judge on 2026-10-29);
 - the report narrative is written by the brief writer, in parallel with the brief parts;
 - the research plan is made in parallel with the last clarification call and reused by the research node.
 """
@@ -9,8 +10,8 @@ import pytest
 
 from ai_decision_arena.nodes.brief_writer import brief_writer_node
 from ai_decision_arena.nodes.clarification import clarification_node
-from ai_decision_arena.nodes.evidence_checker import evidence_checker_node
 from ai_decision_arena.nodes.final_report import final_report_node
+from ai_decision_arena.nodes.judge import judge_node
 from ai_decision_arena.nodes.research import research_node
 from tests.conftest import finish_session
 
@@ -24,15 +25,15 @@ def finished(graph, fake_llm, fake_search) -> dict:
     return state
 
 
-def test_claims_are_checked_with_the_critiques_and_the_checker_makes_no_call(finished, fake_llm):
+def test_claims_are_checked_with_the_critiques_and_the_judge_makes_no_extra_call(finished, fake_llm):
     assert set(finished["proposal_checks"]) == {p["proposal_id"] for p in finished["proposals"]}
-    out = evidence_checker_node(finished)
-    assert fake_llm.count("ProposalVerification") == 0
+    out = judge_node(finished)
+    assert fake_llm.count("ProposalJudgement") == 1 and fake_llm.count("ProposalVerification") == 0
     assert out["verification_results"] and out["checker_verdict"]["claims_checked"] == len(out["verification_results"])
 
 
-def test_checker_still_checks_when_no_stored_check_exists(finished, fake_llm):
-    evidence_checker_node(finished | {"proposal_checks": {}})
+def test_judge_still_checks_when_no_stored_check_exists(finished, fake_llm):
+    judge_node(finished | {"proposal_checks": {}})
     assert fake_llm.count("ProposalVerification") == 1
 
 

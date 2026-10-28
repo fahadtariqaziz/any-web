@@ -85,7 +85,7 @@ export function ActivityFeed({
               const last = g.lines[g.lines.length - 1].at;
               const seconds = active ? secondsSince(first, now) : (new Date(last).getTime() - new Date(first).getTime()) / 1000;
               return (
-                <li key={`${g.node}-${gi}`} className={`rounded-lg border px-3 py-2 ${active ? "border-teal-200 bg-brand-faint/60" : "border-slate-100 bg-slate-50/60"}`}>
+                <li key={`${g.node}-${gi}`} className={`rounded-lg border px-3 py-2 ${active ? "border-indigo-200 bg-brand-faint/60" : "border-slate-100 bg-slate-50/60"}`}>
                   <div className="flex items-center justify-between gap-2">
                     <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
                       <GroupIcon group={g} active={active} />

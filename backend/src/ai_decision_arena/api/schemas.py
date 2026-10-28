@@ -108,6 +108,11 @@ class Accepted(BaseModel):
     message: str = "Accepted. Poll GET /api/decisions/{thread_id} for progress."
 
 
+class CancelAccepted(BaseModel):
+    thread_id: str
+    message: str = "Stopping after the current step; the session then waits for {\"type\": \"continue\"}."
+
+
 class ProgressLine(BaseModel):
     at: str
     node: str
@@ -162,6 +167,8 @@ class DecisionStatus(BaseModel):
     started_at: str | None = None
     active_seconds: float = Field(default=0.0, description="Time spent inside nodes so far (pauses excluded).")
     counters: Counters = Field(default_factory=Counters)
+    cancelled: bool = Field(default=False, description="True while a run the user stopped (POST /cancel) waits for "
+                            "{\"type\": \"continue\"}: run_state is 'interrupted' but nothing went wrong.")
 
 
 class ReportResponse(BaseModel):
@@ -176,7 +183,7 @@ class BriefResponse(BaseModel):
     thread_id: str
     workflow_status: str | None = None
     brief: ProblemBrief
-    markdown: str = Field(description="Rendered brief: main part (about one page), references, appendix.")
+    markdown: str = Field(description="Rendered brief: sections 1-9 and the references (no appendix).")
     validation: BriefValidation | None = Field(description="The validator's result; null while is_draft.")
     is_draft: bool = Field(default=False, description="True = the validator is still checking this draft (speed: the "
                            "user can read it ~15 s earlier); the checks and open issues arrive with the validated brief.")

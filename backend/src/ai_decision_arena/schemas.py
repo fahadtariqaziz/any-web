@@ -175,16 +175,27 @@ class WithdrawnRiskFlag(BaseModel):
     reason: str = Field(description='Which later answer of the user contradicts the flag, e.g. \'user answered "no personal data is stored"\'.')
 
 
+class ClarificationQuestion(BaseModel):
+    """One question with the answer options the UI shows as buttons (the user can also type their own answer)."""
+
+    text: str = Field(description="The question: one topic, specific to this idea, plain language, ends with '?'.")
+    options: list[str] = Field(
+        description="2-4 short answer options (2-6 words each), concrete and specific to this idea, mutually different, "
+                    "the most likely first. The user can also type a free answer, so the options need not cover every "
+                    "case; never include an 'Other' option (the UI adds one).",
+    )
+
+
 class ClarificationResult(BaseModel):
     """Output of the Clarification node: do we need to ask the user something?"""
 
     need_clarification: bool = Field(
-        description="True if answers could materially change the research or the solution. In the FIRST round this is "
-                    "normally true: ask the standard 4-6 questions that are not yet answered."
+        description="True if answers could materially change the research or the solution. In the ONE round this is "
+                    "normally true: ask the most useful questions (at most 5) that are not yet answered."
     )
-    questions: list[str] = Field(
-        description="The questions to ask, at most 6, one topic each, specific to this idea. MUST be non-empty when "
-                    "need_clarification is true; empty list otherwise.",
+    questions: list[ClarificationQuestion] = Field(
+        description="The questions to ask, at most 5, one topic each, specific to this idea, each with answer options. "
+                    "MUST be non-empty when need_clarification is true; empty list otherwise.",
     )
     reason: str = Field(description="Why these questions matter, or why no questions are needed.")
     new_profile_facts: list[NamedValue] = Field(

@@ -49,7 +49,25 @@ def test_failing_build_gets_a_fix_task_that_can_fix_it(graph, fake_llm, fake_sea
     fix = next(t for t in state["implementation_tasks"] if t["id"] == "F1")
     assert fix["status"] == "done" and fix["spec"]["verify_commands"] == ["ls package.json"]
     assert "<untrusted>" in fix["spec"]["description"] and "No such file" in fix["spec"]["description"]
+    fix_prompt = next(c["prompt"] for c in fake_llm.agent.calls if c["task"] == "F1")
+    assert 'name="failure-triage"' in fix_prompt and 'name="failure-triage"' not in fake_llm.agent.calls[0]["prompt"]
     assert state["build_results"]["round"] == 2 and state["build_results"]["passed"]
+    assert state["build_fix_round"] == 1 and snapshot.next == ("await_change_request",)
+
+
+def test_a_hard_coded_secret_fails_the_build_check_and_gets_its_own_fix_task(graph, fake_llm, fake_search):
+    """Review 2026-10-29: the secret scan is a build-check step (Python, no model). The agent's rule "secrets come
+    from the environment" is checked, not trusted; the fix task overwrites the file and the re-scan passes."""
+    fake_llm.agent.writes = {"T1": ["src/keys.js"], "F1": ["src/keys.js"]}
+    fake_llm.agent.contents = {"T1": {"src/keys.js": "export const key = 'AKIAZZZZZZZZZZZZZZZZ';\n"}}
+    state, snapshot = to_preview(graph, "d-secret")
+    fix = next(t for t in state["implementation_tasks"] if t["id"] == "F1")
+    assert fix["spec"]["title"] == "Remove the hard-coded secret(s) from the source" and fix["status"] == "done"
+    assert "src/keys.js:1: AWS access key (AKIA…ZZ)" in fix["spec"]["description"]
+    assert "AKIAZZZZZZZZZZZZZZZZ" not in fix["spec"]["description"]                  # redacted, never the value
+    assert fix["spec"]["verify_commands"] == ["ls package.json"]                       # the plan's test commands
+    assert state["build_results"]["round"] == 2 and state["build_results"]["passed"]
+    assert [s["phase"] for s in state["build_results"]["steps"]] == ["test"]          # round 2: scan clean, no step
     assert state["build_fix_round"] == 1 and snapshot.next == ("await_change_request",)
 
 

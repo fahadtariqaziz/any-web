@@ -60,7 +60,6 @@ DEFAULT_NODE_EFFORT: dict[str, Effort] = {
     "proposer": "low",
     "critic": "low",                     # also the claim checks, which run in the critic's thread pool
     "judge": "low",
-    "evidence_checker": "low",
     "final_report": "low",
     "brief_writer": "medium",
     "brief_validator": "low",
@@ -150,7 +149,9 @@ class Settings(BaseSettings):
                              "into the brief as open questions, and the user's brief review is the loop. The validator "
                              "rewrites at most once, and only for a failed deterministic or high-severity check. "
                              "True = the original thorough loops (each one measured at +50-90 s).")
-    max_clarification_rounds: int = Field(default=3, ge=0, le=5)
+    max_clarification_rounds: int = Field(default=1, ge=0, le=5, description="ONE round since 2026-10-29 (user "
+                                          "decision): at most 5 questions, each with answer options; the Judge / "
+                                          "validator can ask again only while a round is left.")
     max_research_retries: int = Field(default=2, ge=0, le=5)
     max_debate_rounds: int = Field(default=2, ge=1, le=5)
     max_brief_revisions: int = Field(default=2, ge=0, le=5, description="Rewrites of the brief the validator may ask for.")
@@ -158,8 +159,9 @@ class Settings(BaseSettings):
                                     "the plan can only be approved.")
     max_review_rounds: int = Field(default=6, ge=1, le=20, description="Change requests on the brief that may re-run "
                                    "earlier steps; after that only wording changes (or approval) are accepted.")
-    brief_word_budget: int = Field(default=900, ge=300, le=3000, description="Words of brief sections 1-9 before the "
-                                   "appendix (about one page); overflow items move to the appendix.")
+    brief_word_budget: int = Field(default=1500, ge=300, le=3000, description="Words of brief sections 1-9. Since "
+                                   "2026-10-29 the brief has NO appendix (user decision): every item is on the page, "
+                                   "so the budget is the writer's target (x0.8) and the validator's limit (x1.1).")
 
     # --- generated projects (M7: workspace/, handoff.md section 6) ---
     generated_projects_dir: Path = Field(default=REPO_ROOT / "generated_projects", description="One folder per session "

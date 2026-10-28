@@ -1,0 +1,7 @@
+{"prompt": "skills", "node": null, "modes": ["offline"],
+ "source": "Review 2026-10-29 (skills): a secure-coding procedure for every generated app; the recommended skill list named it as missing.",
+ "checks": [
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "secure-coding"},
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "Authorization is checked server-side"},
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "No string-built queries or commands"},
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "A key the browser can see is\n  public"}]}

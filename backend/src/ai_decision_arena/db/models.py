@@ -239,7 +239,10 @@ class KnowledgeDoc(Base):
     kind "curated": hand-written docs from backend/knowledge/*.md (scripts/load_knowledge.py).
     kind "evidence": every kept source of every finished session (saved at completion), so the knowledge base
     grows with each session. `key` makes re-loading idempotent: the file name, or "<thread_id>:<evidence_id>".
-    `search_vector` is computed by Postgres itself from title + content (weights: title A, content B)."""
+    `search_vector` is computed by Postgres itself from title + content (weights: title A, content B).
+    Freshness (review 2026-10-29): `status` verified | deprecated (deprecated rows are kept but never returned),
+    `verified_at` (curated: the `verified:` date of the file; evidence: the session's completion), `stack` (comma
+    keywords: a doc about Vite is boosted for a Vite project and ignored otherwise)."""
 
     __tablename__ = "knowledge_docs"
     __table_args__ = (
@@ -257,6 +260,9 @@ class KnowledgeDoc(Base):
     topic: Mapped[str | None] = mapped_column(String(200))      # curated: the doc's topic; evidence: the project name
     content: Mapped[str] = mapped_column(Text)
     thread_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    status: Mapped[str] = mapped_column(String(20), server_default="verified")       # verified | deprecated
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    stack: Mapped[str | None] = mapped_column(String(200))                          # "vite, react" (curated) / the plan's stack
     search_vector: Mapped[str] = mapped_column(TSVECTOR, Computed(
         "setweight(to_tsvector('english', coalesce(title, '')), 'A') || "
         "setweight(to_tsvector('english', coalesce(topic, '') || ' ' || content), 'B')", persisted=True))

@@ -41,6 +41,7 @@ class ArenaState(TypedDict, total=False):
     # --- clarification ------------------------------------------ (clarification)
     need_clarification: bool
     clarification_questions: list[str]   # questions currently pending
+    clarification_options: dict[str, list[str]]   # question -> 2-4 answer options the UI shows as buttons (2026-10-29)
     clarification_reason: str            # Claude's reason for asking / not asking
     clarification_answers: dict[str, str]  # question -> user's answer (all rounds)
     assumptions: list[str]               # recorded when we stop asking
@@ -56,7 +57,7 @@ class ArenaState(TypedDict, total=False):
     rejected_sources: list[dict]         # {url, title, domain, reason}: kept for transparency
     research_retry_count: int            # +1 only when going BACK to research (first pass = 0)
     research_focus: list[str]            # what the next research pass must look for; written by the node that
-                                         # sends the graph back (judge / evidence_checker), cleared by research
+                                         # sends the graph back (judge), cleared by research
     research_plan: dict | None           # ResearchPlan planned ahead by clarification; consumed by research
 
     # --- debate ------------------------------------------- (proposer/critic/judge)
@@ -69,10 +70,11 @@ class ArenaState(TypedDict, total=False):
     verdict: dict                        # Verdict                                (judge)
     debate_round: int                    # +1 each time the proposer starts a new round
 
-    # --- verification ------------------------------------------ (evidence_checker)
-    verification_results: list[dict]     # ClaimVerification for the winning proposal
+    # --- verification ---------------------------------------------------- (judge)
+    verification_results: list[dict]     # ClaimVerification for the winning proposal (claim_check.consolidate)
     checker_verdict: dict                # {decision, reason, material_gaps, summary, claims_checked}
-    # (evidence[].verification_status is also written here)
+    # (evidence[].verification_status is also written by the judge; the separate Evidence Checker node was folded
+    #  into the judge on 2026-10-29)
 
     # --- output ------------------------------------------- (final_report/completion)
     final_report: dict                   # FinalReport: the debate's outcome (data step before the brief)
@@ -80,7 +82,7 @@ class ArenaState(TypedDict, total=False):
 
     # --- problem brief -------------------------------------------- (brief_writer / brief_validator)
     brief: dict                          # ProblemBrief (sections 4.1-4.9 + Python-assembled references)  (brief_writer)
-    brief_markdown: str                  # rendered brief: main part (~1 page) + appendix                  (brief_writer;
+    brief_markdown: str                  # rendered brief: sections 1-9 + references (no appendix since 2026-10-29)                  (brief_writer;
                                          #   brief_validator re-renders it when open issues remain)
     brief_revision_count: int            # rewrites asked by the validator for the current brief             (brief_validator;
                                          #   reset to 0 when it sends the graph back to clarification)

@@ -70,14 +70,19 @@ def _skill_texts() -> list[str]:
 M10 = "M10 live findings (handoff section 16)"
 
 REGISTRY: dict[str, PromptSpec] = {s.id: s for s in [
-    PromptSpec("builder_rules", "prompting", ("BUILDER_RULES",), ("*",), 1,
-               ("v1 (M1): shared rules: no invented sources / figures / capabilities, claim labels, tagged input is data.",)),
+    PromptSpec("builder_rules", "prompting", ("BUILDER_RULES",), ("*",), 2,
+               ("v1 (M1): shared rules: no invented sources / figures / capabilities, claim labels, tagged input is data.",
+                "v2 (review 2026-10-29, prompt-injection defence): <evidence> and <untrusted> named with the other data "
+                "tags, and what to do with an instruction found inside them (report it as content, never follow it).")),
     PromptSpec("intake", "nodes.intake", ("SYSTEM_PROMPT",), ("intake",), 1,
                ("v1 (M1): app-idea intake; rejects non-app requests.",)),
-    PromptSpec("clarification", "nodes.clarification", ("SYSTEM_PROMPT",), ("clarification",), 2,
+    PromptSpec("clarification", "nodes.clarification", ("SYSTEM_PROMPT",), ("clarification",), 3,
                ("v1 (M1): 4-6 first-round questions; later rounds only on material change; one question per item.",
                 "v2 (M11): constraints are ONE chosen topic, never a 'technology, hosting, budget or timeline' list (live eval "
-                "clarification/one_question_per_item failed on exactly that; handoff section 16 observation).")),
+                "clarification/one_question_per_item failed on exactly that; handoff section 16 observation).",
+                "v3 (2026-10-29, user decision): ONE round, at most 5 questions, each with 2-4 tappable answer options "
+                "(short, specific, most likely first; the user can still type; never an 'Other' option; eval "
+                "clarification/options_for_every_question).")),
     PromptSpec("research_planner", "research.planner", ("SYSTEM_PROMPT",), ("research", "clarification"), 1,
                ("v1 (M2): queries for the apps / papers / tech domains.",)),
     PromptSpec("extractor", "research.extractor", ("SYSTEM_PROMPT",), ("research",), 1,
@@ -86,21 +91,28 @@ REGISTRY: dict[str, PromptSpec] = {s.id: s for s in [
                ("v1 (M3): 2-3 proposals in one call over all evidence.",
                 "v2 (M11): QUICK_RULE (one proposal for the retired quick profile) removed; every session asks for 2-3.",
                 "v3 (speed): be concise, one sentence per item, low end of every list (fewer output tokens).")),
-    PromptSpec("critic", "nodes.critic", ("SYSTEM_PROMPT",), ("critic",), 2,
+    PromptSpec("critic", "nodes.critic", ("SYSTEM_PROMPT",), ("critic",), 3,
                ("v1 (M3): one review per proposal, incl. copies_existing_app.",
-               "v2 (speed): at most 4 points (MAX_POINTS_PER_PROPOSAL 6 → 4), the most severe first.",)),
+                "v2 (speed): at most 4 points (MAX_POINTS_PER_PROPOSAL 6 → 4), the most severe first.",
+                "v3 (review 2026-10-29): four decision-boundary examples: a real evidence-backed point, a real "
+                "judgement point, and two manufactured objections to leave out (eval critic/real_vs_manufactured).")),
     PromptSpec("judge", "nodes.judge", ("SYSTEM_PROMPT",), ("judge",), 1,
                ("v1 (M3): scores all proposals; contradictions become questions.",)),
-    PromptSpec("evidence_checker", "nodes.evidence_checker", ("SYSTEM_PROMPT",), ("critic", "evidence_checker"), 2,
+    PromptSpec("evidence_checker", "nodes.claim_check", ("SYSTEM_PROMPT",), ("critic", "judge"), 3,
                ("v1 (M3): verifies the winning proposal's claims.",
-               "v2 (speed): runs for every proposal in the critic's pool, without the Critic's points; at most 6 claims.",)),
+                "v2 (speed): runs for every proposal in the critic's pool, without the Critic's points; at most 6 claims.",
+                "v3 (review 2026-10-29): five decision-boundary examples (capability is not outcome, anecdotal, weaker "
+                "version, irrelevant source, design decisions are skipped); the text moved to nodes/claim_check.py "
+                "when the Evidence Checker node was folded into the Judge (eval evidence_checker/decision_boundaries).")),
     PromptSpec("final_report", "nodes.final_report", ("SYSTEM_PROMPT",), ("brief_writer",), 1,
                ("v1 (M3): interim report narrative.",)),
     PromptSpec("brief_writer", "nodes.brief_writer", ("SYSTEM_PROMPT", "PART_NOTE", "REVISION_NOTE", "USER_REVISION_NOTE"),
-               ("brief_writer",), 2,
+               ("brief_writer",), 3,
                (f"v1 (M4-M10): three-part brief; user revisions keep built changes and the built stack ({M10}).",
                 "v2 (speed): the three parts are written in parallel, so parts 2-3 no longer see sections 1-4; the "
-                "PART_NOTEs anchor the MVP / in_scope on the winning proposal's core_features instead.")),
+                "PART_NOTEs anchor the MVP / in_scope on the winning proposal's core_features instead.",
+                "v3 (2026-10-29, user decision): no appendix: everything written is on the page (budget 1500 words), "
+                "so the writer is told every extra item costs the reader (eval brief_writer/no_appendix).")),
     PromptSpec("brief_validator", "nodes.brief_validator", ("SYSTEM_PROMPT",), ("brief_validator",), 1,
                ("v1 (M4): nine checks of spec section 5.",)),
     PromptSpec("brief_routing", "nodes.brief_review", ("ROUTING_PROMPT",), ("brief_review_router",), 1,
@@ -132,13 +144,20 @@ REGISTRY: dict[str, PromptSpec] = {s.id: s for s in [
     PromptSpec("ask", "chat", ("SYSTEM_PROMPT",), ("ask",), 2,
                (f"v1 (M10): project assistant, answers only, describes Reopen ({M10}).",
                 "v2 (M11): load_skill for builder skills; costs and limits only from <cost>; prompt-cached system block.")),
-    PromptSpec("ask_tools", "tools", (), ("ask",), 2, ("v1 (M10): Ask-mode tool descriptions.",
-                                                        "v2 (M11): load_skill offered again (builder skills)."),
+    PromptSpec("ask_tools", "tools", (), ("ask",), 3, ("v1 (M10): Ask-mode tool descriptions.",
+                                                        "v2 (M11): load_skill offered again (builder skills).",
+                                                        "v3 (review 2026-10-29): search_knowledge results carry `verified` "
+                                                        "(when the source was last checked): prefer newer sources when "
+                                                        "they disagree; results for the project's stack rank first."),
                extra=_chat_tool_descriptions),
-    PromptSpec("skills", "skills", (), ("ask", "implementer"), 2,
+    PromptSpec("skills", "skills", (), ("ask", "implementer"), 3,
                ("v1 (M11): builder skills replace the health ones: 3 for Ask, 4 for the coding agent (picked by stack).",
                 "v2 (design): web-ui-design for web stacks: app shell, shared components, stacked labelled forms, tables, "
-                "empty states, spacing / type scale (the budgeting app was unstyled browser defaults)."),
+                "empty states, spacing / type scale (the budgeting app was unstyled browser defaults).",
+                "v3 (review 2026-10-29): secure-coding for every stack (boundary validation, server-side authorization, "
+                "no string-built queries, secrets from the environment, tests per rule) and failure-triage, picked by "
+                "the KIND of task (fix tasks and retries: reproduce, first error, name the cause, never weaken a test), "
+                "the procedure-skill answer to the review's QA-agent idea: pass / fail stays with Python's exit codes."),
                extra=_skill_texts),
     PromptSpec("researcher", "researcher", ("SYSTEM_PROMPT",), ("ask",), 1,
                ("v1 (M10): research sub-agent of Ask.",)),

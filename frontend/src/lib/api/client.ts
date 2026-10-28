@@ -5,6 +5,7 @@
 
 import type {
   Accepted,
+  CancelAccepted,
   ArtifactList,
   BriefResponse,
   PlanResponse,
@@ -94,6 +95,12 @@ export function getDecision(threadId: string): Promise<DecisionStatus> {
 /** Answer the pending pause (or {type: "continue"} for an interrupted run). */
 export function resumeDecision(threadId: string, body: ResumeRequest): Promise<Accepted> {
   return request(`${BASE}/${encodeURIComponent(threadId)}/resume`, { method: "POST", body: JSON.stringify(body) });
+}
+
+/** Stop a running session after its current step; it then waits as "interrupted" (cancelled) for {type: "continue"}.
+ *  409 "not_running" when nothing is running. */
+export function cancelDecision(threadId: string): Promise<CancelAccepted> {
+  return request(`${BASE}/${encodeURIComponent(threadId)}/cancel`, { method: "POST" });
 }
 
 /** The final report. 409 "not_finished" until the session is finished. */

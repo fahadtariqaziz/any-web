@@ -1,10 +1,10 @@
-// The pipeline as the USER sees it: 10 stages built from the graph's 22 nodes, plus what each node is
+// The pipeline as the USER sees it: 9 stages built from the graph's 21 nodes, plus what each node is
 // doing in plain words and how long it usually takes (timings observed in the handoff's test runs).
 // Everything here is derived from DecisionStatus; nothing is guessed when the backend knows better.
 
 import type { DecisionStatus, Domain, ProgressLine } from "@/lib/api/types";
 
-export type StageId = "intake" | "clarify" | "research" | "debate" | "verify" | "report" | "brief" | "plan" | "build" | "preview";
+export type StageId = "intake" | "clarify" | "research" | "debate" | "report" | "brief" | "plan" | "build" | "preview";
 
 export interface Stage {
   id: StageId;
@@ -14,10 +14,9 @@ export interface Stage {
 
 export const STAGES: Stage[] = [
   { id: "intake", label: "Intake", blurb: "Understanding your idea" },
-  { id: "clarify", label: "Questions", blurb: "A few questions for you" },
+  { id: "clarify", label: "Questions", blurb: "Up to five, with options to tap" },
   { id: "research", label: "Research", blurb: "Three domains of evidence" },
-  { id: "debate", label: "Debate", blurb: "Propose, critique, judge" },
-  { id: "verify", label: "Verification", blurb: "Winner's claims checked at source" },
+  { id: "debate", label: "Debate", blurb: "Propose, critique, judge, check the winner's claims" },
   { id: "report", label: "Report", blurb: "Winner, alternatives, open questions" },
   { id: "brief", label: "Brief", blurb: "Problem statement and solution, validated" },
   { id: "plan", label: "Plan", blurb: "Implementation plan for your approval" },
@@ -45,7 +44,7 @@ export const NODE_INFO: Record<string, NodeInfo> = {
   clarification: {
     label: "Clarification",
     headline: "Working out what to ask you",
-    doing: "Deciding which questions would change the research or the solution, and merging the answers you gave into the project facts.",
+    doing: "Deciding which questions (at most five, each with answer options) would change the research or the solution, and merging the answers you gave into the project facts.",
     expectedSeconds: 9,
     stage: "clarify",
   },
@@ -81,16 +80,9 @@ export const NODE_INFO: Record<string, NodeInfo> = {
   judge: {
     label: "Judge",
     headline: "Scoring proposals and picking the strongest",
-    doing: "Scoring every proposal on the rubric (requirements alignment 30%, problem relevance 20%, evidence quality 20%, feasibility 20%, completeness 10%) and choosing the winner. It may send the agents back for more research or ask you a question.",
+    doing: "Scoring every proposal on the rubric (requirements alignment 30%, problem relevance 20%, evidence quality 20%, feasibility 20%, completeness 10%), choosing the winner, and marking each of the winner's claims as verified, partially supported, unsupported or contradicted against the sources it cites. It may send the agents back for more research or ask you a question; doubts become open questions in the brief.",
     expectedSeconds: 30,
     stage: "debate",
-  },
-  evidence_checker: {
-    label: "Evidence check",
-    headline: "Verifying the winner's claims against their sources",
-    doing: "Re-reading the sources the winning proposal cites and marking each claim as verified, partially supported, unsupported or contradicted. Material gaps can trigger one focused research pass.",
-    expectedSeconds: 25,
-    stage: "verify",
   },
   final_report: {
     label: "Report writer",
@@ -323,7 +315,7 @@ export function subProgress(lines: ProgressLine[], node: string | null): SubProg
     return { summary: "Planning the searches", lanes: null, fraction: 0.05 };
   }
 
-  if (["proposer", "critic", "judge", "evidence_checker"].includes(node)) {
+  if (["proposer", "critic", "judge"].includes(node)) {
     if (msgs.some((m) => m.startsWith("decision:"))) return { summary: "Decision made", lanes: null, fraction: 1 };
     const proposalLines = msgs.filter((m) => /^proposal_[a-c]:/.test(m)).length;
     if (proposalLines > 0) return { summary: `${proposalLines} proposal${proposalLines === 1 ? "" : "s"} done`, lanes: null, fraction: Math.min(proposalLines / 3, 0.9) };

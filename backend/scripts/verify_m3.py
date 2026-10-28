@@ -14,7 +14,6 @@ from pathlib import Path
 
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.nodes.critic import critic_node
-from ai_decision_arena.nodes.evidence_checker import evidence_checker_node
 from ai_decision_arena.nodes.final_report import final_report_node
 from ai_decision_arena.nodes.intake import intake_node
 from ai_decision_arena.nodes.judge import judge_node, weighted_total
@@ -100,8 +99,7 @@ best = max(state["scores"], key=lambda s: s["weighted_total"])["proposal_id"] if
 check(verdict["winning_proposal_id"] == best, "winner has the highest weighted total")
 check(set(verdict["domain_status"]) == set(DOMAINS), "domain status covers all three domains")
 
-# --- evidence checker + report (run even if the judge asked for a loop: these nodes do not depend on it) ---
-state.update(evidence_checker_node(state))
+# --- the winner's claim check (consolidated by the judge since 2026-10-29) + report ---
 cv = state["checker_verdict"]
 print(f"\n=== checker: {cv['claims_checked']} claims, decision {cv['decision']}, gaps {cv['material_gaps']}")
 for r in state["verification_results"][:6]:

@@ -1,0 +1,7 @@
+{"prompt": "evidence_checker", "node": null, "modes": ["offline"],
+ "source": "Review 2026-10-29 (prompting): few-shot decision boundaries for the claim check; a capability in a source never proves an outcome, individual reports are anecdotal, design decisions are not claims.",
+ "checks": [
+  {"on": "prompt", "prompt": "evidence_checker", "check": "contains", "text": "A capability\n  never proves an outcome"},
+  {"on": "prompt", "prompt": "evidence_checker", "check": "contains", "text": "is_anecdotal true (individual reports, no aggregate)"},
+  {"on": "prompt", "prompt": "evidence_checker", "check": "contains", "text": "a design decision, not a claim: skip it"},
+  {"on": "prompt", "prompt": "evidence_checker", "check": "contains", "text": "Judge ONLY from the evidence text given here"}]}

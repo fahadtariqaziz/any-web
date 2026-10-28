@@ -2,6 +2,9 @@
 title: Vite basics for small web apps (dev server, build, env variables)
 url: https://vite.dev/guide/
 topic: vite, frontend tooling, dev server, build
+verified: 2026-10-25
+stack: vite, react, vue, svelte, frontend
+
 ---
 Vite is a frontend build tool with a fast dev server. A project usually has the scripts `dev` (`vite`: the dev
 server), `build` (`vite build`: a production bundle in dist/) and `preview` (`vite preview`: serves the built dist/

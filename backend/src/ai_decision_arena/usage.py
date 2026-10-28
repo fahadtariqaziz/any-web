@@ -103,7 +103,7 @@ def save_event(thread_id: str, entry: dict) -> None:
 PHASES = {      # node -> the stage the builder UI shows
     "intake": "Clarification", "clarification": "Clarification",
     "research": "Research",
-    "proposer": "Proposals", "critic": "Proposals", "judge": "Proposals", "evidence_checker": "Proposals",
+    "proposer": "Proposals", "critic": "Proposals", "judge": "Proposals",
     "final_report": "Proposals",
     "brief_writer": "Brief", "brief_validator": "Brief", "brief_review_router": "Brief",
     "planner": "Plan",

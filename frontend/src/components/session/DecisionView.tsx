@@ -169,7 +169,7 @@ export function DecisionView() {
   return (
     <div className="space-y-6">
       {running && (
-        <div className="no-print fixed inset-x-0 top-0 z-40 h-0.5 bg-teal-100">
+        <div className="no-print fixed inset-x-0 top-0 z-40 h-0.5 bg-indigo-100">
           <div className="shimmer-bar h-full w-full" />
         </div>
       )}

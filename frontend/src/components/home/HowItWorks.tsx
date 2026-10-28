@@ -4,7 +4,7 @@ const STEPS = [
   {
     icon: MessageCircleQuestion,
     title: "You answer a few questions",
-    text: "The clarification agent asks 4–6 questions that change the solution: who the users are, the goal, must-have features, platform and constraints, alternatives you know, how you will judge success. Skipping is fine; the agents state their assumptions.",
+    text: "One round of up to five questions that change the solution, each with answer options to tap (or type your own): who the users are, the goal, must-have features, platform, the one constraint that matters. Skipping is fine; the agents state their assumptions.",
   },
   {
     icon: Search,
@@ -51,8 +51,8 @@ export function HowItWorks() {
           </li>
         ))}
       </ol>
-      <div className="flex gap-3 rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-900">
-        <ShieldCheck className="mt-0.5 size-5 shrink-0 text-teal-700" aria-hidden />
+      <div className="flex gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900">
+        <ShieldCheck className="mt-0.5 size-5 shrink-0 text-indigo-700" aria-hidden />
         <p>
           <span className="font-semibold">Nothing is invented.</span> Every source URL comes from a real search result, cited
           ids are checked by code, and claims are labelled by how well their sources support them. Gaps and assumptions

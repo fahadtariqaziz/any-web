@@ -2,6 +2,8 @@
 title: Keeping secrets out of generated apps
 url: https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html
 topic: security, secrets, api keys, environment variables
+verified: 2026-10-25
+
 ---
 Secrets (API keys, passwords, tokens) must not be written into source files, committed to a repository, or shipped
 to the browser. The OWASP Secrets Management Cheat Sheet recommends keeping them in the environment or a secrets

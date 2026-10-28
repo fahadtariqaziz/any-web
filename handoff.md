@@ -35,18 +35,18 @@
 |---|---|
 | **Spec** | `docs/app-builder-spec.md` — the user's original brief, verbatim (clarification §1, research §2, proposals §3, brief §4.1–4.10, validation §5, review §6, planning §7, implementation §8, preview + isolation §9, platform §10.1–10.11, constraints §12, outcome §13). The milestone blocks below quote the parts each one needs. |
 | **Concept (decided 2026-10-24)** | An AI application builder like Lovable: the user describes an app or website; the system clarifies, researches, proposes, critiques, judges, writes a validated problem statement + solution brief, gets approval, plans (Opus 5.5), implements (Sonnet 5.5) in an isolated session folder, and shows a live preview beside the chat. |
-| **Where we are** | **M0–M11 done and pushed (2026-10-25; last commit `a3a514a` "Added platform hardening (tool log, prompt registry and evals, knowledge, skills, cleanup)", before it `5562c8b` "Added cost and usage tracking").** The pipeline works end to end: idea → clarification → research (3 domains) → proposals / critic / judge / checker → validated brief → **user approval** → Opus plan → **user approval** → Sonnet coding agent builds task by task (verified by real commands) → build check → **live preview** → change requests / bigger change (brief first, plan extension) / Ask / reopen / download → finish. **M10** made the Lovable-style builder UI (`/`, `/c/<id>`: chat left, Preview / Brief / Plan / Build / Activity right; admin view at `/admin`). **M11 hardened the platform itself (spec §10):** every model call and agent attempt is metered (Cost card per stage and per change, limits in `.env`, `/usage`, `/api/metrics`, `/admin/metrics`); every tool call is logged (`tool_calls`); all 19 prompts are versioned and locked with 13 eval cases (offline + live, Haiku-judged where needed; the evals already caught and fixed one real prompt defect); Ask is prompt-cached; builder knowledge docs and skills replaced the health ones; memory is project-scoped; one trigger table; the quick profile and all health leftovers are gone. Proven live: verify_m11 sections 1–9, live evals 7/7 ($0.19). |
+| **Where we are** | **M0–M11 done and pushed (2026-10-25; last commit `a3a514a` "Added platform hardening (tool log, prompt registry and evals, knowledge, skills, cleanup)", before it `5562c8b` "Added cost and usage tracking").** The pipeline works end to end: idea → clarification → research (3 domains) → proposals / critic / judge / checker → validated brief → **user approval** → Opus plan → **user approval** → Sonnet coding agent builds task by task (verified by real commands) → build check → **live preview** → change requests / bigger change (brief first, plan extension) / Ask / reopen / download → finish. **M10** made the Lovable-style builder UI (`/`, `/c/<id>`: chat left, Preview / Brief / Plan / Build / Activity right; admin view at `/admin`). **M11 hardened the platform itself (spec §10):** every model call and agent attempt is metered (Cost card per stage and per change, limits in `.env`, `/usage`, `/api/metrics`, `/admin/metrics`); every tool call is logged (`tool_calls`); all 19 prompts are versioned and locked with 13 eval cases (offline + live, Haiku-judged where needed; the evals already caught and fixed one real prompt defect); Ask is prompt-cached; builder knowledge docs and skills replaced the health ones; memory is project-scoped; one trigger table; the quick profile and all health leftovers are gone. Proven live: verify_m11 sections 1–9, live evals 7/7 ($0.19). The 2026-10-27 work (render check, app settings, Supabase setup, design skill) is pushed as `8310e1e` "Fixes bugs". **2026-10-29: architecture review applied** (uncommitted): Evidence Checker folded into the Judge (21 nodes), secret scan in the build check, safe Stop (`POST /cancel`), few-shot claim check + critic, skills `secure-coding` + `failure-triage` (picked by task kind), knowledge freshness (`status` / `verified_at` / `stack`, migration `d8e9f0a1b2c3`), memory facts with source + date and a cap. The reasoning per recommendation (changed / kept / why): `docs/builder-agent-anatomy.md` section 7. **Same day, user decisions:** ONE clarification round with at most 5 questions, each with tappable answer options (`ClarificationQuestion.options`, payload `options` / `max_rounds`); the brief has NO appendix (every item on the page, budget 1500 words); a redesigned UI (landing page with a section per functionality, frosted top bar, gradient accents, animated question cards / stage chips / tabs / drawer; new dependency `motion`). Checked offline with `fake_api.py` + headless-Chrome screenshots (landing, question card, tap-through, brief review). |
 | **Milestones** | M0 harness · M1 intake + clarification · M2 research · M3 debate · M4 brief writer + validator · M5 brief review · M6 Opus planner + plan review · M7 workspace / sandbox / processes · M8 coding agent (Claude Agent SDK) · M9 build check / preview / change requests · M10 Lovable UI · M11 platform hardening (cost, tool log, prompts + evals, knowledge, skills, memory, triggers, cleanup). Details: section 8 (✅ blocks), section 14 (progress log with real numbers), section 12 (decisions). |
 | **Next milestone** | **The first brand-new idea end to end in the builder UI** (never done since M10; ~$2–3 real money: ask the user first, propose an idea or let them pick). Everything is measured now, so it doubles as the first per-stage cost baseline. Then **M12 (optional): Docker runtime per session** (needs the Docker daemon: open question 2) + a cleanup CLI. See "▶ Next step". |
 | **Models (verified 2026-10-24 via `client.models.list()`)** | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` are all available to the key in `backend/.env`. Configured default: `ANTHROPIC_MODEL=claude-sonnet-5-5`. **Local switch (2026-10-25):** `LLM_PROVIDER=local` in `backend/.env` (+ restart the backend) runs EVERY role on Ollama (`LOCAL_MODEL=qwen3.5-4b-q4-32k` = `qwen3.5:4b-q4_K_M` with 32K context; never the MLX tags, see section 16) — graph, planner, Ask and the coding agent; free, ~5–10x slower, weaker. Check: `uv run python scripts/verify_local.py`. Section 12 "Local models". |
 | **Environment (verified 2026-10-24/25)** | macOS, zsh · uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head `c7d8e9f0a1b2` (M11: `usage_events`, `tool_calls`, `knowledge_docs.topic`) · `claude-agent-sdk` 0.2.174 (ships its own Claude Code CLI 2.1.310) · `psutil` 7.2 · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are the original ai-lab** → ai-lab-2 runs on **8001/3001** (the user starts them with `--reload`; section 11) · previews use ports **4100–4199** · generated apps in `generated_projects/` (git-ignored). |
-| **Tests** | `bash backend/scripts/verify_m0.sh` = 268 pytest (incl. the offline evals) + eslint + tsc, ~40 s. Offline: fake LLM, fake Tavily, `FakeAgent` for the coding agent, in-memory checkpoints, no DB; but sandbox commands, git and dev servers (`python3 -m http.server {port}`) run for REAL under tmp dirs. Live checks: `backend/scripts/verify_m1..m11.py` (real APIs, node level; m10 = UI contract + rendered page) and `scripts/api_flow.py --auto` (full HTTP E2E); what each needs, writes and costs: section 11. No frontend unit tests (lint + tsc + `next build` + headless-Chrome DOM checks + the user's browser check). Free UI walk-through of every pause: `scripts/fake_api.py` (section 11). |
+| **Tests** | `bash backend/scripts/verify_m0.sh` = 316 pytest (incl. the 26 eval cases: 23 offline, 3 live-only) + eslint + tsc, ~55 s. Offline: fake LLM, fake Tavily, `FakeAgent` for the coding agent, in-memory checkpoints, no DB; but sandbox commands, git and dev servers (`python3 -m http.server {port}`) run for REAL under tmp dirs. Live checks: `backend/scripts/verify_m1..m11.py` (real APIs, node level; m10 = UI contract + rendered page) and `scripts/api_flow.py --auto` (full HTTP E2E); what each needs, writes and costs: section 11. No frontend unit tests (lint + tsc + `next build` + headless-Chrome DOM checks + the user's browser check). Free UI walk-through of every pause: `scripts/fake_api.py` (section 11). |
 
 ---
 
 ## 1. Target product in one paragraph
 
-User prompt → **clarification** (2–3 rounds, pauses for answers) → **research** in 3 domains (existing apps & user feedback ·
+User prompt → **clarification** (ONE round, up to 5 questions with tappable answer options, pauses for answers) → **research** in 3 domains (existing apps & user feedback ·
 papers & technical literature · feasibility & implementations) → **proposer** (2–3 solution proposals in one call) → **critic** → **judge**
 (scores, picks the strongest, may loop to research / clarification) → **evidence checker** → **brief writer** (one-page problem
 statement + solution brief with labelled claims and real references) → **brief validator** (deterministic + LLM checks) →
@@ -59,17 +59,18 @@ done. Every generated project lives in `generated_projects/<session_id>/`, isola
 
 ## 2. Current architecture (started as a copy of the ai-lab health app; 2.1 and 2.3 are kept current)
 
-### 2.1 Graph today (`backend/src/ai_decision_arena/graph.py`, 21 nodes + completion)
+### 2.1 Graph today (`backend/src/ai_decision_arena/graph.py`, 20 nodes + completion; the evidence checker was folded into the judge on 2026-10-29)
 ```
 START → intake → clarification ──(need answers, ≤3 rounds)──► await_clarification ──► clarification
                      │ enough info
                      ▼
                  research (3 domains: apps / papers / tech, parallel) ◄──────────────────┐
                      ▼                                                                      │
-                 proposer (2–3 proposals, 1 call) → critic (per proposal) → judge (1 call)─┤
-                                                           ├──(ask user)──► clarification   │
-                                                           ▼                                │
-                                                     evidence_checker ──(material gap)──────┘
+                 proposer (2–3 proposals, 1 call) → critic (per proposal + claim check per proposal, parallel)
+                                                           ▼
+                                                     judge (1 call: scores; Python: winner, the winner's claim check, ONE route)
+                                                           ├──(thin evidence OR a material claim unverified, loops on)─┘
+                                                           ├──(ask user)──► clarification
                                                            ▼
                                                      final_report → brief_writer → brief_validator ──(revise ≤2)──► brief_writer
                                                                                        ├──(clarify, loop allowed)──► clarification
@@ -113,9 +114,9 @@ ai-lab-2/
 ├── generated_projects/             # git-ignored: <thread_id>/{app,.builder}, .shared/ (tool links + package caches)
 ├── backend/
 │   ├── .env (not in git; template .env.example), pyproject.toml, uv.lock, alembic.ini, Dockerfile
-│   ├── migrations/versions/        # Alembic migrations (12 so far; head c7d8e9f0a1b2 = knowledge_docs.topic)
+│   ├── migrations/versions/        # Alembic migrations (13 so far; head d8e9f0a1b2c3 = knowledge_docs status / verified_at / stack)
 │   ├── knowledge/*.md              # curated builder docs (M11: builder process, decimals, node --test, Vite, a11y, secrets)
-│   ├── skills/*/SKILL.md           # builder skills (M11): audience ask (3, load_skill) / agent (4, picked by stack)
+│   ├── skills/*/SKILL.md           # builder skills (M11): audience ask (3, load_skill) / agent (7: picked by stack, or by task kind = failure-triage)
 │   ├── evals/<prompt>/*.json       # prompt eval cases (M11) + evals/fixtures/*.json (fake-pipeline states)
 │   ├── .cache/*.json               # cached real states for the verify scripts (git-ignored; section 11)
 │   ├── scripts/                    # run_graph, run_intake, run_research, api_flow (HTTP end to end), check_env, draw_graph,
@@ -130,12 +131,13 @@ ai-lab-2/
 │       │   pricing.py (price table, tokens → USD), usage.py (UsageMeter, usage_log, session_cost), tool_log.py
 │       │   (tool_calls), prompts.py + prompts.lock.json (registry), evals.py (eval cases), triggers.py (TRIGGERS) — M11
 │       ├── brief.py (brief references / labels / rendering / deterministic checks), plan.py (plan checks / rendering / hashes)
-│       ├── nodes/  intake, clarification, research, proposer, critic, judge, evidence_checker, final_report (+ completion),
+│       ├── nodes/  intake, clarification, research, proposer, critic, judge (+ claim_check: the claim-check call used by the critic and the Python consolidation used by the judge), final_report (+ completion),
 │       │           brief_writer, brief_validator, brief_review (await + router), planner (+ await + router), implementer, delivery (build_check, preview,
 │       │           await_change_request, change_request_router), node_wrapper
 │       ├── research/  planner (queries), search (Tavily), extractor (snippets → Evidence), sources (domains, url utils)
 │       ├── workspace/  paths (session folders, safe_path, tool_path_problem), sandbox (one command), processes (dev
-│       │               servers, M7), agent (Claude Agent SDK adapter, M8)
+│       │               servers, M7), agent (Claude Agent SDK adapter, M8), render_check, app_settings, supabase_setup,
+│       │               secret_scan (build-check guardrail, 2026-10-29)
 │       ├── chat.py (Ask mode: project assistant), tools.py, researcher.py, skills.py, knowledge.py, memory.py, triggers.py, checkpointing.py
 │       ├── db/  engine, models (11 tables), repository
 │       └── api/  main (decisions endpoints), runner (background threads), chat (transcript + Ask), memories, triggers, schemas, errors
@@ -176,9 +178,11 @@ history docs in `docs/`.
 ### 2.6 Gaps still open (planned)
 Docker runtime per session (M12: memory / CPU / network limits; v1 is host subprocesses). Not planned yet: auth /
 multi-user isolation of the API (sessions are keyed by thread_id + a browser user id only); streaming the brief / plan
-while they are written; subagents beyond the researcher (spec §10.5: a reviewer / debugger subagent is not spawned:
-the retry prompt already carries the failing verify output, and evals have not shown a need; revisit with eval data);
-a vector store for knowledge (full-text search until measured misses); prompt caching for one-shot graph calls (a cache
+while they are written; subagents beyond the researcher (spec §10.5; re-decided in the 2026-10-29 review: no reviewer /
+QA agent: the critic + claim check + judge are three independent reads of the winner, fix tasks and retries get the
+`failure-triage` procedure instead, pass / fail stays with exit codes; revisit with eval data); a vector store for
+knowledge (full-text search with freshness + stack re-rank since 2026-10-29, until measured misses); a dependency
+vulnerability scan of generated apps (`npm audit`: needs network policy, i.e. the Docker runtime); prompt caching for one-shot graph calls (a cache
 write costs 1.25x and nothing reads it back; only Ask is cached). Ask's context is ~27k tokens on a built project
 (measured): trimming it (e.g. the brief's appendix) would cut the first-reply cost.
 
@@ -756,6 +760,55 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 ---
 
 ## 12. Decisions log
+- 2026-10-29 (**User decisions after the review**: "only 1 round of clarification and 5 questions max", "options so
+  the user can choose or type", "no Appendix in the brief", "UI/UX very good, latest styles with animation, landing
+  page with each functionality"). **Clarification:** `max_clarification_rounds` 3 → 1, `MAX_QUESTIONS_PER_ROUND` 6 → 5;
+  the LLM returns `ClarificationQuestion(text, options)` (2-4 options, 2-6 words, specific, never "Other"); Python
+  dedupes questions, caps at 5, cleans options (`clean_options`: trims, drops empties / "Other", ≤ 4, ≤ 60 chars);
+  state `clarification_options`; the pause payload carries `options` and `max_rounds`; answers stay keyed by question
+  text, so the API contract for answers is unchanged (free text still works). Prompt clarification v3 (eval
+  `clarification/options_for_every_question`, live checks ≤ 5 questions and options per question). The Judge's /
+  validator's clarification loops now need a round left, i.e. never on the defaults: their questions go into the
+  brief as open questions (tests adapted: round count 0, or `max_clarification_rounds` monkeypatched to 2 for the
+  loop mechanism). **Brief:** `brief.py` renders every item in its section (no caps, no appendix): alternatives
+  considered in section 4, integrations / user roles in section 5, the validator's open notes at the end of
+  section 9; `brief_word_budget` 900 → 1500 (the writer targets 0.8x, the validator's `det_word_budget` checks 1.1x);
+  brief_writer prompt v3 ("There is NO appendix"; eval `brief_writer/no_appendix`). **UI:** `motion` (Framer's
+  successor) for enter / scroll / layout animations; `globals.css` tokens: indigo → violet → fuchsia accent
+  (`teal-*` → `indigo-*` everywhere), `.glass`, `.gradient-border`, `.gradient-text`, `.gradient-fill`, `.bg-grid`,
+  `.orb`; new `components/landing/` (hero with the composer, 7-step pipeline, 7 feature cards with mock UIs of each
+  screen, guardrails, recent projects, closing CTA) behind `NewProject`; `QuestionCard` (progress dots, option chips,
+  Skip, "or type below"); frosted `BuilderShell`, animated `ProjectsDrawer`, gradient `Button` / `Composer` /
+  `StageChips` / work-pane tab underline / `ActionCard`; the admin `ClarificationForm` shows the options too.
+  Not done: dark mode (one light theme by design); a redesign of the admin pages beyond the shared tokens.
+- 2026-10-29 (**Architecture review applied**; the user pasted a production review of `docs/builder-agent-anatomy.md`
+  and asked for it to be done "the recommended way according to you"): we applied the review's own two criteria to the
+  code instead of its list. **Node structure:** the Evidence Checker node is folded into the Judge (`nodes/claim_check.py`:
+  `verify_proposal` = the LLM call the critic runs per proposal, `consolidate` = the Python part the judge runs for the
+  winner; the judge makes ONE routing decision incl. "material claim unverified → research pass when loops are on, else
+  an `Unverified:` open question"); `final_report` stays (saved, served, shown; no model call); the brief writer stays
+  3 parts + summary (API grammar limit, parallel anyway); the preview stays unconditional (it is the product). **Guardrails
+  (P0):** `workspace/secret_scan.py` runs in every build check after install / test / build (key shapes, generic
+  `api_key = "…"` outside tests, `.env` not git-ignored; values redacted) → phase `secrets` step, own fix task `F<n>`,
+  same fix-round cap; `POST /api/decisions/{id}/cancel` = safe Stop: `GraphRunner.cancel` breaks the stream at the next
+  **checkpoints** event (not at the node update: breaking there leaves `next = ()`, section 16), the session is
+  `interrupted` with `cancelled: true`, the UI shows Stop while running and a Continue note instead of auto-resuming;
+  `BUILDER_RULES` v2 names `<evidence>` and `<untrusted>` as data and says an embedded instruction is reported, not
+  followed. **Prompting (P1):** claim check v3 and critic v3 carry decision-boundary examples (eval cases
+  `evidence_checker/decision_boundaries`, `critic/real_vs_manufactured`). **Skills (P2):** `secure-coding` (every stack)
+  and `failure-triage` (new front-matter `phases: fix, retry`: picked by the KIND of task, `agent_skills_for(stack,
+  phase)`; the implementer passes `fix` for fix tasks and `retry` for second attempts); skills v3, ask_tools v3.
+  **Knowledge (P2):** `knowledge_docs.status / verified_at / stack` (migration `d8e9f0a1b2c3`, applied + checked +
+  downgrade/upgrade), curated docs carry `verified:` and `stack:` front-matter, deprecated docs never returned,
+  `knowledge.rerank` boosts docs of the project's stack x1.3, results carry `verified`, Ask's `ToolContext.stack` =
+  the plan's tech stack. **Memory (P2):** `memory.load` labels each fact `[from your answers | noted by the assistant,
+  date]`, the block's `note` explains it, `MAX_MEMORIES_PER_USER = 200` pruned after every save (`prune_memories`).
+  **Not done, with the trigger for doing it:** reviewer / QA agent (eval data showing a miss), vector search (measured
+  retrieval misses), skills for single-call graph steps (they have no tool loop), `npm audit` (Docker network policy),
+  scheduled maintenance (M12 cleanup CLI), relevance-filtered memory load (users with many projects). Frontend: the
+  "verify" stage is gone (9 stages), Stop / Continue in the chat, `secrets` build phase. Tests: 315 pytest (+12),
+  offline evals 21/21 (+8, 3 live-only skipped), 19 prompts re-locked, verify_m0 PASS; no live run (nothing here needs
+  one to be proven; the live evals of the changed prompts cost ~$0.30 and are the user's call).
 - 2026-10-25 (**Local models**, user request: "turn Claude off and local on from env"): `LLM_PROVIDER=anthropic|local`
   (config.py). `_apply_local` (model validator) maps anthropic / planner / chat / implementer model to `LOCAL_MODEL`
   (coder: `LOCAL_CODER_MODEL` or the same), empties `fallback_model`, multiplies llm / planner / agent-task timeouts and
@@ -1265,6 +1318,31 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
   the skill too. 303 pytest; verify_m0 PASS 3 of 4 runs — one run had 1 failed test that did not reproduce in the
   next 3 runs (output not kept: find it if it comes back). NOT measured live yet: a new Opus plan (verify_m6, ~$0.35)
   to see the foundation task; a screenshot + cheap-model visual review after the build is the next step if needed.
+- 2026-10-29: **Architecture review applied** (decision 12 "Architecture review applied"; the reasoning table is
+  `docs/builder-agent-anatomy.md` section 7; the spoken version is `docs/team-presentation-script.md` section 6c).
+  Backend: `nodes/claim_check.py` (new; `nodes/evidence_checker.py` deleted), judge rewritten around one routing
+  decision, graph 22 → 21 nodes, `workspace/secret_scan.py` (new) + build-check step + fix task, `GraphRunner.cancel`
+  + `POST /cancel` + `DecisionStatus.cancelled`, `skills.py` phases, `knowledge.py` freshness + rerank, repository
+  `prune_memories` + search columns, `memory.py` labels + cap, migration `d8e9f0a1b2c3`, 2 skills, 6 prompt versions
+  bumped (builder_rules 2, critic 3, evidence_checker 3, skills 3, ask_tools 3) + lock, 8 new eval cases. Frontend:
+  `pipeline.ts` / `chatStages.ts` / `StageChips` / `PipelineStepper` without the verify stage, `ChatPane` Stop +
+  Continue, `client.ts` `cancelDecision`, `types.ts` `cancelled` + `secrets` phase. Tests: `test_secret_scan.py` (4),
+  `test_cancel.py` (2), judge claim-check tests (4 in test_nodes, 2 in test_speed), secret-scan graph test, cancel API
+  test, skills-by-phase, knowledge rerank, memory labels + cap; **315 pytest, offline evals 21/21, verify_m0 PASS**
+  (~55 s). DB: `alembic upgrade head` → `check` clean → `downgrade -1` → `upgrade head`; `load_knowledge.py` re-loaded
+  the 6 curated docs with their `verified` dates. Not run live: nothing changed that only a live run can prove; the
+  changed prompts' live evals (`run_evals.py --live --prompt critic|evidence_checker`, ~$0.30) are optional.
+- 2026-10-29 (later): **One clarification round with options, no brief appendix, UI redesign** (decision 12 "User
+  decisions after the review"). Backend: schemas `ClarificationQuestion`, clarification node v3 + `clean_options`,
+  config defaults (rounds 1, word budget 1500), state `clarification_options`, payload `options` / `max_rounds`,
+  `brief.py` without caps / appendix, brief_writer v3, validator wording, verify_m1 checks options; prompts
+  re-locked; evals 23/23 offline (+2). Frontend: `motion` dependency, `globals.css` redesign, `landing/Landing.tsx` +
+  `Sections.tsx`, `QuestionCard.tsx`, restyled shell / drawer / composer / button / chips / tabs / cards / messages,
+  admin form options, `scripts/shot_scroll.mjs` + `scripts/click_flow.mjs` (headless-Chrome checks). Verified: tsc,
+  eslint, `next build`; offline walk-through on `fake_api.py` (8002) + `next start -p 3002`: landing screenshots at 5
+  scroll positions, the question card with 3 option chips, tap-through (Students → Just the basics → research summary
+  → brief review card), brief markdown without "Appendix" (10 headings, alternatives in section 4). Not run live:
+  the clarification v3 live eval (~$0.05) and a real session (the first live run will show the real options).
 
 ## 15. How to work on this repo (the loop every milestone follows)
 
@@ -1699,12 +1777,44 @@ is what you will see)
   ranges or drop overflow beyond the second cap level instead of moving it (an M11 eval decision).
 - Clarification sometimes packs "budget, launch date, or existing assets" into one question; the "one question per item" rule
   is in the prompt, a stricter check (count of "or" clauses) would be an M11 eval, not a hard filter.
+- **LangGraph stream + cancel:** breaking out of `graph.stream(...)` right after a node's `updates` chunk leaves the
+  checkpoint half-finalised: `get_state().values` has the node's writes but `next == ()`, so the API would call the
+  run "finished". Break on the `checkpoints` stream event instead (the step is saved, the next not started):
+  `next` is correct and `{"type": "continue"}` resumes there (`tests/test_cancel.py`).
+- **Two `cd`-prefixed Bash calls in the same turn share one working directory:** the second call's `cd` was reset by
+  the first's and its relative heredoc path failed. Use absolute paths in scripts that write files.
 
 ## ▶ Next step
+**Two pieces of work are built and waiting for the user's commit (2026-10-29):** the architecture review (decision
+12 "Architecture review applied") and the user decisions after it (decision 12 "User decisions after the review":
+one clarification round with options, no brief appendix, UI redesign). One commit or two, the user's call; suggested
+names: `Applied the architecture review (judge absorbs the evidence checker, secret scan, safe stop, few-shot
+checks, skills, knowledge freshness, memory labels)` and `One clarification round with answer options, brief without
+appendix, redesigned landing page and builder UI`. New files: `nodes/claim_check.py`, `workspace/secret_scan.py`,
+migration `d8e9f0a1b2c3`, skills `secure-coding` / `failure-triage`, evals (`builder_rules/`, `critic/`,
+`evidence_checker/`, `ask_tools/`, `clarification/options_for_every_question`, `brief_writer/no_appendix`, 2 in
+`skills/`), tests `test_secret_scan.py` / `test_cancel.py`, `frontend/src/components/landing/`, `QuestionCard.tsx`,
+`frontend/scripts/shot_scroll.mjs` / `click_flow.mjs`; deleted `nodes/evidence_checker.py`; `frontend/package.json`
++ lock (`motion`). The DB is at head `d8e9f0a1b2c3`. **Browser check for the user:** open http://localhost:3001/
+(landing page: hero, pipeline, feature cards, guardrails, recent projects), start a small idea and tap through the
+questions (options + typing + Skip), read the brief (no appendix), press Stop once while it researches, then Continue.
+For the video call: `docs/team-presentation-script.md` sections 2 (questions), 3 (brief) and 6c; the anatomy doc
+section 7 (incl. 7.4).
+
 **Local-model switch built (2026-10-25), waiting for the user's commit.** To try it in the builder UI: set
 `LLM_PROVIDER=local` in `backend/.env`, restart the 8001 backend (settings are read once per process; `--reload` only
 watches .py files), keep the Ollama app open, then start a SMALL idea (one-page app). Switch back with
 `LLM_PROVIDER=anthropic` + restart.
+
+**Fix 2026-10-29 (Supabase setup, found in the user's screenshots):** the preview said "8 of 9 tables missing" while
+"Set up database" listed all 4 files "already applied". Cause (confirmed by the user's `schema_migrations` query): every
+generated app names its files 0001_schema, 0002_...; `apply` matched on the version only, so ANOTHER app's 0001-0004 in
+the same Supabase project counted as applied and this app's SQL never ran. Now `apply` matches version AND name; a
+different name = status `conflict` ("use a separate Supabase project for each app"), nothing run (the version is the
+CLI table's primary key, and two apps would clash on `profiles` anyway). Also: `describe()["missing"]` no longer
+counts optional variables (help starting "Optional"), so the banner stops saying "needs 8 settings" when only the 2
+required ones matter. Tests +3 in `test_supabase_setup.py` (318 pytest, tsc clean). The user's own project is theirs to
+fix (new Supabase project); we did not touch it.
 
 M11 is pushed (`5562c8b` part 1, `a3a514a` parts 2–4). Next, in this order:
 1. **First brand-new idea end to end in the builder UI** (never done since M10). Costs real money (~$2–3: research,

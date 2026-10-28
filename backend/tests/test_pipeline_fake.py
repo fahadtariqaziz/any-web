@@ -51,7 +51,7 @@ def test_full_pipeline_pauses_for_clarification_then_completes(graph, fake_llm, 
     assert graph.get_state(CONFIG).next == ()
     assert result["workspace_dir"] and result["metrics"]["tasks"]["done"] == 2 and result["metrics"]["build_passed"]
     assert result["status"] == "completed"
-    assert result["clarification_round_count"] == 1
+    assert result["clarification_round_count"] == 1 and result["clarification_options"] == {}
     assert result["clarification_answers"] == answers
     assert result["project_profile"]["audience"] == "university students"
 

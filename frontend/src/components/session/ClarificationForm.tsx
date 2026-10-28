@@ -1,7 +1,8 @@
 "use client";
 
-// Clarification pause: the questions the agent asked, one answer box each. Leaving a box empty skips
-// the question (the agents then state an assumption). Keys sent to the backend are the exact question texts.
+// Clarification pause: the questions the agent asked, each with its answer options (tap one; it fills the box) and
+// an answer box for a free answer. Leaving a box empty skips the question (the agents then state an assumption).
+// Keys sent to the backend are the exact question texts.
 
 import { MessageCircleQuestion, Send } from "lucide-react";
 import { useState } from "react";
@@ -12,8 +13,6 @@ import { Callout } from "@/components/ui/Callout";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { ApiError, resumeDecision } from "@/lib/api/client";
 import type { ClarificationPayload } from "@/lib/api/types";
-
-const MAX_ROUNDS = 3; // config.max_clarification_rounds
 
 export function ClarificationForm({
   threadId,
@@ -68,7 +67,7 @@ export function ClarificationForm({
         description="Answer what you can in your own words. Leave a question empty to skip it; the agents will state what they assumed."
         aside={
           <Badge tone="amber" size="md">
-            Round {payload.round} of {MAX_ROUNDS}
+            Round {payload.round} of {payload.max_rounds ?? 1}
           </Badge>
         }
       />
@@ -85,6 +84,24 @@ export function ClarificationForm({
                 <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-semibold text-amber-800">{i + 1}</span>
                 <span className="pt-0.5">{q}</span>
               </label>
+              {(payload.options?.[q] ?? []).length > 0 && (
+                <div className="ml-8 flex flex-wrap gap-1.5" role="group" aria-label="Answer options">
+                  {(payload.options?.[q] ?? []).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setAnswers((prev) => ({ ...prev, [q]: option }))}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition hover:-translate-y-px ${
+                        (answers[q] ?? "") === option
+                          ? "border-brand bg-brand-faint text-brand-strong"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-brand/50 hover:text-brand-strong"
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
               <textarea
                 id={`q-${i}`}
                 rows={2}
@@ -92,7 +109,7 @@ export function ClarificationForm({
                 onChange={(e) => setAnswers((prev) => ({ ...prev, [q]: e.target.value }))}
                 onKeyDown={onKeyDown}
                 maxLength={2000}
-                placeholder="Your answer (optional)"
+                placeholder={(payload.options?.[q] ?? []).length ? "Or type your own answer (optional)" : "Your answer (optional)"}
                 className="ml-8 w-[calc(100%-2rem)] resize-y rounded-lg border border-slate-300 p-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
               />
             </li>

@@ -6,7 +6,6 @@ from ai_decision_arena import schemas as S
 from ai_decision_arena.config import get_settings
 from ai_decision_arena.nodes.clarification import clarification_node
 from ai_decision_arena.nodes.critic import critic_node
-from ai_decision_arena.nodes.evidence_checker import evidence_checker_node
 from ai_decision_arena.nodes.intake import InvalidInputError, intake_node
 from ai_decision_arena.nodes.judge import judge_node, weighted_total
 from ai_decision_arena.nodes.proposer import proposer_node
@@ -42,6 +41,9 @@ def test_clarification_asks_in_round_one_and_merges_answers_later(fake_llm, base
     assert first["need_clarification"] is True
     assert len(first["clarification_questions"]) == 2
     assert first["status"] == "awaiting_clarification"
+    # 2026-10-29: every question carries answer options (cleaned by Python: no 'Other', no duplicates, at most 4)
+    assert first["clarification_options"]["Who are the main users of this app?"] == ["Students", "Small business owners", "My own team"]
+    assert first["clarification_options"]["Which features must the first version have?"] == ["Just the basics", "Basics plus sync"]
 
     answered = dict(base_state, clarification_round_count=1,
                     clarification_answers={q: "2 years" for q in first["clarification_questions"]})
@@ -52,14 +54,18 @@ def test_clarification_asks_in_round_one_and_merges_answers_later(fake_llm, base
     assert second["assumptions"]            # never continues silently
 
 
-def test_three_clarification_rounds_are_allowed_but_not_four(fake_llm, base_state):
+def test_one_clarification_round_only_and_at_most_five_questions(fake_llm, base_state):
+    """2026-10-29 (user decision): one round, five questions max, whatever the model asks for."""
     def always_asks(system, user):
         r = build_clarification(system, user)
-        return r.model_copy(update={"need_clarification": True, "questions": ["Anything else about the users?"], "assumptions": []})
+        many = [S.ClarificationQuestion(text=f"Question {i}?", options=[f"a{i}", f"b{i}"]) for i in range(8)]
+        return r.model_copy(update={"need_clarification": True, "questions": many, "assumptions": []})
     fake_llm.overrides[S.ClarificationResult] = always_asks
-    assert get_settings().max_clarification_rounds == 3
-    assert clarification_node(dict(base_state, clarification_round_count=2))["need_clarification"] is True
-    assert clarification_node(dict(base_state, clarification_round_count=3))["need_clarification"] is False
+    assert get_settings().max_clarification_rounds == 1
+    first = clarification_node(dict(base_state, clarification_round_count=0))
+    assert first["need_clarification"] is True and len(first["clarification_questions"]) == 5
+    assert set(first["clarification_options"]) == set(first["clarification_questions"])
+    assert clarification_node(dict(base_state, clarification_round_count=1))["need_clarification"] is False
 
 
 def test_clarification_never_asks_past_the_round_cap(fake_llm, base_state):
@@ -76,7 +82,7 @@ def test_clarification_drops_questions_already_answered(fake_llm, base_state):
     assert out["clarification_questions"] == ["Which features must the first version have?"]
 
 
-# --- proposer / critic / judge / checker --------------------------------------------------------------
+# --- proposer / critic / judge (+ the winner's claim check) --------------------------------------------------------------
 
 def _evidence(eid: str, domain: str) -> dict:
     return S.Evidence(evidence_id=eid, domain=domain, source_title="t", source_url="https://e.org/x",
@@ -148,7 +154,7 @@ def test_judge_computes_totals_in_python_and_picks_the_winner(fake_llm, base_sta
     assert len(out["scores"]) == 3
     for s in out["scores"]:
         assert s["weighted_total"] == weighted_total(S.ProposalScore.model_validate(s), weights)
-    assert out["status"] == "verifying"
+    assert out["status"] == "reporting"       # the claim check is folded in: next is the report
 
 
 @pytest.mark.usefixtures("auto_loops")
@@ -196,17 +202,52 @@ def test_judge_with_no_proposals_requests_research_without_calling_the_llm(fake_
     assert fake_llm.calls == []
 
 
-def test_evidence_checker_verifies_only_the_winner(fake_llm, base_state):
-    state = dict(base_state, evidence=[_evidence("ev_001", "apps")], proposals=_proposals("proposal_a", "proposal_b"),
-                 verdict={"decision": "proceed", "winning_proposal_id": "proposal_b"})
-    out = evidence_checker_node(state)
-    assert fake_llm.count("ProposalVerification") == 1
-    assert all(r["proposal_id"] == "proposal_b" for r in out["verification_results"])
+def test_judge_consolidates_the_winners_claim_check(fake_llm, base_state):
+    """Review 2026-10-29: the Evidence Checker node was folded into the Judge. Without a stored check (a state from
+    before the critic's pool) the judge makes the one claim-check call itself, for the winner only."""
+    state = dict(base_state, evidence=[_evidence("ev_001", "apps")], proposals=_proposals("proposal_a", "proposal_b"))
+    out = judge_node(state)
+    assert fake_llm.count("ProposalJudgement") == 1 and fake_llm.count("ProposalVerification") == 1
+    winner = out["verdict"]["winning_proposal_id"]
+    assert winner == "proposal_a" and all(r["proposal_id"] == winner for r in out["verification_results"])
     assert out["checker_verdict"]["decision"] == "proceed" and out["checker_verdict"]["claims_checked"] == 1
     assert out["evidence"][0]["verification_status"] == "verified"
+    assert out["status"] == "reporting"                      # next step: the report, no separate checker node
 
 
-def test_evidence_checker_without_winner_skips_the_llm(fake_llm, base_state):
-    out = evidence_checker_node(dict(base_state, proposals=[], verdict={"decision": "insufficient_evidence", "winning_proposal_id": None}))
-    assert out["verification_results"] == [] and out["status"] == "reporting"
+def test_judge_reuses_the_stored_check_and_lists_gaps_as_open_questions(fake_llm, base_state):
+    """Fast path (AUTO_LOOPS=false): a material gap of the winner cannot start a research pass, so it becomes an
+    'Unverified:' open question in the brief, never hidden."""
+    stored = S.ProposalVerification(
+        claims=[S.ClaimCheck(claim="AI removes all errors.", evidence_ids=["ev_001"], status="unsupported", notes="capability only",
+                             is_anecdotal=False, is_material=True)],
+        overall="Thin.", material_gaps=["error rates of automated categorisation"]).model_dump(mode="json")
+    state = dict(base_state, evidence=[_evidence("ev_001", "apps")], proposals=_proposals("proposal_a", "proposal_b"),
+                 proposal_checks={"proposal_a": stored, "proposal_b": stored})
+    out = judge_node(state)
+    assert fake_llm.count("ProposalVerification") == 0           # the critic's pool already made the check
+    assert out["verdict"]["decision"] == "proceed" and out["checker_verdict"]["decision"] == "proceed"
+    assert out["checker_verdict"]["material_gaps"] == ["error rates of automated categorisation"]
+    assert out["unresolved_questions"] == ["Unverified: error rates of automated categorisation"]
+    assert out["evidence"][0]["verification_status"] == "unsupported"
+
+
+@pytest.mark.usefixtures("auto_loops")
+def test_judge_sends_a_material_gap_of_the_winner_back_to_research_when_loops_are_on(fake_llm, base_state):
+    stored = S.ProposalVerification(
+        claims=[S.ClaimCheck(claim="AI removes all errors.", evidence_ids=["ev_001"], status="unsupported", notes="capability only",
+                             is_anecdotal=False, is_material=True)],
+        overall="Thin.", material_gaps=["error rates of automated categorisation"]).model_dump(mode="json")
+    state = dict(base_state, evidence=[_evidence("ev_001", "apps")], proposals=_proposals("proposal_a", "proposal_b"),
+                 proposal_checks={"proposal_a": stored, "proposal_b": stored})
+    out = judge_node(state)
+    assert out["verdict"]["decision"] == "request_more_research" and out["checker_verdict"]["decision"] == "request_more_research"
+    assert out["research_focus"] == ["error rates of automated categorisation"] and out["research_retry_count"] == 1
+    assert "unresolved_questions" not in out                      # researched instead of listed
+
+
+def test_judge_without_proposals_writes_an_empty_check_without_calling_the_llm(fake_llm, base_state):
+    out = judge_node(dict(base_state, proposals=[], proposer_status="declined"))
+    assert out["verdict"]["decision"] == "insufficient_evidence" and out["verification_results"] == []
+    assert out["checker_verdict"]["claims_checked"] == 0 and out["status"] == "reporting"
     assert fake_llm.calls == []

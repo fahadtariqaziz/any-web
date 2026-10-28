@@ -5,6 +5,7 @@
 // plan review → Plan, building → Build, running app → Preview) until the user picks another one.
 
 import { Activity as ActivityIcon, FileText, Hammer, ListChecks, MonitorPlay } from "lucide-react";
+import { motion } from "motion/react";
 
 import { BriefView } from "@/components/report/BriefView";
 import { PlanView } from "@/components/report/PlanView";
@@ -118,7 +119,7 @@ export function WorkPane({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_30px_-18px_rgb(15_23_42_/_0.35)]">
       <div className="flex shrink-0 items-end gap-2 border-b border-slate-200 px-2 pt-1.5">
         <div role="tablist" aria-label="Project views" className="flex min-w-0 gap-0.5 overflow-x-auto">
           {tabs.map((t) => (
@@ -129,12 +130,19 @@ export function WorkPane({
               aria-selected={tab === t.key}
               disabled={t.disabled}
               onClick={() => onTab(t.key)}
-              className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                tab === t.key ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"
+              className={`relative -mb-px inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                tab === t.key ? "text-slate-900" : "text-slate-500 hover:text-slate-800"
               }`}
             >
               {t.icon}
               {t.label}
+              {tab === t.key && (
+                <motion.span
+                  layoutId="work-tab-underline"
+                  className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500"
+                  transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                />
+              )}
             </button>
           ))}
         </div>

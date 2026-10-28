@@ -20,6 +20,7 @@ import {
   Hammer,
   ListChecks,
   Loader2,
+  Square,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
@@ -30,6 +31,7 @@ import { useNow } from "@/hooks/useNow";
 import { useStoredList } from "@/hooks/useStoredList";
 import {
   ApiError,
+  cancelDecision,
   getChat,
   resumeDecision,
   sendChatMessage,
@@ -50,6 +52,7 @@ import { latestDetail, runSeconds, stageLabel } from "@/lib/chatStages";
 import { WORKFLOW_STATUS_LABEL } from "@/lib/format";
 
 import { projectTotal } from "@/components/session/CostCard";
+import { Button } from "@/components/ui/Button";
 import {
   AppRunningCard,
   BriefReviewCard,
@@ -65,6 +68,7 @@ import {
   UserBubble,
 } from "./Messages";
 import { projectTitle, useProjectList } from "./ProjectListContext";
+import { QuestionCard } from "./QuestionCard";
 import { StageChips } from "./StageChips";
 import { useStartProject } from "./useStartProject";
 import { WorkingChip } from "./WorkingChip";
@@ -188,15 +192,43 @@ export function ChatPane({
       .forEach((k) => localStorage.removeItem(k));
   }, [ready, threadId]);
 
-  // A run that stopped half way (server restart): pick it up once, automatically.
+  // A run that stopped half way (server restart): pick it up once, automatically. Not when the user stopped it
+  // (Stop button → POST /cancel): then the Continue button below is their decision.
   const continued = useRef(false);
   useEffect(() => {
-    if (status.run_state !== "interrupted" || continued.current) return;
+    if (status.run_state !== "interrupted" || status.cancelled || continued.current) return;
     continued.current = true;
     resumeDecision(threadId, { type: "continue" }).then(refresh, () =>
       refresh(),
     );
-  }, [status.run_state, threadId, refresh]);
+  }, [status.run_state, status.cancelled, threadId, refresh]);
+
+  // Stop / Continue (safe cancellation): the step in progress finishes and is saved; no later step starts.
+  const [stopRequested, setStopRequested] = useState(false);
+  const stopping = stopRequested && status.run_state === "running"; // derived: clears itself once the run stops
+  const stopped = status.run_state === "interrupted" && status.cancelled;
+  async function stop() {
+    setStopRequested(true);
+    setActionError(null);
+    try {
+      await cancelDecision(threadId);
+      refresh();
+    } catch (e) {
+      setStopRequested(false);
+      setActionError(e instanceof ApiError ? e.message : "Could not stop the run. Please try again.");
+    }
+  }
+  async function continueRun() {
+    setActionError(null);
+    setStopRequested(false);
+    continued.current = true;
+    try {
+      await resumeDecision(threadId, { type: "continue" });
+      refresh();
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : "Could not continue the run. Please try again.");
+    }
+  }
 
   // The projects drawer shows the project name once intake found it.
   useEffect(() => {
@@ -216,6 +248,7 @@ export function ChatPane({
   ): Promise<boolean> {
     if (sending) return false;
     setSending(action);
+    setStopRequested(false);
     setActionError(null);
     try {
       await resumeDecision(threadId, body);
@@ -411,7 +444,7 @@ export function ChatPane({
   // --- keep the newest content in view ---------------------------------------------------------------------------
   const running =
     status.run_state === "running" ||
-    status.run_state === "interrupted" ||
+    (status.run_state === "interrupted" && !status.cancelled) ||
     submitting ||
     answered ||
     (paused !== null && question === null);
@@ -477,14 +510,46 @@ export function ChatPane({
             onOpen={() => onOpenTab("build")}
           />
         )}
-        <WorkingChip
-          label={
-            submitting || answered ? "Reading your reply" : stageLabel(status)
-          }
-          seconds={submitting || answered ? null : runSeconds(status, now)}
-          detail={submitting || answered ? null : latestDetail(status)}
-        />
+        <div className="flex items-start justify-between gap-3">
+          <WorkingChip
+            label={
+              submitting || answered
+                ? "Reading your reply"
+                : stopping
+                  ? "Finishing the current step, then stopping"
+                  : stageLabel(status)
+            }
+            seconds={submitting || answered ? null : runSeconds(status, now)}
+            detail={submitting || answered ? null : latestDetail(status)}
+          />
+          {status.run_state === "running" && !submitting && !answered && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={stop}
+              disabled={stopping}
+              icon={<Square className="size-3.5" aria-hidden />}
+              title="Stop after the current step; nothing is lost and you can continue later"
+            >
+              {stopping ? "Stopping…" : "Stop"}
+            </Button>
+          )}
+        </div>
       </div>
+    );
+  } else if (stopped) {
+    live = (
+      <AssistantNote icon={<Square className="size-4" aria-hidden />} tone="amber">
+        <p className="font-medium">Stopped after the last finished step.</p>
+        <p className="text-slate-600">
+          Everything done so far is saved. Continue when you are ready; the next step picks up exactly here.
+        </p>
+        <div className="mt-2">
+          <Button variant="secondary" size="sm" onClick={continueRun}>
+            Continue
+          </Button>
+        </div>
+      </AssistantNote>
     );
   } else if (pending?.type === "brief_review") {
     live = (
@@ -590,15 +655,10 @@ export function ChatPane({
         key={`answer-${answers.length}`}
         onSend={answer}
         autoFocus
-        placeholder="Type your answer…"
-        extra={
-          <button
-            type="button"
-            onClick={() => answer("")}
-            className="mb-0.5 rounded-full px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-          >
-            Skip
-          </button>
+        placeholder={
+          (question.options?.[question.questions[answers.length]] ?? []).length
+            ? "Or type your own answer…"
+            : "Type your answer…"
         }
       />
     );
@@ -642,7 +702,7 @@ export function ChatPane({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 space-y-2 border-b border-slate-200 px-4 py-2.5">
+      <div className="glass shrink-0 space-y-2 border-b border-slate-200/70 px-4 py-2.5">
         <div className="flex items-center justify-between gap-2">
           <p
             className="truncate text-sm font-semibold text-slate-900"
@@ -676,33 +736,39 @@ export function ChatPane({
             </div>
           ))}
 
-          {/* Questions of the current round: answered locally so far, then the current one */}
+          {/* Questions of the current round: answered locally so far (text + bubble), then the current one as a
+              card with its answer options (2026-10-29: tap an option, or type below) */}
           {paused &&
             paused.questions
               .slice(0, question ? answers.length + 1 : answers.length)
               .map((q, i) => (
                 <div key={q} className="space-y-3">
-                  <div>
-                    {i === 0 && clarifications.length === 0 && (
-                      <p className="mb-1 text-sm text-slate-500">
-                        Thanks for telling me. A few quick questions:
-                      </p>
-                    )}
-                    <AssistantMessage text={q} />
-                    <p className="mt-1 text-xs text-slate-400">
-                      Question {i + 1} of {paused.questions.length}
+                  {i === 0 && clarifications.length === 0 && (
+                    <p className="text-sm text-slate-500">
+                      Thanks for telling me. A few quick questions:
                     </p>
-                  </div>
-                  {i < answers.length && (
-                    <UserBubble muted={!answers[i]}>
-                      {answers[i] || "Skipped"}
-                    </UserBubble>
+                  )}
+                  {i < answers.length ? (
+                    <>
+                      <AssistantMessage text={q} />
+                      <UserBubble muted={!answers[i]}>
+                        {answers[i] || "Skipped"}
+                      </UserBubble>
+                    </>
+                  ) : (
+                    <QuestionCard
+                      question={q}
+                      options={paused.options?.[q] ?? []}
+                      index={i}
+                      total={paused.questions.length}
+                      disabled={submitting}
+                      error={question?.error ?? null}
+                      onPick={(option) => answer(option)}
+                      onSkip={() => answer("")}
+                    />
                   )}
                 </div>
               ))}
-          {question?.error && (
-            <p className="text-sm text-amber-700">{question.error}</p>
-          )}
 
           {chat?.onboarding_summary && (
             <SummaryMessage summary={chat.onboarding_summary} />

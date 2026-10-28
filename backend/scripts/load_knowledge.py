@@ -21,4 +21,5 @@ print(f"curated docs loaded: {loaded} (old curated rows deleted: {deleted})")
 print(f"evidence copied from earlier sessions: {backfill_knowledge_from_evidence()}")
 print(f"\nsearch: {query!r}")
 for r in search(query):
-    print(f"- [{r['id']}] ({r['kind']}) {r['title'][:80]}\n    {r['url']}\n    {r['excerpt'][:160]}...")
+    print(f"- [{r['id']}] ({r['kind']}, verified {r['verified'] or '?'}, stack {r['stack'] or '-'}) {r['title'][:80]}"
+          f"\n    {r['url']}\n    {r['excerpt'][:160]}...")

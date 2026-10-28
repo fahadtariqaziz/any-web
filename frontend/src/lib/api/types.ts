@@ -18,7 +18,9 @@ export interface ProgressLine {
 export interface ClarificationPayload {
   type: "clarification";
   questions: string[];
+  options: Record<string, string[]>; // question -> 2-4 answer options to tap (2026-10-29); typing still works
   round: number;
+  max_rounds: number; // 1 since 2026-10-29
   error?: string;
 }
 
@@ -78,7 +80,7 @@ export interface RenderCheck {
 }
 
 export interface BuildStep {
-  phase: "install" | "test" | "build";
+  phase: "install" | "test" | "build" | "secrets"; // secrets = the builder's own scan (no command)
   command: string;
   ok: boolean;
   exit_code: number | null;
@@ -87,7 +89,7 @@ export interface BuildStep {
   skipped_tests?: number; // test step: skipped + todo tests the runner reported in its summary (M11)
 }
 
-/** The last build check: install → test → build in the sandbox. passed comes from exit codes only. */
+/** The last build check: install → test → build in the sandbox, then the secret scan. passed comes from exit codes and the scan only. */
 export interface BuildResults {
   round: number;
   passed: boolean;
@@ -151,6 +153,12 @@ export interface DecisionStatus {
   started_at: string | null;
   active_seconds: number;
   counters: Counters;
+  cancelled: boolean; // the user stopped the run (POST /cancel): interrupted, nothing wrong, waits for Continue
+}
+
+export interface CancelAccepted {
+  thread_id: string;
+  message: string;
 }
 
 // --- live snapshot (GET /live): everything produced so far -----------------------------------
@@ -558,7 +566,7 @@ export interface BriefResponse {
   thread_id: string;
   workflow_status: string | null;
   brief: ProblemBrief;
-  markdown: string; // main part (~1 page), references, appendix
+  markdown: string; // sections 1-9 and the references (no appendix since 2026-10-29)
   validation: BriefValidation | null; // null while is_draft
   is_draft: boolean; // the validator is still checking this draft (shown early); checks arrive with the validated brief
   approved_at: string | null; // set once the user approved exactly this brief
@@ -729,7 +737,7 @@ export interface AppDatabase {
   migrations: string[];
   tables: string[];
   check: { status: "ready" | "missing" | "unknown" | "not_checked"; missing?: string[]; errors?: string[]; reason?: string; at: string } | null;
-  setup: { ok: boolean; error: string | null; files: { file: string; status: "applied" | "already applied" | "failed"; error?: string }[] } | null;
+  setup: { ok: boolean; error: string | null; files: { file: string; status: "applied" | "already applied" | "failed" | "conflict"; error?: string }[] } | null;
 }
 
 export interface PreviewResponse extends PreviewInfo {

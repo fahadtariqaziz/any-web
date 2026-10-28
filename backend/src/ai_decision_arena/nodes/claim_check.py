@@ -1,23 +1,16 @@
-"""Node 7 — Evidence Checker: do the winning proposal's claims really follow from the cited evidence?
+"""Claim check: do a proposal's factual claims really follow from the evidence it cites?
 
-The claim check itself (verify_proposal: one LLM call per proposal) runs in the CRITIC node, in parallel with the
-critiques, for every proposal (speed: the check no longer waits for the critic and the judge; it no longer sees the
-Critic's points). It sees the proposal, the evidence it cites IN FULL and the rest of the evidence in compact form,
-and returns a verdict per claim (verified / partially_supported / unsupported / contradicted / irrelevant /
-unavailable) and the MATERIAL gaps (claims whose failure would change the design). This node takes the winner's
-check from `proposal_checks` (no LLM call); only if it is missing (e.g. a state from before this change) it runs the
-check itself.
-
-Python then:
-- stores ClaimVerification records and updates evidence[].verification_status,
-- decides routing: material gaps + loops allowed → one focused research pass; otherwise → the report, with the
-  gaps recorded as unresolved questions (never hidden).
-
-Writes (owner): verification_results, checker_verdict, evidence[].verification_status, unresolved_questions
-(append), research_focus / research_retry_count (when looping), status, current_node.
+Not a graph node (review of 2026-10-29: the separate Evidence Checker node was folded into the Judge). Two parts:
+- `verify_proposal`: ONE LLM call for ONE proposal, run by the CRITIC node for every proposal, in parallel with the
+  critiques (speed: the check never waits for the judge). It sees the proposal, the evidence it cites IN FULL and the
+  rest of the evidence in compact form, and returns a verdict per claim (verified / partially_supported / unsupported /
+  contradicted / irrelevant / unavailable) and the MATERIAL gaps (claims whose failure would change the design).
+- `consolidate`: pure Python, run by the JUDGE once the winner is known: takes the winner's stored check (or makes the
+  call when a state from before the critic's pool has none), keeps only evidence ids that exist, stores one
+  ClaimVerification per claim, and sets evidence[].verification_status. The Judge then folds the material gaps into
+  its ONE routing decision (research pass when a loop is allowed, else open questions in the brief).
 """
 
-from ai_decision_arena.limits import loops_allowed
 from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
 from ai_decision_arena.prompting import BUILDER_RULES, evidence_block, proposals_block, user_case_block
@@ -47,6 +40,18 @@ Rules:
 - is_material: true if the proposal's core design would change were this claim wrong.
 - At most {max_claims} claims, most important first. material_gaps: for each MATERIAL claim that is unsupported,
   contradicted or unavailable, what a follow-up search should look for; empty list if none.
+
+Where the line goes (examples of the judgement, not of the format):
+- Claim "AI categorisation removes all expense errors"; the cited excerpt says "automated categorisation assigns a
+  category to each transaction" → unsupported: the excerpt shows the capability, not an error rate. A capability
+  never proves an outcome.
+- Claim "Users of app X complain that sync loses entries"; the cited excerpts are two forum posts describing lost
+  entries after a sync → verified, is_anecdotal true (individual reports, no aggregate).
+- Claim "Library Y supports offline use"; the cited excerpt says "Y caches fetched responses for offline reading" →
+  partially_supported: a weaker version (read-only caching) is what the source says.
+- Claim "The market for budgeting apps is growing 20% a year"; the cited excerpt is a page about the app's pricing →
+  irrelevant; if nothing else in the evidence gives a growth figure, the number is unsupported.
+- "Use React with Vite for the frontend" → a design decision, not a claim: skip it.
 """ + BUILDER_RULES
 
 
@@ -63,9 +68,9 @@ def _evidence_status(statuses: list[str]) -> str:
     return min(statuses, key=lambda s: STATUS_RANK.get(s, 9))
 
 
-def verify_proposal(state: ArenaState, proposal: dict, node: str = "evidence_checker") -> ProposalVerification:
+def verify_proposal(state: ArenaState, proposal: dict, node: str = "judge") -> ProposalVerification:
     """One LLM call: the claims of ONE proposal against the evidence it cites (called by the critic node, in parallel
-    with the critiques, and as a fallback by evidence_checker_node)."""
+    with the critiques, and as a fallback by the judge when a state has no stored check)."""
     evidence = state.get("evidence", [])
     cited_ids = set(proposal.get("supporting_evidence_ids", []))
     cited = [e for e in evidence if e["evidence_id"] in cited_ids]
@@ -88,27 +93,20 @@ def verify_proposal(state: ArenaState, proposal: dict, node: str = "evidence_che
     )
 
 
-def evidence_checker_node(state: ArenaState) -> dict:
-    winner_id = (state.get("verdict") or {}).get("winning_proposal_id")
+def consolidate(state: ArenaState, winner_id: str | None, node: str = "judge") -> dict:
+    """Python only (unless no stored check exists): the winner's claim check as state fields.
+    Returns {verification_results, evidence, material_gaps, summary, claims_checked}; empty results without a winner."""
     proposals = {p["proposal_id"]: p for p in state.get("proposals", [])}
-    if not winner_id or winner_id not in proposals:
-        report("evidence_checker", "no winning proposal to verify")
-        return {
-            "verification_results": [],
-            "checker_verdict": {"decision": "proceed", "reason": "No winning proposal to verify.", "material_gaps": [],
-                                "summary": "", "claims_checked": 0},
-            "status": "reporting",
-            "current_node": "evidence_checker",
-        }
-
-    proposal = proposals[winner_id]
     evidence = state.get("evidence", [])
+    if not winner_id or winner_id not in proposals:
+        return {"verification_results": [], "evidence": evidence, "material_gaps": [], "summary": "", "claims_checked": 0}
+
     stored = (state.get("proposal_checks") or {}).get(winner_id)
     if stored is not None:
-        report("evidence_checker", f"using the claim check of {winner_id} made in parallel with the critic")
+        report(node, f"using the claim check of {winner_id} made in parallel with the critic")
         out = ProposalVerification.model_validate(stored)
     else:
-        out = verify_proposal(state, proposal)
+        out = verify_proposal(state, proposals[winner_id], node)
 
     known_ids = {e["evidence_id"] for e in evidence}
     results: list[dict] = []
@@ -124,9 +122,9 @@ def evidence_checker_node(state: ArenaState) -> dict:
         ).model_dump(mode="json"))
         for i in ids:
             by_evidence.setdefault(i, []).append(status)
-    report("evidence_checker", f"{winner_id}: {len(results)} claim(s) checked "
-                               + ", ".join(f"{k} {v}" for k, v in counts.items())
-                               + (f"; {len(out.material_gaps)} material gap(s)" if out.material_gaps else ""))
+    report(node, f"{winner_id}: {len(results)} claim(s) checked "
+                 + ", ".join(f"{k} {v}" for k, v in counts.items())
+                 + (f"; {len(out.material_gaps)} material gap(s)" if out.material_gaps else ""))
 
     # Evidence records get a verification status (the Research node set "pending").
     evidence = [
@@ -134,25 +132,5 @@ def evidence_checker_node(state: ArenaState) -> dict:
         if e["evidence_id"] in by_evidence else e
         for e in evidence
     ]
-
-    can_debate, can_research, _, blocked = loops_allowed(state)
-    gaps = list(out.material_gaps)
-    update: dict = {"verification_results": results, "evidence": evidence, "current_node": "evidence_checker"}
-    if gaps and can_research:
-        decision = "request_more_research"
-        reason = "Material claims of the winning proposal are not supported by the cited evidence: one focused research pass."
-        update |= {"research_focus": gaps, "research_retry_count": state.get("research_retry_count", 0) + 1,
-                   "status": "researching"}
-    else:
-        decision = "proceed"
-        reason = ("All material claims are supported." if not gaps else
-                  f"Unverified material claims remain ({'; '.join(blocked) or 'no loop possible'}); "
-                  "continuing with them listed as unresolved.")
-        unresolved = list(state.get("unresolved_questions", []))
-        unresolved += [f"Unverified: {g}" for g in gaps if f"Unverified: {g}" not in unresolved]
-        update |= {"unresolved_questions": unresolved, "status": "reporting"}
-
-    update["checker_verdict"] = {"decision": decision, "reason": reason, "material_gaps": gaps, "summary": out.overall,
-                                 "claims_checked": len(results)}
-    report("evidence_checker", f"decision: {decision}")
-    return update
+    return {"verification_results": results, "evidence": evidence, "material_gaps": list(out.material_gaps),
+            "summary": out.overall, "claims_checked": len(results)}

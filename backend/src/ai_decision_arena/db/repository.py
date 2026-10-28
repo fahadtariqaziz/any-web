@@ -85,10 +85,12 @@ def save_completion(thread_id: str, state: dict, status: str, metrics: dict) -> 
             ))
 
         # The knowledge base grows with every session: its evidence becomes searchable for later chats.
+        plan_stack = ", ".join((state.get("implementation_plan") or {}).get("tech_stack") or [])[:200] or None
         _upsert_knowledge(db, [
             {"kind": "evidence", "key": f"{thread_id}:{e['evidence_id']}", "title": e["source_title"],
              "url": str(e["source_url"]), "domain": e["domain"], "topic": state.get("project_name"),
-             "content": " ".join([e.get("relevant_excerpt", ""), *e.get("claims_supported", [])]), "thread_id": thread_id}
+             "content": " ".join([e.get("relevant_excerpt", ""), *e.get("claims_supported", [])]), "thread_id": thread_id,
+             "status": "verified", "verified_at": datetime.now(timezone.utc), "stack": plan_stack}
             for e in state.get("evidence", [])
         ])
 
@@ -191,6 +193,15 @@ def add_memories(user_id: str, facts: list[str], source: str, thread_id: str | N
         db.execute(insert(UserMemory).values(rows).on_conflict_do_nothing(constraint="uq_user_memories_fact"))
 
 
+def prune_memories(user_id: str, keep: int) -> int:
+    """Delete every fact of this user beyond the newest `keep` (review 2026-10-29: a bounded memory, like a bounded
+    context). Returns how many were deleted."""
+    newest = select(UserMemory.id).where(UserMemory.user_id == user_id).order_by(UserMemory.id.desc()).limit(keep)
+    with session_factory().begin() as db:
+        return db.execute(delete(UserMemory).where(UserMemory.user_id == user_id,
+                                                   UserMemory.id.not_in(newest))).rowcount
+
+
 def list_memories(user_id: str, limit: int = 40) -> list[UserMemory]:
     """The newest `limit` facts, oldest first (so the prompt reads like a history)."""
     query = (select(UserMemory).where(UserMemory.user_id == user_id)
@@ -242,12 +253,13 @@ def replace_curated_docs(rows: list[dict]) -> int:
 # document containing every word; turning "&" into "|" (OR) lets ts_rank reward documents that match MORE words.
 # Documents of the current project get a boost (they were found for this very project).
 SEARCH_SQL = text("""
-SELECT id, kind, title, url, domain, topic, thread_id, content,
+SELECT id, kind, title, url, domain, topic, thread_id, content, status, verified_at, stack,
        ts_rank(search_vector, q) * CASE WHEN thread_id = :thread_id THEN 1.5 ELSE 1 END AS rank
 FROM knowledge_docs,
      to_tsquery('english', replace(plainto_tsquery('english', :query)::text, ' & ', ' | ')) AS q
 WHERE search_vector @@ q
   AND (:include_curated OR kind = 'evidence')
+  AND status <> 'deprecated'
 ORDER BY rank DESC
 LIMIT :limit
 """)

@@ -4,8 +4,8 @@
   "version": 2
  },
  "ask_tools": {
-  "sha256": "48c96c46b9c53eb3173fa030121839c053517abbb8b4fc5635496c0023c9be14",
-  "version": 2
+  "sha256": "288216ca373f829d87ec670a862fd4e7672c7b5bb654580b1a9d961dcecf27ea",
+  "version": 3
  },
  "brief_routing": {
   "sha256": "d93cf62edc188f39c4e0398038cfd45c44c6b333d1197e7c52628e38fdf2b17c",
@@ -16,24 +16,24 @@
   "version": 1
  },
  "brief_writer": {
-  "sha256": "dab76644007ec6dfbe56299281e8f44179a46f849bd39ac3a587f5ed1ed39a63",
-  "version": 2
+  "sha256": "04da473f6dcfa90de5a3fe2ae21ab91ea04cf2d4f0ed9f7e4bdae689698c9cbf",
+  "version": 3
  },
  "builder_rules": {
-  "sha256": "1808447036fcc905bb32e42a5ec550f15ddde867a5304adf21fbb3779977e753",
-  "version": 1
+  "sha256": "23db0baf934c632f16fe930f2d688d20217af34aac29b41a3aa18001ed2700ad",
+  "version": 2
  },
  "clarification": {
-  "sha256": "b1feb4c33186d7482324fbc2b9a802f04a6c36ff183b539a1d2d59475b21b3f6",
-  "version": 2
+  "sha256": "c0983170519f54c1e45215cf01570a622b157077a4a72d56d8092d66f99728b2",
+  "version": 3
  },
  "critic": {
-  "sha256": "cdfc8c8b5045db9ad13fee2e51801253e622c00bf2fc33182ec4c886f7a2d8e3",
-  "version": 2
+  "sha256": "b627526f5ced9d3d1fd5ff0842a8746b3d3705ce2b4c9df5c1ce74bd0b12c7b5",
+  "version": 3
  },
  "evidence_checker": {
-  "sha256": "164b9f930597a01df412a0f10656766db4cd4db685ff245ab50aa65d89bb8132",
-  "version": 2
+  "sha256": "13fa0535e8dad2d7fbb3f79d9db9a6c783e53fb133b764e9dc9557217a63cf72",
+  "version": 3
  },
  "extractor": {
   "sha256": "7b30017990462c8bc0a7bed676a020fb082a9917a215cefab857acce22841c0c",
@@ -72,7 +72,7 @@
   "version": 1
  },
  "skills": {
-  "sha256": "b6cad1e08d28d052ea2141cadcfa7cbac828dc94bcec44181ad89761a364f138",
-  "version": 2
+  "sha256": "661fbf12171d5f1eda0416f73ab571ab1734868d87a953092ec4e6c638cbe99e",
+  "version": 3
  }
 }

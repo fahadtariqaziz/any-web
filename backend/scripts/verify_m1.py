@@ -52,7 +52,11 @@ for idea in IDEAS:
     for i, q in enumerate(questions, 1):
         print(f"    {i}. {q}")
     check(clar["need_clarification"] is True and clar["status"] == "awaiting_clarification", "first round asks questions")
-    check(3 <= len(questions) <= 6, f"between 3 and 6 questions ({len(questions)})")
+    check(3 <= len(questions) <= 5, f"between 3 and 5 questions ({len(questions)})")
+    options = clar.get("clarification_options", {})
+    for q in questions:
+        print(f"      options: {options.get(q)}")
+    check(all(2 <= len(options.get(q, [])) <= 4 for q in questions), "every question has 2-4 answer options")
     check(len(set(questions)) == len(questions), "no duplicate questions")
     check(not any(w in " ".join(questions).lower() for w in HEALTH_WORDS), "no health vocabulary in the questions")
     check(all(q.count("?") <= 1 for q in questions), "one question per item")

@@ -68,7 +68,11 @@ def build_clarification(system: str, user: str) -> S.ClarificationResult:
     ask = rounds_used == 0 and can_ask_more
     return S.ClarificationResult(
         need_clarification=ask,
-        questions=["Who are the main users of this app?", "Which features must the first version have?"] if ask else [],
+        questions=[S.ClarificationQuestion(text="Who are the main users of this app?",
+                                           options=["Students", "Small business owners", "My own team"]),
+                   S.ClarificationQuestion(text="Which features must the first version have?",
+                                           options=["Just the basics", "Basics plus sync", "Other", "Just the basics"])]
+        if ask else [],
         reason="first round" if ask else "enough information",
         new_profile_facts=[S.NamedValue(name="audience", value="university students")] if rounds_used else [],
         new_features=[],
@@ -395,6 +399,7 @@ class FakeAgent:
         self.skip: set[str] = set()          # task ids whose files are NOT written (verify fails)
         self.fail_once: set[str] = set()     # task ids that fail only their first attempt
         self.writes: dict[str, list[str]] = {}   # extra files to write per task id (e.g. a fix task that fixes the build)
+        self.contents: dict[str, dict[str, str]] = {}   # task id -> {file: content} instead of the default stub line
 
     def __call__(self, ws, prompt, system_append, *, model, label, protected=frozenset()):
         import json as _json
@@ -403,15 +408,16 @@ class FakeAgent:
         self.calls.append({"task": task["id"], "model": model, "prompt": prompt, "system": system_append,
                            "protected": protected})
         attempt = sum(c["task"] == task["id"] for c in self.calls)
+        contents = self.contents.get(task["id"], {})
         if task["id"] not in self.skip and not (task["id"] in self.fail_once and attempt == 1):
             for name in task["files"]:
                 path = ws.app / name
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(f"// {task['id']}: {name}\n")
+                path.write_text(contents.get(name, f"// {task['id']}: {name}\n"))
         for name in self.writes.get(task["id"], []):
             path = ws.app / name
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(f"// {task['id']}: {name}\n")
+            path.write_text(contents.get(name, f"// {task['id']}: {name}\n"))
         return AgentRun(ok=True, subtype="success", num_turns=3, cost_usd=0.01, final_text=f"did {task['id']}")
 
 

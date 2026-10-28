@@ -173,11 +173,19 @@ def apply(ws: Workspace, db_url: str, connect=None) -> dict:
         with connect() as conn:
             conn.execute(MIGRATION_TABLE)
             conn.commit()
-            done = {row[0] for row in conn.execute("select version from supabase_migrations.schema_migrations")}
+            done = dict(conn.execute("select version, name from supabase_migrations.schema_migrations").fetchall())
             conn.commit()
             for path in files:
                 version = _version(path)
                 if version in done:
+                    if done[version] not in (None, path.stem):
+                        # Every generated app numbers its files 0001, 0002...: the same Supabase project may already
+                        # hold ANOTHER app's 0001. Skipping would leave this app without tables; running would mix
+                        # two apps in one database. The user picks (a new project, or their own SQL).
+                        results.append({"file": path.name, "status": "conflict", "error": (
+                            f"this project already recorded migration {version} as {done[version]!r}, from another "
+                            "app. Use a separate Supabase project for each app (nothing was run).")})
+                        break
                     results.append({"file": path.name, "status": "already applied"})
                     continue
                 try:
@@ -200,5 +208,7 @@ def apply(ws: Workspace, db_url: str, connect=None) -> dict:
         message = message.replace(db_url.strip(), "<connection string>")
         log.info("supabase setup for %s: %s", ws.session_id, message)
         return {"ok": False, "error": f"could not run the migrations: {message}", "files": results}
-    ok = all(r["status"] != "failed" for r in results)
-    return {"ok": ok, "error": None if ok else "a migration file failed; nothing after it was run", "files": results}
+    bad = next((r for r in results if r["status"] in ("failed", "conflict")), None)
+    return {"ok": bad is None, "error": None if bad is None else
+            "a migration file conflicts with this project; nothing was run" if bad["status"] == "conflict"
+            else "a migration file failed; nothing after it was run", "files": results}

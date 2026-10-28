@@ -3,7 +3,7 @@
 from ai_decision_arena import graph as G
 
 EXPECTED_NODES = {"intake", "clarification", "await_clarification", "research", "proposer", "critic", "judge",
-                  "evidence_checker", "final_report", "brief_writer", "brief_validator",
+                  "final_report", "brief_writer", "brief_validator",
                   "await_brief_review", "brief_review_router",
                   "planner", "await_plan_review", "plan_review_router", "implementer", "build_check", "preview",
                   "await_change_request", "change_request_router", "completion"}
@@ -25,11 +25,12 @@ def test_every_node_can_fail_to_completion(graph):
 
 
 def test_proposer_always_goes_to_the_critic(graph):
-    """Quick sessions no longer skip the Critic or the Evidence Checker (M3 decision)."""
+    """Quick sessions no longer skip the Critic (M3 decision); the judge feeds the report directly (the evidence
+    checker node was folded into the judge, 2026-10-29)."""
     edges = {(e.source, e.target) for e in graph.get_graph().edges}
     assert ("proposer", "critic") in edges
     assert ("proposer", "judge") not in edges
-    assert ("judge", "final_report") not in edges
+    assert ("judge", "final_report") in edges and "evidence_checker" not in {e.source for e in graph.get_graph().edges}
 
 
 def test_route_after_clarification():
@@ -41,16 +42,10 @@ def test_route_after_clarification():
 def test_route_after_judge_reads_the_decision_only():
     assert G.route_after_judge({"verdict": {"decision": "request_more_research"}}) == "research"
     assert G.route_after_judge({"verdict": {"decision": "request_clarification"}}) == "clarification"
-    assert G.route_after_judge({"verdict": {"decision": "proceed"}}) == "evidence_checker"
-    assert G.route_after_judge({"verdict": {"decision": "insufficient_evidence"}}) == "evidence_checker"
-    assert G.route_after_judge({"mode": "quick", "verdict": {"decision": "proceed"}}) == "evidence_checker"
-    assert G.route_after_judge({}) == "evidence_checker"
-
-
-def test_route_after_evidence_checker():
-    assert G.route_after_evidence_checker({"checker_verdict": {"decision": "request_more_research"}}) == "research"
-    assert G.route_after_evidence_checker({"checker_verdict": {"decision": "proceed"}}) == "final_report"
-    assert G.route_after_evidence_checker({}) == "final_report"
+    assert G.route_after_judge({"verdict": {"decision": "proceed"}}) == "final_report"
+    assert G.route_after_judge({"verdict": {"decision": "insufficient_evidence"}}) == "final_report"
+    assert G.route_after_judge({"mode": "quick", "verdict": {"decision": "proceed"}}) == "final_report"
+    assert G.route_after_judge({}) == "final_report"
 
 
 def test_report_feeds_the_brief(graph):
@@ -70,7 +65,7 @@ def test_route_after_brief_validator():
 def test_guarded_route_goes_to_completion_on_error():
     route = G.guarded(G.route_after_judge)
     assert route({"error": {"node": "judge"}, "verdict": {"decision": "proceed"}}) == "completion"
-    assert route({"verdict": {"decision": "proceed"}}) == "evidence_checker"
+    assert route({"verdict": {"decision": "proceed"}}) == "final_report"
     fixed = G.guarded("proposer")
     assert fixed({}) == "proposer"
     assert fixed({"error": {"node": "research"}}) == "completion"

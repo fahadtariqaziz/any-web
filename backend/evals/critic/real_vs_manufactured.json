@@ -1,0 +1,7 @@
+{"prompt": "critic", "node": null, "modes": ["offline"],
+ "source": "Review 2026-10-29 (prompting): few-shot examples teach the boundary between a real weakness and a manufactured objection, not just the output format.",
+ "checks": [
+  {"on": "prompt", "prompt": "critic", "check": "contains", "text": "Where the line goes"},
+  {"on": "prompt", "prompt": "critic", "check": "contains", "text": "is_verified_problem true, basis evidence"},
+  {"on": "prompt", "prompt": "critic", "check": "contains", "text": "Not a point: \"it might not scale to millions of users\""},
+  {"on": "prompt", "prompt": "critic", "check": "contains", "text": "do not manufacture objections"}]}

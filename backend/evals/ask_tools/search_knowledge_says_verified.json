@@ -1,0 +1,5 @@
+{"prompt": "ask_tools", "node": null, "modes": ["offline"],
+ "source": "Review 2026-10-29 (knowledge base freshness): the search tool tells Ask that each result says when it was verified, so stale and current evidence are not mixed.",
+ "checks": [
+  {"on": "prompt", "prompt": "ask_tools", "check": "contains", "text": "`verified` says when a result was last"},
+  {"on": "prompt", "prompt": "ask_tools", "check": "contains", "text": "prefer newer sources when they disagree"}]}

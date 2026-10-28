@@ -41,7 +41,7 @@ LLM_USERS = [
     "ai_decision_arena.nodes.proposer",
     "ai_decision_arena.nodes.critic",
     "ai_decision_arena.nodes.judge",
-    "ai_decision_arena.nodes.evidence_checker",
+    "ai_decision_arena.nodes.claim_check",
     "ai_decision_arena.nodes.final_report",
     "ai_decision_arena.nodes.brief_writer",
     "ai_decision_arena.nodes.brief_validator",

@@ -1,7 +1,7 @@
 "use client";
 
 // The problem statement + solution brief (M4), read-only once the session moved past the review (the review itself is
-// BriefReviewPanel). The markdown is rendered by the backend (labels, reference numbers, appendix); this view adds
+// BriefReviewPanel). The markdown is rendered by the backend (labels, reference numbers; no appendix); this view adds
 // what the validator found: the verdict, the checks, the open issues. A draft the validator is still checking
 // (is_draft) is shown early with a "being checked" notice; its checks arrive with the validated brief.
 
@@ -53,7 +53,7 @@ export function BriefView({ data }: { data: BriefResponse }) {
         }
         description={
           `Draft ${brief.revision + 1} · ${formatDateTime(brief.generated_at)}` +
-          (validation ? ` · ${validation.word_count} words before the appendix` : "")
+          (validation ? ` · ${validation.word_count} words` : "")
         }
         aside={
           <>

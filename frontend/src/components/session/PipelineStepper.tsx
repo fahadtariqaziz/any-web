@@ -16,9 +16,9 @@ function detail(stage: StageId, state: StageState, activeNode: string | null, c:
     case "research":
       return c.evidence ? `${c.evidence} sources${c.research_passes > 1 ? ` · ${c.research_passes} passes` : ""}` : "";
     case "debate":
-      return c.proposals ? `${c.proposals} proposals${c.debate_round > 1 ? ` · round ${c.debate_round}` : ""}` : "";
-    case "verify":
-      return c.claims_checked ? `${c.claims_checked} claims` : "";
+      return c.proposals
+        ? `${c.proposals} proposals${c.debate_round > 1 ? ` · round ${c.debate_round}` : ""}${c.claims_checked ? ` · ${c.claims_checked} claims checked` : ""}`
+        : "";
     default:
       return "";
   }

@@ -18,11 +18,11 @@ export function WorkingChip({ label, seconds, detail }: { label: string; seconds
   const frame = FRAMES[tick % FRAMES.length];
   return (
     <div className="py-1" role="status" aria-live="polite">
-      <div className="flex items-center gap-2 text-[15px] text-orange-600">
-        <span className="inline-block w-4 text-center font-mono" aria-hidden>
+      <div className="flex items-center gap-2 text-[15px]">
+        <span className="inline-block w-4 text-center font-mono text-violet-500" aria-hidden>
           {frame}
         </span>
-        <span className="font-medium">{label}…</span>
+        <span className="gradient-text font-semibold">{label}…</span>
         {seconds != null && <span className="text-slate-400">({seconds}s)</span>}
       </div>
       {detail && <p className="mt-0.5 truncate pl-6 text-xs text-slate-500">{detail}</p>}

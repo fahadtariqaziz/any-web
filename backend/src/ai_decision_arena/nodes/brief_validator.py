@@ -13,7 +13,8 @@
                 fast path (auto_loops=false): medium failures never revise (they become open issues) and at most
                 one rewrite;
    - approve  → the brief goes to the user's review (await_brief_review). Failed checks that could
-                not be fixed are listed as open issues: in the brief's appendix and in unresolved_questions.
+                not be fixed are listed as open issues: as validation notes at the end of the brief's section 9 and
+                in unresolved_questions.
 
 Writes (owner): brief_validation, brief_revision_count, brief_markdown (re-rendered with open issues),
 unresolved_questions, research_retry_count + research_focus (clarify), status, current_node.
@@ -142,8 +143,8 @@ def brief_validator_node(state: ArenaState) -> dict:
         open_issues = [f"{c.check_id}: {c.issue}" for c in checks if not c.passed and c.severity in ("medium", "high")]
         open_issues += [f"Question for you: {q}" for q in questions]
         if open_issues and reason == "The brief passed validation.":
-            reason = (f"No blocking problem; {len(open_issues)} medium issue(s) are listed as open issues in the "
-                      "brief's appendix.")
+            reason = (f"No blocking problem; {len(open_issues)} medium issue(s) are listed as validation notes at the "
+                      "end of the brief.")
         if open_issues:
             update["brief_markdown"], _ = render_brief_markdown(brief, alternatives, open_issues, settings.brief_word_budget)
             unresolved = list(state.get("unresolved_questions", []))

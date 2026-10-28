@@ -21,8 +21,6 @@ export function stageLabel(status: DecisionStatus | null): string {
       return "Designing solutions";
     case "judge":
       return "Judging the solutions";
-    case "evidence_checker":
-      return "Checking the evidence";
     case "final_report":
       return "Writing the summary";
     case "brief_writer":

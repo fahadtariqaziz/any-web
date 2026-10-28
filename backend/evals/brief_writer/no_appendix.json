@@ -1,0 +1,5 @@
+{"prompt": "brief_writer", "node": null, "modes": ["offline"],
+ "source": "User decision 2026-10-29: the brief has no appendix; the writer must know that every item it writes is on the page.",
+ "checks": [
+  {"on": "prompt", "prompt": "brief_writer", "check": "contains", "text": "There is NO appendix"},
+  {"on": "prompt", "prompt": "brief_writer", "check": "not_contains", "text": "moved to an appendix"}]}

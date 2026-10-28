@@ -45,7 +45,7 @@
    "path": "clarification_questions",
    "check": "len_between",
    "min": 3,
-   "max": 6,
+   "max": 5,
    "live_only": true
   },
   {

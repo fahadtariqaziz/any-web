@@ -11,6 +11,11 @@ this in-memory bookkeeping is gone but the session can still be read and continu
 
 Threads are daemon threads: stopping the server does not wait minutes for a run to finish. The run
 just stops after its last saved step, and the session shows up as "interrupted".
+
+Cancellation (review 2026-10-29, "safe cancellation"): `cancel(thread_id)` asks a run to stop at the NEXT step
+boundary. The node in progress finishes (its checkpoint is saved; a coding-agent batch runs to its end), no later
+node starts, and the session shows up as "interrupted" with `cancelled` set, so the UI offers Continue instead of
+resuming by itself. Nothing is lost: the checkpoint is the truth, and {"type": "continue"} picks up exactly there.
 """
 
 import logging
@@ -46,6 +51,8 @@ class GraphRunner:
         self._running: set[str] = set()
         self._progress: dict[str, list[dict]] = {}
         self._crashes: dict[str, str] = {}        # thread_id -> message, if a run died outside the graph's own recovery
+        self._cancel: set[str] = set()            # runs asked to stop at the next step boundary
+        self._cancelled: set[str] = set()         # runs that did stop that way (until they are continued)
 
     # --- read side (used by GET) ---
 
@@ -61,6 +68,12 @@ class GraphRunner:
         with self._lock:
             return self._crashes.get(thread_id)
 
+    def cancelled(self, thread_id: str) -> bool:
+        """True while a run stopped by the user waits for Continue (in-memory: a restart turns it into a plain
+        interrupted run, which the UI resumes by itself)."""
+        with self._lock:
+            return thread_id in self._cancelled
+
     # --- write side (used by POST) ---
 
     def start(self, thread_id: str, graph_input) -> bool:
@@ -71,9 +84,24 @@ class GraphRunner:
                 return False
             self._running.add(thread_id)
             self._crashes.pop(thread_id, None)
+            self._cancel.discard(thread_id)
+            self._cancelled.discard(thread_id)
         threading.Thread(target=self._run, args=(thread_id, graph_input), daemon=True,
                          name=f"graph-{thread_id[:8]}").start()
         return True
+
+    def cancel(self, thread_id: str) -> bool:
+        """Ask a running session to stop after the node in progress. False when nothing is running."""
+        with self._lock:
+            if thread_id not in self._running:
+                return False
+            self._cancel.add(thread_id)
+        self._add_line(thread_id, "graph", "stop requested: finishing the current step, then pausing")
+        return True
+
+    def _cancel_requested(self, thread_id: str) -> bool:
+        with self._lock:
+            return thread_id in self._cancel
 
     def _add_line(self, thread_id: str, node: str, message: str, at: str | None = None) -> None:
         with self._lock:
@@ -85,9 +113,17 @@ class GraphRunner:
         config = graph_config(thread_id)
         started = time.time()
         try:
-            for mode, chunk in self.graph.stream(graph_input, config, stream_mode=["custom", "updates"]):
+            for mode, chunk in self.graph.stream(graph_input, config, stream_mode=["custom", "updates", "checkpoints"]):
                 if mode == "custom":                     # progress.report() from inside a node
                     self._add_line(thread_id, chunk.get("node", "?"), chunk.get("message", ""), chunk.get("at"))
+                    continue
+                if mode == "checkpoints":                # a step is saved, the next not started: the safe stop point
+                    if self._cancel_requested(thread_id):
+                        with self._lock:
+                            self._cancel.discard(thread_id)
+                            self._cancelled.add(thread_id)
+                        self._add_line(thread_id, "graph", "stopped by you after this step; press Continue to resume")
+                        break                            # closes the stream: LangGraph runs no further step
                     continue
                 for node, update in chunk.items():       # one entry per finished node
                     if node == "__interrupt__":

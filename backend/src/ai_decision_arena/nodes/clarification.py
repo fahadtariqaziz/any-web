@@ -8,9 +8,9 @@ Why split? On resume, LangGraph re-runs the paused node FROM ITS FIRST LINE.
 If the Claude call lived in the same node as interrupt(), it would run again on resume:
 extra cost, and possibly DIFFERENT questions than the ones the user just answered.
 
-Loop: clarification → await_clarification → clarification → ... → research   (up to max_clarification_rounds)
-The Judge can also send the graph back here with its own questions (verdict.clarification_questions), and so can
-the brief validator (brief_validation.clarification_questions).
+Loop: clarification → await_clarification → clarification → research   (ONE round since 2026-10-29: at most 5
+questions, each with 2-4 answer options the UI shows as buttons; the user can still type an answer; the Judge and
+the brief validator can only send the graph back here while a round is left, i.e. never on the default settings).
 
 Speed: before the first research pass, the research planner (research.planner.plan_queries) runs in parallel with
 the clarification call. When no more questions are asked, its plan goes to `research_plan` and the research node
@@ -33,25 +33,33 @@ from ai_decision_arena.llm import call_structured
 from ai_decision_arena.progress import report
 from ai_decision_arena.prompting import BUILDER_RULES, user_case_block
 from ai_decision_arena.research.planner import plan_queries
-from ai_decision_arena.schemas import ClarificationAnswers, ClarificationResult
+from ai_decision_arena.schemas import ClarificationAnswers, ClarificationQuestion, ClarificationResult
 from ai_decision_arena.state import ArenaState
 
-MAX_QUESTIONS_PER_ROUND = 6
+MAX_QUESTIONS_PER_ROUND = 5
+MAX_OPTIONS_PER_QUESTION = 4
+MAX_OPTION_CHARS = 60
 MAX_ANSWER_CHARS = 2000
 
 SYSTEM_PROMPT = """You are the Clarification agent of an AI application builder. Before research starts, decide whether
 the user must answer questions, and write those questions.
 
-FIRST ROUND (no previous answers yet): ask 4-6 short questions so the research and the solution fit THIS project.
-Cover, unless already stated: (1) who the users are and what problem they face today, (2) the main objective or
-outcome the user wants, (3) the must-have features for a first version, (4) the platform (web, mobile, desktop),
-(5) the ONE constraint that matters most for this idea (a technology preference, budget, deadline, hosting or
-compliance: choose one, do not list them), (6) existing alternatives they know or use and what is wrong with them,
-(7) how they will judge success. Pick the most useful within the limit; skip anything already answered.
+THERE IS ONE ROUND. Ask at most {max_questions} short questions: the ones whose answers change the research or the
+solution the most, so they fit THIS project. Cover, unless already stated: (1) who the users are and what problem
+they face today, (2) the main objective or outcome the user wants, (3) the must-have features for a first version,
+(4) the platform (web, mobile, desktop), (5) the ONE constraint that matters most for this idea (a technology
+preference, budget, deadline, hosting or compliance: choose one, do not list them), (6) existing alternatives they
+know or use and what is wrong with them, (7) how they will judge success. Pick the most useful within the limit;
+skip anything already answered.
 
-LATER ROUNDS (at most {max_rounds} rounds in total): ask again ONLY if an answer revealed something that materially
-changes the research or the solution (a different audience, a regulated domain, a platform change, a contradiction
-between answers, a must-have feature that is still unclear). Otherwise set need_clarification to false.
+ANSWER OPTIONS: every question comes with 2-4 options the user can tap instead of typing: short (2-6 words),
+concrete, specific to this idea, mutually different, the most likely answers first (platform: "Web app in the
+browser" / "iPhone and Android app" / "Both"; audience: "Students" / "Small business owners" / "My own team"). The
+user can also type their own answer, so the options need not cover every case. Never write an "Other" option.
+
+A LATER ROUND happens only when the Judge or the brief validator sends the run back with their own questions and a
+round is still allowed (at most {max_rounds} in total; <can_ask_more> says so): then ask those, with options, and
+nothing already answered. Otherwise set need_clarification to false.
 
 If <judge_questions> is non-empty, the Judge needs those answers to rank the proposals: ask them (reworded if
 helpful) plus anything else essential, within the limit. If <brief_questions> is non-empty, the brief validator
@@ -137,9 +145,10 @@ def clarification_node(state: ArenaState) -> dict:
     risk_flags, withdrawn = _merge_risk_flags(state, result)
 
     # Python has the final say on routing, not the LLM:
-    # no asking past the round limit, no repeated questions, no empty question lists.
-    already_asked = set(state.get("clarification_answers", {}))
-    questions = [q for q in result.questions if q not in already_asked][:MAX_QUESTIONS_PER_ROUND]
+    # no asking past the round limit, no repeated questions, no empty question lists, at most 5 questions.
+    asked = _dedupe_questions(result.questions, set(state.get("clarification_answers", {})))
+    questions = [q.text for q in asked]
+    options = {q.text: clean_options(q.options) for q in asked}
     need = result.need_clarification and can_ask_more and bool(questions)
 
     update = {
@@ -150,6 +159,7 @@ def clarification_node(state: ArenaState) -> dict:
         "withdrawn_risk_flags": withdrawn,
         "need_clarification": need,
         "clarification_questions": questions if need else [],
+        "clarification_options": options if need else {},
         "clarification_reason": result.reason,
         "current_node": "clarification",
     }
@@ -170,6 +180,27 @@ def clarification_node(state: ArenaState) -> dict:
         if research_plan is not None:
             update["research_plan"] = research_plan.model_dump(mode="json")
     return update
+
+
+def _dedupe_questions(questions: list[ClarificationQuestion], already_asked: set[str]) -> list[ClarificationQuestion]:
+    out: list[ClarificationQuestion] = []
+    for q in questions:
+        text = " ".join(q.text.split())
+        if text and text not in already_asked and all(text.lower() != o.text.lower() for o in out):
+            out.append(q.model_copy(update={"text": text}))
+    return out[:MAX_QUESTIONS_PER_ROUND]
+
+
+def clean_options(options: list[str]) -> list[str]:
+    """Short, distinct, non-empty options; no "Other" (the UI has its own free-text answer)."""
+    out: list[str] = []
+    for raw in options:
+        text = " ".join(str(raw).split())[:MAX_OPTION_CHARS].strip()
+        if not text or text.lower().rstrip(".") in ("other", "something else", "none of these"):
+            continue
+        if text.lower() not in {o.lower() for o in out}:
+            out.append(text)
+    return out[:MAX_OPTIONS_PER_QUESTION]
 
 
 def _merge_risk_flags(state: ArenaState, result: ClarificationResult) -> tuple[list[str], list[dict]]:
@@ -196,7 +227,9 @@ def await_clarification_node(state: ArenaState) -> dict:
     payload = {
         "type": "clarification",
         "questions": questions,
+        "options": {q: (state.get("clarification_options") or {}).get(q, []) for q in questions},
         "round": state.get("clarification_round_count", 0) + 1,
+        "max_rounds": get_settings().max_clarification_rounds,
     }
 
     # Keep asking until the answer is valid. Each interrupt() is a separate pause.
@@ -223,5 +256,6 @@ def await_clarification_node(state: ArenaState) -> dict:
         "clarification_answers": {**state.get("clarification_answers", {}), **cleaned},
         "clarification_round_count": state.get("clarification_round_count", 0) + 1,
         "clarification_questions": [],
+        "clarification_options": {},
         "current_node": "await_clarification",
     }

@@ -41,6 +41,7 @@ class ToolContext:
     thread_id: str | None = None
     user_id: str | None = None
     project: str = ""
+    stack: str = ""                                      # the approved plan's tech stack: knowledge for it ranks first
     web_searches: int = 0
     used: list[str] = field(default_factory=list)       # tool names in call order, for logs / traces
     meter: UsageMeter = field(default_factory=UsageMeter)   # tokens + USD of this turn's model calls
@@ -62,8 +63,9 @@ def _sources(items: list[dict]) -> str:
 def search_knowledge_tool(ctx: ToolContext) -> BaseTool:
     def search_knowledge(query: str) -> str:
         """Search the knowledge base: the research gathered for this project and for earlier sessions. Fast and
-        free: try this before web_search. Cite results by their id and title."""
-        return _sources(knowledge.search(query, thread_id=ctx.thread_id))
+        free: try this before web_search. Cite results by their id and title; `verified` says when a result was last
+        checked (prefer newer sources when they disagree)."""
+        return _sources(knowledge.search(query, thread_id=ctx.thread_id, stack=ctx.stack))
     return StructuredTool.from_function(search_knowledge, handle_tool_error=True)
 
 

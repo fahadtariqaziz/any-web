@@ -61,47 +61,49 @@ def test_normalize_downgrades_unverified_and_unrequired_technology():
     assert len(notes) == 2
 
 
-def test_render_has_all_ten_sections_and_moves_overflow_to_the_appendix():
+def _section(markdown: str, key: str) -> str:
+    """The text of one section (from its heading to the next '## ')."""
+    body = markdown.split(f"## {SECTION_TITLES[key]}", 1)[1]
+    return body.split("\n## ", 1)[0]
+
+
+def test_render_has_all_ten_sections_and_no_appendix():
+    """2026-10-29 (user decision): no appendix. Every item is on the page; the alternatives sit in section 4 and
+    the validator's open notes at the end of section 9."""
     content = build_brief("", '<item id="ev_001"')
     content.requirements.functional = [S.BriefItem(text=f"Requirement {i}.", label="recommendation", evidence_ids=[]) for i in range(7)]
+    content.requirements.integrations_and_data = ["Keyboard input"]
+    content.requirements.user_roles = ["Anonymous user"]
     brief = make_brief(content)
     markdown, words = render_brief_markdown(brief, [{"name": "Rich PWA", "summary": "More features.", "weighted_total": 5.6}],
                                             open_issues=["claims_have_sources: one claim uncited"])
     for title in SECTION_TITLES.values():
         assert f"## {title}" in markdown
-    main, appendix = markdown.split("## Appendix")
-    assert "Requirement 3." in main and "Requirement 4." not in main and "Requirement 6." in appendix
-    assert "Rich PWA" in appendix and "score 5.6/10" in appendix and "one claim uncited" in appendix
-    assert "[[1]](https://example.org/apps/1)" in main
-    assert 0 < words < 900
+    assert "Appendix" not in markdown
+    assert all(f"Requirement {i}." in _section(markdown, "requirements") for i in range(7))
+    assert "Keyboard input" in _section(markdown, "requirements") and "Anonymous user" in _section(markdown, "requirements")
+    assert "**Alternatives considered:** Rich PWA (score 5.6/10): More features." in _section(markdown, "proposed_solution")
+    assert "**Validation note (not resolved in this draft):** claims_have_sources: one claim uncited" in _section(markdown, "constraints_and_risks")
+    assert "[[1]](https://example.org/apps/1)" in markdown
+    assert 0 < words < 1500
 
 
-def test_renderer_fits_the_page_by_moving_items_to_the_appendix():
+def test_renderer_never_trims_whatever_the_word_budget():
     content = build_brief("", '<item id="ev_001"')
     long = "This is a deliberately long statement written to fill the page with many words for the test."
     content.constraints_and_risks.assumptions = [f"{long} ({i})" for i in range(3)]
     content.research_findings.apps_and_feedback = [S.BriefItem(text=f"{long} [{i}]", label="assumption", evidence_ids=[]) for i in range(3)]
-    content.proposed_solution.mvp_features = [f"feature {i}" for i in range(6)]
-    brief = make_brief(content)
-    _, full = render_brief_markdown(brief)
-    markdown, fitted = render_brief_markdown(brief, word_budget=full - 40)
-    assert fitted <= full - 40
-    main, appendix = markdown.split("## Appendix")
-    assert "feature 5" in main                                   # floors: the MVP never leaves the main part
-    assert "(2)" in appendix or "[2]" in appendix
-    assert "label=" not in appendix and "_(assumption)_" in appendix          # overflow items are rendered, not repr'd
-
-
-def test_appendix_is_grouped_by_section_and_has_no_table_rows():
-    content = build_brief("", '<item id="ev_001"')
+    content.proposed_solution.mvp_features = [f"feature {i}" for i in range(8)]
+    content.scope.in_scope = [f"scope {i}" for i in range(6)]
     content.success_criteria = [S.SuccessCriterion(metric=f"Metric {i}", target=None, basis="none", evaluation_method="Test.",
                                                    evidence_ids=[]) for i in range(6)]
-    content.requirements.integrations_and_data = ["Keyboard input"]
-    markdown, _ = render_brief_markdown(make_brief(content))
-    appendix = markdown.split("## Appendix")[1]
-    assert "### A. More on 8. Success criteria" in appendix and "### A. More on 5. Functional" in appendix
-    assert "Metric 5: no target yet" in appendix and "\n- |" not in appendix          # overflow rows are text lines
-    assert appendix.count("### A. More on 5.") == 1
+    brief = make_brief(content)
+    full_markdown, full = render_brief_markdown(brief)
+    markdown, fitted = render_brief_markdown(brief, word_budget=300)
+    assert markdown == full_markdown and fitted == full                       # the budget is the validator's, not the renderer's
+    assert all(f"feature {i}" in markdown for i in range(8)) and all(f"scope {i}" in markdown for i in range(6))
+    assert all(f"| Metric {i} |" in markdown for i in range(6))                 # every success criterion stays a table row
+    assert "label=" not in markdown and "_(assumption)_" in markdown
 
 
 def test_bold_subheadings_are_separated_from_lists():
@@ -110,15 +112,6 @@ def test_bold_subheadings_are_separated_from_lists():
     for i, line in enumerate(lines):
         if line.startswith("**") and line.endswith("**") and i > 0:
             assert lines[i - 1] == "", f"no blank line before {line!r}: a list would swallow it"
-
-
-def test_mvp_and_scope_never_move_to_the_appendix():
-    content = build_brief("", '<item id="ev_001"')
-    content.proposed_solution.mvp_features = [f"feature {i}" for i in range(8)]
-    content.scope.in_scope = [f"scope {i}" for i in range(6)]
-    markdown, _ = render_brief_markdown(make_brief(content), word_budget=300)     # forces the smallest caps
-    main = markdown.split("## Appendix")[0]
-    assert all(f"feature {i}" in main for i in range(8)) and all(f"scope {i}" in main for i in range(6))
 
 
 def test_word_count_ignores_labels_citations_and_urls():
@@ -239,7 +232,7 @@ def test_revision_cap_approves_with_open_issues(debated, fake_llm):
     v = out["brief_validation"]
     assert v["verdict"] == "approve" and fake_llm.count("BriefReview") == 1
     assert any("det_known_evidence_ids" in i for i in v["open_issues"])
-    assert "Validation notes" in out["brief_markdown"]
+    assert "Validation note (not resolved in this draft)" in out["brief_markdown"]      # no appendix: in section 9
     assert any(q.startswith("Open brief issue: det_known_evidence_ids") for q in out["unresolved_questions"])
 
 
@@ -282,8 +275,10 @@ def _asks(system, user):
 
 @pytest.mark.usefixtures("auto_loops")
 def test_clarify_route_when_a_loop_is_allowed(debated, fake_llm):
+    """A clarification loop needs a round left: since 2026-10-29 there is ONE round, so this only happens when the
+    user's round was never used (round count 0)."""
     fake_llm.overrides[S.BriefReview] = _asks
-    state = debated | brief_writer_node(debated) | {"debate_round": 1, "research_retry_count": 0, "clarification_round_count": 1}
+    state = debated | brief_writer_node(debated) | {"debate_round": 1, "research_retry_count": 0, "clarification_round_count": 0}
     out = brief_validator_node(state)
     assert out["brief_validation"]["verdict"] == "clarify"
     assert out["brief_validation"]["clarification_questions"] == ["Must it work offline?"]
@@ -308,7 +303,10 @@ def test_pipeline_ends_with_an_approved_brief(debated):
 
 
 @pytest.mark.usefixtures("auto_loops")
-def test_pipeline_validator_clarify_loops_back_to_the_user(graph, fake_llm, fake_search):
+def test_pipeline_validator_clarify_loops_back_to_the_user(graph, fake_llm, fake_search, monkeypatch):
+    """The loop mechanism, with a second round allowed (the default is ONE round since 2026-10-29)."""
+    from ai_decision_arena.config import get_settings
+    monkeypatch.setattr(get_settings(), "max_clarification_rounds", 2)
     calls = {"n": 0}
 
     def ask_once(system, user):

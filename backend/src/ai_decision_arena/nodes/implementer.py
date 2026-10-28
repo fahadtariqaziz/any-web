@@ -215,7 +215,8 @@ def build_prompt(state: ArenaState, plan: ImplementationPlan, task: PlanTask, ta
 <task>{json.dumps(task.model_dump(exclude={"verify_commands"}), indent=1)}</task>
 <verify_commands>{json.dumps(task.verify_commands)}</verify_commands>
 <existing_files>{json.dumps(files)}</existing_files>"""
-    skill_text = agent_skills_block(" ".join([*plan.tech_stack, *plan.dependencies, *plan.testing_strategy]))
+    kind = "fix" if task.phase == "fix" else ("retry" if previous else None)      # failure-triage for these only
+    skill_text = agent_skills_block(" ".join([*plan.tech_stack, *plan.dependencies, *plan.testing_strategy]), phase=kind)
     if skill_text:
         text += "\n" + skill_text
     if siblings:

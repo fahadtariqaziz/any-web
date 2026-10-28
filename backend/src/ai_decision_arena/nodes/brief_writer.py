@@ -8,7 +8,7 @@ sections 1-4, 5-6 and 7-9, each from the same facts; the MVP is the winning prop
 - fixes labels it knows better (brief.normalize: "verified" needs a verified source; only user-required technology
   is mandatory),
 - assembles section 4.10, the references, from the cited ids (titles and URLs from the evidence records),
-- renders the markdown (main part ~1 page, overflow to the appendix).
+- renders the markdown (sections 1-9 + references; no appendix since 2026-10-29: everything is on the page).
 The final report's narrative (final_report.add_narrative) is written in the same thread pool when it is still empty.
 
 On a revision the writer also gets its previous draft and what to change: the validator's failed checks with their
@@ -33,8 +33,8 @@ from ai_decision_arena.schemas import BriefContent, BriefPartOne, BriefPartThree
 from ai_decision_arena.state import ArenaState
 
 SYSTEM_PROMPT = """You are the Brief Writer of an AI application builder. Write the problem statement and solution brief
-the user will review before any planning or code: about ONE page, grounded in the user's clarified requirements and
-the research, for technical and non-technical readers.
+the user will review before any planning or code: compact, grounded in the user's clarified requirements and the
+research, for technical and non-technical readers.
 
 You receive the user's requirements, the winning solution proposal (selected by a Judge after a Critic reviewed it),
 the alternatives, the Critic's points on the winner, the Judge's verdict, which of the winner's claims were checked
@@ -81,9 +81,9 @@ verified and research_backed MUST cite at least one evidence id from <evidence>;
 recommendation or assumption instead. Cite only ids that appear in <evidence>.
 
 Style: one sentence per item, at most ~20 words. The list sizes in the field descriptions are LIMITS, not targets:
-use the low end. Items beyond what fits the page are moved to an appendix the user must still read, so every extra
-item costs the reader; never repeat a point in two sections (e.g. the MVP features are not listed again as
-requirements or scope in other words).
+use the low end. There is NO appendix: everything you write is on the page the user reads, so every extra item
+costs the reader; never repeat a point in two sections (e.g. the MVP features are not listed again as requirements
+or scope in other words).
 Aim for about {word_target} words for sections 1-9 together (hard limit about {word_budget}). Plain language, no marketing tone, no
 repetition between sections.
 """ + BUILDER_RULES
@@ -118,7 +118,7 @@ running app is built with: keep it (libraries, framework, structure) unless the 
 
 
 def brief_alternatives(state: ArenaState) -> list[dict]:
-    """The proposals that did not win, as the appendix shows them."""
+    """The proposals that did not win, as section 4 lists them ("Alternatives considered")."""
     report_alts = (state.get("final_report") or {}).get("alternatives", [])
     return [{"name": a["proposal"]["name"], "summary": a["proposal"]["summary"],
              "weighted_total": (a.get("score") or {}).get("weighted_total"),

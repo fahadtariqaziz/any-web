@@ -6,6 +6,8 @@ instructions. Two audiences:
          with the load_skill tool when a question needs it (writing a change request, explaining build results...);
 - agent: the coding agent gets the skills whose `applies_to` keywords match the approved plan's tech stack /
          dependencies / testing strategy (Python picks them; "*" = every project), as <skills> in its task prompt.
+         A skill with `phases` (review 2026-10-29) is picked by the KIND of task instead: "fix" = a fix task from the
+         build or render check, "retry" = a second attempt after a failed verification (failure-triage).
 Skill texts are versioned in the prompt registry (prompts.py, id "skills"): editing one is a prompt change.
 """
 
@@ -28,6 +30,7 @@ def _parse(path: Path) -> dict:
     return {"name": meta.get("name", path.parent.name), "description": meta.get("description", ""),
             "audience": meta.get("audience", "ask"),
             "applies_to": [w.strip().lower() for w in meta.get("applies_to", "").split(",") if w.strip()],
+            "phases": [w.strip().lower() for w in meta.get("phases", "").split(",") if w.strip()],
             "instructions": body.strip()}
 
 
@@ -55,15 +58,22 @@ def load_skill(name: str) -> str:
     return f'<skill name="{skill["name"]}">\n{skill["instructions"]}\n</skill>'
 
 
-def agent_skills_for(stack_text: str) -> list[dict]:
-    """The coding-agent skills whose keywords occur (as words) in the plan's stack text, plus the "*" ones."""
+def agent_skills_for(stack_text: str, phase: str | None = None) -> list[dict]:
+    """The coding-agent skills whose keywords occur (as words) in the plan's stack text, plus the "*" ones; skills
+    declared for task phases are picked only when `phase` (fix / retry) matches, whatever the stack."""
     words = set(re.findall(r"[a-z0-9.+#-]+", stack_text.lower()))
-    return [s for s in _for("agent").values()
-            if "*" in s["applies_to"] or any(k in words for k in s["applies_to"])]
+    chosen = []
+    for s in _for("agent").values():
+        if s["phases"]:
+            if phase and phase.lower() in s["phases"]:
+                chosen.append(s)
+        elif "*" in s["applies_to"] or any(k in words for k in s["applies_to"]):
+            chosen.append(s)
+    return chosen
 
 
-def agent_skills_block(stack_text: str) -> str:
-    chosen = agent_skills_for(stack_text)
+def agent_skills_block(stack_text: str, phase: str | None = None) -> str:
+    chosen = agent_skills_for(stack_text, phase)
     if not chosen:
         return ""
     body = "\n".join(f'<skill name="{s["name"]}">\n{s["instructions"]}\n</skill>' for s in chosen)

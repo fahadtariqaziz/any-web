@@ -8,6 +8,7 @@ Flow:
     POST /api/decisions                   → 202 {thread_id}; the graph runs in the background
     GET  /api/decisions/{id}              → poll every ~2 s: run_state, progress lines, pending pause
     POST /api/decisions/{id}/resume       → answer the pending pause ("continue" an interrupted run, "reopen" a finished one)
+    POST /api/decisions/{id}/cancel       → stop a running session after its current step (then "continue" resumes it)
     GET  /api/decisions/{id}/report       → the final report, once finished
     GET  /api/decisions/{id}/brief        → the validated problem statement + solution brief
     GET  /api/decisions/{id}/plan         → the implementation plan (from the plan review on)
@@ -55,6 +56,7 @@ from ai_decision_arena.api.triggers import router as triggers_router
 from ai_decision_arena.api.errors import ApiError
 from ai_decision_arena.api.schemas import (
     Accepted,
+    CancelAccepted,
     ChangeRequestResume,
     CodeExportResponse,
     ImplementationResponse,
@@ -325,7 +327,21 @@ def get_decision(thread_id: str, request: Request):
         started_at=values.get("started_at"),
         active_seconds=float(values.get("active_seconds", 0.0) or 0.0),
         counters=_counters(values),
+        cancelled=run_state == "interrupted" and runner.cancelled(thread_id),
     )
+
+
+@app.post("/api/decisions/{thread_id}/cancel", status_code=status.HTTP_202_ACCEPTED, response_model=CancelAccepted,
+          tags=["decisions"])
+def cancel_decision(thread_id: str, request: Request):
+    """Stop a running session safely (review 2026-10-29): the step in progress finishes and is checkpointed, no
+    later step starts, and the session waits as "interrupted" with cancelled=true until {"type": "continue"}.
+    409 "not_running" when nothing is running."""
+    runner: GraphRunner = request.app.state.runner
+    _snapshot(request, thread_id)                      # 404 for an unknown session
+    if not runner.cancel(thread_id):
+        raise ApiError(409, "not_running", "Nothing to stop: the session is not running.")
+    return CancelAccepted(thread_id=thread_id)
 
 
 @app.post("/api/decisions/{thread_id}/resume", status_code=status.HTTP_202_ACCEPTED, response_model=Accepted,
@@ -700,7 +716,7 @@ def get_artifacts(thread_id: str, request: Request):
 
 @app.get("/api/decisions/{thread_id}/evidence", response_model=EvidenceResponse, tags=["decisions"])
 def get_evidence(thread_id: str, request: Request):
-    """Evidence kept so far (also while running). verification_status stays "pending" until the Evidence Checker ran."""
+    """Evidence kept so far (also while running). verification_status stays "pending" until the Judge consolidated the winner's claim check."""
     evidence = (_snapshot(request, thread_id).values or {}).get("evidence", [])
     counts = Counter(e.get("verification_status", "pending") for e in evidence)
     return EvidenceResponse(thread_id=thread_id, count=len(evidence), verification_counts=dict(counts), evidence=evidence)

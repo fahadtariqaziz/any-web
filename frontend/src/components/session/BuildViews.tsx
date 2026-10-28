@@ -100,7 +100,7 @@ export function BuildCard({ build }: { build: BuildResults }) {
     <Card>
       <CardHeader
         title={`Build check ${build.round}`}
-        description="install → test → build, run by the builder in the project folder"
+        description="install → test → build → secret scan, run by the builder in the project folder"
         aside={
           <Badge tone={build.passed ? "emerald" : "red"} size="md">
             {build.passed ? "passed" : "failed"}

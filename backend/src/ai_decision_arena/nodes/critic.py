@@ -2,8 +2,8 @@
 
 One LLM call per proposal, in parallel. Each call sees that proposal, the user's requirements and ALL the evidence,
 so a proposal can be challenged with findings from any research domain.
-In the same thread pool, every proposal's claims are checked against its cited evidence (evidence_checker.
-verify_proposal): the Evidence Checker node then only picks the winner's check, so the check costs no extra wait.
+In the same thread pool, every proposal's claims are checked against its cited evidence (claim_check.
+verify_proposal): the Judge then only consolidates the winner's check, so the check costs no extra wait.
 
 Writes (owner): criticisms, proposal_checks (ProposalVerification per proposal id), status, current_node.
 """
@@ -13,7 +13,7 @@ import json
 from langsmith.utils import ContextThreadPoolExecutor
 
 from ai_decision_arena.llm import call_structured
-from ai_decision_arena.nodes.evidence_checker import verify_proposal
+from ai_decision_arena.nodes.claim_check import verify_proposal
 from ai_decision_arena.progress import report
 from ai_decision_arena.prompting import BUILDER_RULES, evidence_block, proposals_block, user_case_block
 from ai_decision_arena.schemas import Criticism
@@ -43,6 +43,16 @@ Rules:
 - Cite evidence ids exactly as given. Never cite an id that is not in the evidence.
 - Every point needs an actionable suggested_improvement when one exists.
 - Return exactly one criticism for the proposal given, at most {max_points} points, most severe first.
+
+Where the line goes (examples of the judgement, not of the format):
+- A real point: the proposal promises real-time collaboration, the user said "one developer, four weeks", and
+  ev_003 shows the cited open-source editor took a year to get collaboration right → ignores_constraint /
+  infeasible, is_verified_problem true, basis evidence, with the improvement "ship single-user first".
+- A real point without evidence: the proposal stores health data in the browser's localStorage with no
+  encryption or export → a security risk, is_verified_problem false, basis engineering_judgement.
+- Not a point: "it might not scale to millions of users" for a personal tool, or "users may prefer another
+  colour scheme": no requirement, no evidence, nothing actionable. Leave it out.
+- Not a point: restating the Judge's rubric ("completeness could be higher") instead of naming what is missing.
 """ + BUILDER_RULES
 
 

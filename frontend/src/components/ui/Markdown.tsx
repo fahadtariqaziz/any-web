@@ -17,7 +17,7 @@ export function Markdown({ children, className = "", compact = false, dark = fal
         remarkPlugins={[remarkGfm]}
         components={{
           a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noreferrer noopener" className={`${dark ? "text-teal-300" : "text-brand"} underline-offset-2`}>
+            <a href={href} target="_blank" rel="noreferrer noopener" className={`${dark ? "text-indigo-300" : "text-brand"} underline-offset-2`}>
               {children}
             </a>
           ),

@@ -42,8 +42,8 @@ export function NowPanel({
     : info?.doing ?? "Connecting to the session and starting the first agent.";
 
   return (
-    <Card className="overflow-hidden border-teal-200">
-      <div className="h-1 w-full bg-teal-100">
+    <Card className="overflow-hidden border-indigo-200">
+      <div className="h-1 w-full bg-indigo-100">
         <div className="shimmer-bar h-full w-full" />
       </div>
       <CardBody className="space-y-4">

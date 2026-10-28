@@ -1,32 +1,53 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-/* Design tokens. Tailwind v4 reads these as utilities (bg-brand, text-brand-ink...). */
+/* Design tokens (2026-10-29 redesign). Tailwind v4 reads these as utilities (bg-brand, text-brand-ink, ...).
+   One light theme with an indigo → violet → fuchsia accent, glass surfaces and soft depth. */
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  --color-brand: #0f766e;          /* teal-700: calm and trustworthy */
-  --color-brand-strong: #115e59;   /* teal-800 */
-  --color-brand-soft: #ccfbf1;     /* teal-100 */
-  --color-brand-faint: #f0fdfa;    /* teal-50 */
+  --color-brand: #4f46e5;          /* indigo-600 */
+  --color-brand-strong: #4338ca;   /* indigo-700 */
+  --color-brand-soft: #e0e7ff;     /* indigo-100 */
+  --color-brand-faint: #eef2ff;    /* indigo-50 */
+  --color-accent: #a855f7;         /* violet-500 */
+  --color-accent-soft: #f3e8ff;    /* violet-100 */
+  --color-ink: #0b1020;
 
   --animate-shimmer: shimmer 1.6s linear infinite;
-  --animate-fade-up: fade-up 0.35s ease-out both;
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-pulse-ring: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-float: float 9s ease-in-out infinite;
+  --animate-float-slow: float 14s ease-in-out infinite;
+  --animate-gradient: gradient-x 8s ease infinite;
+  --animate-glow: glow 2.4s ease-in-out infinite;
 
   @keyframes shimmer {
     from { background-position: -200% 0; }
     to { background-position: 200% 0; }
   }
   @keyframes fade-up {
-    from { opacity: 0; transform: translateY(6px); }
+    from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
   }
   @keyframes pulse-ring {
-    0% { box-shadow: 0 0 0 0 rgb(15 118 110 / 0.45); }
-    70% { box-shadow: 0 0 0 10px rgb(15 118 110 / 0); }
-    100% { box-shadow: 0 0 0 0 rgb(15 118 110 / 0); }
+    0% { box-shadow: 0 0 0 0 rgb(79 70 229 / 0.45); }
+    70% { box-shadow: 0 0 0 10px rgb(79 70 229 / 0); }
+    100% { box-shadow: 0 0 0 0 rgb(79 70 229 / 0); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    33% { transform: translate3d(2%, -4%, 0) scale(1.05); }
+    66% { transform: translate3d(-3%, 3%, 0) scale(0.97); }
+  }
+  @keyframes gradient-x {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  @keyframes glow {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
   }
 }
 
@@ -38,6 +59,63 @@ body {
   @apply bg-slate-50 text-slate-900;
 }
 
+/* --- surfaces ----------------------------------------------------------------------------------------- */
+
+/* Frosted panel: the top bar, the composer, floating cards. */
+.glass {
+  background: rgb(255 255 255 / 0.72);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid rgb(255 255 255 / 0.65);
+  box-shadow: 0 8px 30px rgb(15 23 42 / 0.06);
+}
+
+/* A 1px gradient border on a white card (works with rounded corners). */
+.gradient-border {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(135deg, #6366f1, #a855f7 55%, #ec4899) border-box;
+}
+
+/* Headline accent. */
+.gradient-text {
+  background: linear-gradient(90deg, #4f46e5, #a855f7, #ec4899, #4f46e5);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: var(--animate-gradient);
+}
+
+/* Primary button fill. */
+.gradient-fill {
+  background-image: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
+  background-size: 160% 160%;
+  transition: background-position 0.4s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+.gradient-fill:hover { background-position: 100% 50%; }
+
+/* Faint grid behind the landing page. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgb(15 23 42 / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(15 23 42 / 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+}
+
+/* Blurred colour blobs that drift behind the hero. */
+.orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.55;
+  pointer-events: none;
+  animation: var(--animate-float);
+}
+
 /* Indeterminate progress bar at the top of the page while agents work. */
 .shimmer-bar {
   background: linear-gradient(90deg, transparent 0%, var(--color-brand) 50%, transparent 100%);
@@ -45,9 +123,12 @@ body {
   animation: var(--animate-shimmer);
 }
 
+/* Thin, quiet scrollbars inside panels. */
+.scroll-thin { scrollbar-width: thin; scrollbar-color: rgb(148 163 184 / 0.5) transparent; }
+
 /* Users who prefer less motion still get the information, without the animation. */
 @media (prefers-reduced-motion: reduce) {
-  .shimmer-bar, .animate-pulse-ring, .animate-fade-up, .animate-pulse {
+  .shimmer-bar, .animate-pulse-ring, .animate-fade-up, .animate-pulse, .orb, .gradient-text, .animate-float, .animate-glow {
     animation: none !important;
   }
 }

@@ -82,6 +82,41 @@ def test_curated_knowledge_is_builder_knowledge_with_sources():
     assert not any(w in text for w in ("patient", "medication", "doctor", "symptom"))
     assert all(d["topic"] for d in docs)
     assert sum(bool(d["url"]) for d in docs) >= len(docs) - 1        # only the builder's own process doc has no URL
+    # Review 2026-10-29: every curated doc says when it was verified; stack keywords rank it for matching projects.
+    assert all(d["verified_at"] and d["status"] == "verified" for d in docs)
+    vite = next(d for d in docs if d["key"] == "vite-basics.md")
+    assert "vite" in vite["stack"] and next(d for d in docs if d["key"] == "how-the-builder-works.md")["stack"] is None
+
+
+def test_knowledge_results_for_the_projects_stack_rank_first():
+    rows = [{"id": 1, "rank": 0.50, "stack": "python, fastapi"}, {"id": 2, "rank": 0.45, "stack": "vite, react"},
+            {"id": 3, "rank": 0.40, "stack": None}]
+    assert [r["id"] for r in knowledge.rerank(rows, "React + Vite, vitest", 3)] == [2, 1, 3]   # 0.45 x 1.3 > 0.50
+    assert [r["id"] for r in knowledge.rerank(rows, "", 2)] == [1, 2]                           # no stack: text rank
+    assert [r["id"] for r in knowledge.rerank(rows, "django", 3)] == [1, 2, 3]                  # no overlap: unchanged
+
+
+def test_memories_are_loaded_with_their_source_and_date(monkeypatch):
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+    rows = [SimpleNamespace(fact="[project: budget app] budget: free", source="onboarding",
+                            created_at=datetime(2026, 10, 25, tzinfo=timezone.utc)),
+            SimpleNamespace(fact="prefers TypeScript", source="chat", created_at=datetime(2026, 10, 27, tzinfo=timezone.utc))]
+    monkeypatch.setattr(memory, "list_memories", lambda user_id, limit=40: rows)
+    facts = memory.load("user-12345678")
+    assert facts == ["[from your answers, 2026-10-25] [project: budget app] budget: free",
+                     "[noted by the assistant, 2026-10-27] prefers TypeScript"]
+    block = memory.memories_block(facts)
+    assert block.startswith('<remembered_from_earlier_sessions note="') and "newer fact" in block
+    assert memory.load(None) == [] and memory.memories_block([]) == ""
+
+
+def test_remember_prunes_beyond_the_per_user_cap(monkeypatch):
+    calls = []
+    monkeypatch.setattr(memory, "add_memories", lambda user_id, facts, source, thread_id: calls.append(("add", facts)))
+    monkeypatch.setattr(memory, "prune_memories", lambda user_id, keep: calls.append(("prune", keep)) or 0)
+    assert memory.remember("user-12345678", ["a fact", "a fact", " "], "chat", "t-1") == 1       # de-duplicated, trimmed
+    assert calls == [("add", ["a fact"]), ("prune", memory.MAX_MEMORIES_PER_USER)]
 
 
 def test_skills_split_by_audience_and_agent_skills_match_the_stack():
@@ -89,8 +124,14 @@ def test_skills_split_by_audience_and_agent_skills_match_the_stack():
     assert {s for s, v in names.items() if v["audience"] == "ask"} == {"write-a-change-request", "explain-build-results",
                                                                         "small-or-bigger-change"}
     picked = {s["name"] for s in skills.agent_skills_for("Vite (fast dev server) vitest: tests")}
-    assert picked == {"testing-discipline", "web-ui-basics", "web-ui-design", "node-project-hygiene"}
-    assert {s["name"] for s in skills.agent_skills_for("FastAPI pytest")} == {"testing-discipline", "python-project-hygiene"}
+    assert picked == {"testing-discipline", "secure-coding", "web-ui-basics", "web-ui-design", "node-project-hygiene"}
+    assert {s["name"] for s in skills.agent_skills_for("FastAPI pytest")} == {"testing-discipline", "secure-coding",
+                                                                               "python-project-hygiene"}
+    # Review 2026-10-29: failure-triage is picked by the kind of task (fix / retry), never by the stack.
+    assert "failure-triage" not in picked
+    for kind in ("fix", "retry"):
+        assert "failure-triage" in {s["name"] for s in skills.agent_skills_for("FastAPI pytest", phase=kind)}
+    assert "failure-triage" not in {s["name"] for s in skills.agent_skills_for("FastAPI pytest", phase="core")}
     assert "web-ui-basics" not in skills.skills_block() and "web-ui-design" not in skills.skills_block() and "write-a-change-request" in skills.skills_block()
     assert skills.load_skill("node-project-hygiene").startswith("No skill")        # agent skills are not Ask's
     assert "<skill" in skills.load_skill("write-a-change-request")
@@ -107,6 +148,7 @@ def test_project_memories_are_labelled_and_replaced_when_the_project_completes_a
     calls = []
     monkeypatch.setattr(memory, "delete_memories", lambda user_id, **kw: calls.append(("delete", user_id, kw)) or 2)
     monkeypatch.setattr(memory, "add_memories", lambda user_id, facts, source, thread_id: calls.append(("add", facts, source)))
+    monkeypatch.setattr(memory, "prune_memories", lambda user_id, keep: 0)
     state = {"user_id": "user-12345678", "project_name": "simple calculator", "project_category": "web_app",
              "project_profile": {"audience": "students"}, "constraints": {"budget": "free"}}
     assert memory.remember_session(state, "t-1") == 3

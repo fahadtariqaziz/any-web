@@ -2,10 +2,9 @@
 
     START → intake → clarification ─┬─(need_clarification)─► await_clarification ─► clarification (loop, ≤ 3 rounds)
                                     └─(enough info)────────► research → proposer → critic → judge
-    judge ─┬─(request_more_research)──► research          (focused; bounded by limits.py)
-           ├─(request_clarification)──► clarification
-           └─(proceed / insufficient_evidence)──► evidence_checker ─┬─(material gap, loop allowed)─► research
-                                                                    └──────────────────────────────► final_report
+    judge ─┬─(request_more_research: thin evidence OR a material claim of the winner unverified)──► research
+           ├─(request_clarification)──► clarification                      (both focused; bounded by limits.py)
+           └─(proceed / insufficient_evidence)──► final_report
     final_report → brief_writer → brief_validator ─┬─(revise, ≤ max_brief_revisions)──► brief_writer
                                                    ├─(clarify, loop allowed)──────────► clarification
                                                    └─(approve)────────────────────────► await_brief_review (pause)
@@ -46,7 +45,6 @@ from ai_decision_arena.nodes.brief_validator import brief_validator_node
 from ai_decision_arena.nodes.brief_writer import brief_writer_node
 from ai_decision_arena.nodes.clarification import await_clarification_node, clarification_node
 from ai_decision_arena.nodes.critic import critic_node
-from ai_decision_arena.nodes.evidence_checker import evidence_checker_node
 from ai_decision_arena.nodes.final_report import completion_node, final_report_node
 from ai_decision_arena.nodes.delivery import (await_change_request_node, build_check_node, change_request_router_node,
                                               preview_node)
@@ -67,7 +65,6 @@ NODES = {
     "proposer": proposer_node,
     "critic": critic_node,
     "judge": judge_node,
-    "evidence_checker": evidence_checker_node,
     "final_report": final_report_node,
     "brief_writer": brief_writer_node,
     "brief_validator": brief_validator_node,
@@ -90,21 +87,15 @@ def route_after_clarification(state: ArenaState) -> Literal["await_clarification
     return "await_clarification" if state.get("need_clarification") else "research"
 
 
-def route_after_judge(state: ArenaState) -> Literal["research", "clarification", "evidence_checker"]:
-    # The Judge node already applied the loop limits; here we only read its decision.
+def route_after_judge(state: ArenaState) -> Literal["research", "clarification", "final_report"]:
+    # The Judge node already applied the loop limits (and folded in the winner's claim check); here we only read
+    # its decision.
     decision = (state.get("verdict") or {}).get("decision")
     if decision == "request_more_research":
         return "research"
     if decision == "request_clarification":
         return "clarification"
-    return "evidence_checker"           # proceed or insufficient_evidence
-
-
-def route_after_evidence_checker(state: ArenaState) -> Literal["research", "final_report"]:
-    decision = (state.get("checker_verdict") or {}).get("decision")
-    if decision == "request_more_research":
-        return "research"
-    return "final_report"
+    return "final_report"               # proceed or insufficient_evidence
 
 
 def route_after_brief_validator(state: ArenaState) -> Literal["brief_writer", "clarification", "await_brief_review"]:
@@ -200,8 +191,7 @@ def build_graph(checkpointer: BaseCheckpointSaver | None = None):
     connect("research", "proposer", ["proposer"])
     connect("proposer", "critic", ["critic"])
     connect("critic", "judge", ["judge"])
-    connect("judge", route_after_judge, ["research", "clarification", "evidence_checker"])
-    connect("evidence_checker", route_after_evidence_checker, ["research", "final_report"])
+    connect("judge", route_after_judge, ["research", "clarification", "final_report"])
     connect("final_report", "brief_writer", ["brief_writer"])
     connect("brief_writer", "brief_validator", ["brief_validator"])
     connect("brief_validator", route_after_brief_validator, ["brief_writer", "clarification", "await_brief_review"])

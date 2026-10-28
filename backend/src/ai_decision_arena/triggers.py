@@ -24,10 +24,9 @@ TRIGGERS: list[dict] = [
     {"event": "requirements clear", "condition": "no question left or rounds used", "action": "research (3 domains)",
      "where": "route_after_clarification"},
     {"event": "research done", "condition": "always", "action": "proposer → critic → judge", "where": "graph edges"},
-    {"event": "judge verdict", "condition": "more research / clarification asked AND loops_allowed (rounds, time, "
-     "LLM budget)", "action": "research or clarification, else evidence check", "where": "route_after_judge, limits.py"},
-    {"event": "evidence checked", "condition": "material gap AND loops_allowed", "action": "research, else brief",
-     "where": "route_after_evidence_checker"},
+    {"event": "judge verdict", "condition": "thin evidence, a question for the user, or a material claim of the winner "
+     "unverified, AND loops_allowed (rounds, time, LLM budget)", "action": "research or clarification, else the report "
+     "(doubts become open questions in the brief)", "where": "route_after_judge, claim_check.consolidate, limits.py"},
     {"event": "brief validated", "condition": "revise ≤ max_brief_revisions / clarify if loops allowed / approve",
      "action": "rewrite, clarification, or pause for review", "where": "route_after_brief_validator"},
     {"event": "brief review reply", "condition": "approve (hash of the reviewed text) / change + target "
@@ -48,6 +47,11 @@ TRIGGERS: list[dict] = [
     {"event": "node raised", "condition": "any error stored", "action": "completion (failed)", "where": "guarded edges"},
     {"event": "interrupted run (restart)", "condition": "checkpoint has a next node", "action": "resume without "
      "repeating finished steps", "where": "POST /resume {type: continue}"},
+    {"event": "user stops the run", "condition": "a run is in progress", "action": "finish the current step, start no "
+     "other, wait as interrupted (cancelled) for Continue", "where": "POST /cancel → GraphRunner.cancel"},
+    {"event": "build check passed its commands", "condition": "a key-shaped string in the project's source (secret "
+     "scan, Python)", "action": "build check fails, fix task F<n> (same fix-round cap)", "where": "build_check → "
+     "workspace/secret_scan.py"},
     {"event": "preview idle", "condition": f"no GET /preview for preview_idle_minutes", "action": "stop the dev server",
      "where": "IdleStopper thread / POST /api/triggers/idle-previews"},
     {"event": "API start", "condition": "always", "action": "adopt live dev servers, kill orphaned commands",

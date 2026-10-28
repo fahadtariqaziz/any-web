@@ -29,7 +29,7 @@ from ai_decision_arena.tools import ToolContext, chat_tools, stream_with_tools
 MAX_HISTORY_MESSAGES = 20      # older messages are dropped from the prompt (they stay in the database)
 MAX_MESSAGE_CHARS = 4000
 CHAT_MAX_TOKENS = 1500
-MAX_BRIEF_CHARS = 12000        # the brief's markdown (main part + references + appendix) is ~2-3k words
+MAX_BRIEF_CHARS = 12000        # the brief's markdown (sections 1-9 + references) is ~1.5-2k words
 MAX_TASK_SUMMARY_CHARS = 300
 
 SYSTEM_PROMPT = """You are the project assistant of an AI application builder. You are in an ongoing chat with the user who
@@ -259,7 +259,8 @@ def stream_reply(thread_id: str, state: ArenaState, history: list[dict], message
     llm = get_llm(CHAT_MAX_TOKENS, model=get_settings().chat_model)
     config = {"run_name": "project_chat", "metadata": {"thread_id": thread_id, "source": "chat"}}
     ctx = ToolContext(thread_id=thread_id, user_id=state.get("user_id") or None,
-                      project=state.get("project_name", ""))
+                      project=state.get("project_name", ""),
+                      stack=", ".join((state.get("implementation_plan") or {}).get("tech_stack") or []))
     started, started_at = time.time(), usage.now_iso()
     try:
         yield from stream_with_tools(llm, messages, chat_tools(ctx), ctx, config)

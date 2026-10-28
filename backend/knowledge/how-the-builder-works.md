@@ -2,6 +2,8 @@
 title: How this AI app builder works (stages, approvals, changes, limits)
 url:
 topic: app builder process
+verified: 2026-10-25
+
 ---
 A project goes through these stages: questions to clarify the idea (up to 3 rounds), research in three domains
 (existing apps and user feedback, papers and technical literature, technical feasibility), two or three solution

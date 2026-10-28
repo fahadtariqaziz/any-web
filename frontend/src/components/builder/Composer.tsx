@@ -64,7 +64,9 @@ export function Composer<K extends string>({
         e.preventDefault();
         send();
       }}
-      className="rounded-2xl border border-slate-300 bg-white shadow-sm focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20"
+      className={`relative rounded-2xl border border-slate-200/90 bg-white/90 shadow-[0_10px_30px_-14px_rgb(15_23_42_/_0.25)] backdrop-blur transition duration-200 focus-within:border-brand/50 focus-within:shadow-[0_14px_40px_-14px_rgb(79_70_229_/_0.45)] focus-within:ring-4 focus-within:ring-brand/10 ${
+        size === "lg" ? "p-1" : ""
+      }`}
     >
       {modes && modes.length > 1 && (
         <div role="radiogroup" aria-label="What this message does" className="flex flex-wrap gap-1 px-3 pt-2.5">
@@ -77,7 +79,7 @@ export function Composer<K extends string>({
               title={m.hint}
               onClick={() => onModeChange?.(m.key)}
               className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition ${
-                m.key === mode ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                m.key === mode ? "bg-slate-900 text-white shadow-sm" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
               {m.label}
@@ -114,9 +116,11 @@ export function Composer<K extends string>({
           type="submit"
           disabled={!canSend}
           aria-label="Send"
-          className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white transition hover:bg-slate-700 disabled:bg-slate-200 disabled:text-slate-400"
+          className={`mb-0.5 flex shrink-0 items-center justify-center rounded-full text-white transition duration-150 ${
+            size === "lg" ? "size-10" : "size-8"
+          } ${canSend ? "bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-500 hover:brightness-110 shadow-[0_8px_20px_-8px_rgb(79_70_229_/_0.9)] hover:-translate-y-px active:scale-95" : "bg-slate-200 text-slate-400"}`}
         >
-          <ArrowUp className="size-4" aria-hidden />
+          <ArrowUp className={size === "lg" ? "size-5" : "size-4"} aria-hidden />
         </button>
       </div>
     </form>

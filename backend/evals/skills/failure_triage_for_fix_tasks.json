@@ -1,0 +1,7 @@
+{"prompt": "skills", "node": null, "modes": ["offline"],
+ "source": "Review 2026-10-29 (sub-agents / skills): instead of a QA agent whose opinion could be mistaken for a result, fix tasks and retries get a triage procedure; pass / fail stays with the exit codes.",
+ "checks": [
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "failure-triage"},
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "Reproduce first"},
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "Read the FIRST error"},
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "Never delete, skip, loosen or `.only` a test"}]}

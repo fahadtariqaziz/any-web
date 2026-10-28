@@ -63,6 +63,9 @@ def test_start_pause_resume_report(client):
     assert status["pending"]["type"] == "clarification"
     assert status["counters"]["clarification_rounds"] == 0
     assert status["next_nodes"] == ["await_clarification"]
+    payload = status["pending"]["payload"]
+    assert payload["max_rounds"] == 1 and set(payload["options"]) == set(payload["questions"])    # 2026-10-29
+    assert payload["options"]["Who are the main users of this app?"] == ["Students", "Small business owners", "My own team"]
     questions = status["pending"]["payload"]["questions"]
 
     # not finished yet → 409
@@ -170,6 +173,16 @@ def test_second_start_while_running_is_409(client):
     second = client.post(f"/api/decisions/{thread_id}/resume", json={"type": "clarification", "answers": {questions[0]: "x"}})
     assert second.status_code == 409 and second.json()["error"]["code"] == "already_running"
     wait_until_not_running(client, thread_id)
+
+
+def test_cancel_needs_a_running_session(client):
+    """Review 2026-10-29: POST /cancel is the safe stop; 409 when nothing runs, 404 for an unknown session."""
+    started = client.post("/api/decisions", json={"question": "A habit tracker app for students"}).json()
+    status = wait_until_not_running(client, started["thread_id"])
+    assert status["run_state"] == "paused" and status["cancelled"] is False
+    r = client.post(f"/api/decisions/{started['thread_id']}/cancel")
+    assert r.status_code == 409 and r.json()["error"]["code"] == "not_running"
+    assert client.post("/api/decisions/does-not-exist/cancel").status_code == 404
 
 
 def test_brief_change_request_round_trip_and_wording_only_cap(client, monkeypatch):

@@ -1,13 +1,17 @@
-"""Node 6 — Judge: score every proposal on the rubric in ONE call and pick the strongest.
+"""Node 6 — Judge: score every proposal on the rubric in ONE call, pick the strongest, and check its claims.
 
 Python then:
 - computes weighted totals from the configured rubric weights (never trusts LLM math),
 - picks the winner (highest weighted total),
-- makes the routing decision by combining sufficiency, contradictions, questions AND the loop limits.
+- consolidates the winner's claim check (made by the critic's pool; nodes/claim_check.py): stores one
+  ClaimVerification per claim and sets evidence[].verification_status (the separate Evidence Checker node was
+  folded in here on 2026-10-29: one "decide" step, one routing decision instead of two),
+- makes the ONE routing decision by combining sufficiency, contradictions, questions, the winner's material
+  evidence gaps AND the loop limits.
 
-Writes (owner): scores, verdict, research_retry_count (+1 when sending the graph back to research or
-clarification), research_focus (when looping), unresolved_questions (questions it could not ask), status,
-current_node.
+Writes (owner): scores, verdict, verification_results, checker_verdict, evidence[].verification_status,
+research_retry_count (+1 when sending the graph back to research or clarification), research_focus (when looping),
+unresolved_questions (questions it could not ask, gaps it could not research), status, current_node.
 """
 
 import json
@@ -15,6 +19,7 @@ import json
 from ai_decision_arena.config import RUBRIC_DESCRIPTIONS, get_settings
 from ai_decision_arena.limits import loops_allowed
 from ai_decision_arena.llm import call_structured
+from ai_decision_arena.nodes.claim_check import consolidate
 from ai_decision_arena.progress import report
 from ai_decision_arena.prompting import BUILDER_RULES, criticisms_block, evidence_block, proposals_block, user_case_block
 from ai_decision_arena.schemas import DOMAINS, ProposalJudgement, ProposalScore, Verdict
@@ -70,6 +75,12 @@ def _domain_status_defaults(state: ArenaState, sufficient: bool) -> dict[str, st
             for d in DOMAINS}
 
 
+def _checker_verdict(decision: str, reason: str, check: dict) -> dict:
+    """The claim-check summary the API and the report show (same shape as the former Evidence Checker node's)."""
+    return {"decision": decision, "reason": reason, "material_gaps": check["material_gaps"], "summary": check["summary"],
+            "claims_checked": check["claims_checked"]}
+
+
 def judge_node(state: ArenaState) -> dict:
     weights = get_settings().rubric_weights
     proposals = state.get("proposals", [])
@@ -91,13 +102,16 @@ def judge_node(state: ArenaState) -> dict:
             update["research_focus"] = required
             reasons.append("Running a focused follow-up search before judging.")
         else:
-            decision, status_text = "insufficient_evidence", "verifying"
+            decision, status_text = "insufficient_evidence", "reporting"
             reasons.append(f"Cannot propose a solution with the evidence available and no loop is possible "
                            f"({', '.join(blocked) or 'proposer declined'}).")
         update["scores"] = []
         update["verdict"] = Verdict(decision=decision, reason="\n".join(reasons), winning_proposal_id=None,
                                     domain_status=_domain_status_defaults(state, sufficient=False),
                                     required_evidence=required).model_dump(mode="json")
+        update["verification_results"] = []
+        update["checker_verdict"] = _checker_verdict("proceed", "No winning proposal to verify.",
+                                                     {"material_gaps": [], "summary": "", "claims_checked": 0})
         update["status"] = status_text
         report("judge", f"decision: {decision}; no proposals to score")
         return update
@@ -130,6 +144,10 @@ def judge_node(state: ArenaState) -> dict:
     # Highest weighted total wins; ties go to the better-evidenced proposal.
     winner = max(scores, key=lambda s: (s.weighted_total, _criterion(s, "evidence_quality"))).proposal_id if scores else None
 
+    # --- The winner's claims against the evidence it cites (Python; the critic's pool made the check) -----------
+    check = consolidate(state, winner)
+    gaps = check["material_gaps"]
+
     domain_status = _domain_status_defaults(state, sufficient=out.evidence_sufficient)
     for c in out.domain_coverage:
         domain_status[c.domain] = c.status
@@ -150,8 +168,18 @@ def judge_node(state: ArenaState) -> dict:
     # --- Routing: Python has the final say, bounded by the loop limits -----------------------
     if contradictions and not questions and can_clarify:
         questions = [f"The research found a contradiction to resolve: {c} Which should we follow?" for c in contradictions[:MAX_QUESTIONS]]
-    if sufficient and not contradictions:
-        decision, status_text = "proceed", "verifying"
+    checker_decision, checker_reason = "proceed", "All material claims are supported."
+    if sufficient and not contradictions and gaps and can_research:
+        decision, status_text = "request_more_research", "researching"
+        update["research_retry_count"] = state.get("research_retry_count", 0) + 1
+        update["research_focus"] = list(gaps)
+        checker_decision = decision
+        checker_reason = ("Material claims of the winning proposal are not supported by the cited evidence: one "
+                          "focused research pass.")
+        reasons.append(f"A defensible best solution exists ({winner}), but {len(gaps)} material claim(s) of it are "
+                       "unverified: running a focused follow-up search.")
+    elif sufficient and not contradictions:
+        decision, status_text = "proceed", "reporting"
         reasons.append(f"A defensible best solution exists ({winner}).")
     elif questions and can_clarify:
         decision, status_text = "request_clarification", "debating"
@@ -165,12 +193,15 @@ def judge_node(state: ArenaState) -> dict:
         update["research_focus"] = list(required)
         reasons.append("The evidence is insufficient: running a focused follow-up search.")
     elif sufficient:
-        decision, status_text = "proceed", "verifying"
+        decision, status_text = "proceed", "reporting"
         reasons.append("Contradictions remain but no clarification loop is possible: continuing with them recorded.")
     else:
-        decision, status_text = "insufficient_evidence", "verifying"
+        decision, status_text = "insufficient_evidence", "reporting"
         reasons.append(f"Evidence remains insufficient and the loop limits are reached ({', '.join(blocked) or 'no loop possible'}): "
                        "continuing with the uncertainty stated.")
+    if gaps and checker_decision == "proceed":
+        checker_reason = (f"Unverified material claims remain ({'; '.join(blocked) or 'no loop possible'}); "
+                          "continuing with them listed as unresolved.")
 
     update["scores"] = [s.model_dump(mode="json") for s in scores]
     update["verdict"] = Verdict(
@@ -182,10 +213,17 @@ def judge_node(state: ArenaState) -> dict:
         material_contradictions=contradictions,
         clarification_questions=questions if decision == "request_clarification" else [],
     ).model_dump(mode="json")
+    update["verification_results"] = check["verification_results"]
+    update["evidence"] = check["evidence"]
+    update["checker_verdict"] = _checker_verdict(checker_decision, checker_reason, check)
+    unresolved = list(state.get("unresolved_questions", []))
     if questions and decision != "request_clarification":
         # Not asked (fast path or no clarification round left): the brief lists them, the user's review answers them.
-        unresolved = list(state.get("unresolved_questions", []))
         unresolved += [f"Question for you: {q}" for q in questions if f"Question for you: {q}" not in unresolved]
+    if gaps and decision in ("proceed", "insufficient_evidence"):
+        # Not researched (fast path or no research pass left): the brief lists them, never hidden.
+        unresolved += [f"Unverified: {g}" for g in gaps if f"Unverified: {g}" not in unresolved]
+    if unresolved != list(state.get("unresolved_questions", [])):
         update["unresolved_questions"] = unresolved
     update["status"] = status_text
     report("judge", f"decision: {decision}; winner: {winner}")

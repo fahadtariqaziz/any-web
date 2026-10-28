@@ -29,9 +29,14 @@ const TARGETS: { value: ReviewTarget; label: string }[] = [
 ];
 
 function ActionCard({ tone = "amber", icon, eyebrow, title, children }: { tone?: "amber" | "brand" | "slate" | "red"; icon: React.ReactNode; eyebrow: string; title: React.ReactNode; children?: React.ReactNode }) {
-  const border = { amber: "border-amber-200 bg-amber-50/40", brand: "border-teal-200 bg-brand-faint", slate: "border-slate-200 bg-white", red: "border-red-200 bg-red-50/40" }[tone];
+  const border = {
+    amber: "border-amber-200 bg-gradient-to-br from-amber-50/70 to-white shadow-[0_14px_34px_-20px_rgb(217_119_6_/_0.5)]",
+    brand: "gradient-border shadow-[0_14px_34px_-20px_rgb(79_70_229_/_0.6)]",
+    slate: "border-slate-200 bg-white shadow-sm",
+    red: "border-red-200 bg-gradient-to-br from-red-50/70 to-white",
+  }[tone];
   return (
-    <div className={`animate-fade-up space-y-3 rounded-xl border p-4 ${border}`}>
+    <div className={`animate-fade-up space-y-3 rounded-2xl border p-4 ${border}`}>
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 shrink-0">{icon}</span>
         <div className="min-w-0">

@@ -5,7 +5,7 @@ import type { Tone } from "@/lib/format";
 const TONE: Record<Tone, string> = {
   neutral: "bg-slate-100 text-slate-700 ring-slate-200",
   slate: "bg-slate-100 text-slate-600 ring-slate-200",
-  brand: "bg-brand-soft text-brand-strong ring-teal-200",
+  brand: "bg-brand-soft text-brand-strong ring-indigo-200",
   amber: "bg-amber-50 text-amber-800 ring-amber-200",
   orange: "bg-orange-50 text-orange-800 ring-orange-200",
   emerald: "bg-emerald-50 text-emerald-800 ring-emerald-200",

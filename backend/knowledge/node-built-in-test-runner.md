@@ -2,6 +2,9 @@
 title: Node.js built-in test runner (node --test)
 url: https://nodejs.org/api/test.html
 topic: testing, node, javascript, unit tests
+verified: 2026-10-25
+stack: node, javascript, typescript
+
 ---
 Node.js ships a test runner in the node:test module: `import test from 'node:test'` (or `describe` / `it`) with
 assertions from `node:assert`. `node --test` finds and runs test files (by default names such as *.test.js,

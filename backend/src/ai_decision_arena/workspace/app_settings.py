@@ -169,6 +169,6 @@ def describe(ws: Workspace) -> dict:
         "variables": [{"name": v.name, "set": v.name in saved, "help": v.help, "example": v.example,
                        "public": v.name.startswith(("VITE_", "NEXT_PUBLIC_", "REACT_APP_", "PUBLIC_", "EXPO_PUBLIC_"))}
                       for v in variables],
-        "missing": [v.name for v in variables if v.name not in saved],
+        "missing": [v.name for v in variables if v.name not in saved and not " ".join(v.help).lower().startswith("optional")],
         "guides": guides,
     }

@@ -64,3 +64,54 @@ def test_apply_refuses_before_connecting():
     result = S.apply(ws, "postgresql://postgres.other:pw@x.pooler.supabase.com:5432/postgres",
                      connect=lambda: called.append(1))
     assert not result["ok"] and not called and "not for the app's" in result["error"]
+
+
+class FakeConn:
+    """Stands in for psycopg: schema_migrations already holds the given (version, name) rows."""
+
+    def __init__(self, rows):
+        self.rows, self.ran = rows, []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, sql, params=None):
+        self.ran.append(sql)
+        return self
+
+    def fetchall(self):
+        return self.rows
+
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass
+
+
+def test_apply_does_not_treat_another_apps_migration_as_applied():
+    ws = supabase_ws("sb-conflict")
+    A.save(ws, {"VITE_SUPABASE_URL": f"https://{REF}.supabase.co"})
+    conn = FakeConn([("0001", "0001_other_app")])
+    url = f"postgresql://postgres.{REF}:pw@aws-0-eu.pooler.supabase.com:5432/postgres"
+    result = S.apply(ws, url, connect=lambda: conn)
+    assert not result["ok"] and result["files"][0]["status"] == "conflict"
+    assert not any("profiles" in sql for sql in conn.ran)       # the app's own SQL never ran
+
+
+def test_apply_skips_the_same_migration():
+    ws = supabase_ws("sb-same")
+    A.save(ws, {"VITE_SUPABASE_URL": f"https://{REF}.supabase.co"})
+    conn = FakeConn([("0001", "0001_schema"), ("0002", "0002_more")])
+    url = f"postgresql://postgres.{REF}:pw@aws-0-eu.pooler.supabase.com:5432/postgres"
+    result = S.apply(ws, url, connect=lambda: conn)
+    assert result["ok"] and [f["status"] for f in result["files"]] == ["already applied"] * 2
+
+
+def test_optional_settings_are_not_counted_as_missing():
+    ws = supabase_ws("sb-optional")
+    (ws.app / ".env.example").write_text("VITE_SUPABASE_URL=\n# Optional, tests only: a test URL\nTEST_URL=\n")
+    assert A.describe(ws)["missing"] == ["VITE_SUPABASE_URL"]

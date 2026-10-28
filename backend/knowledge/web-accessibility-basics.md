@@ -2,6 +2,9 @@
 title: Web accessibility basics for generated apps (WCAG 2.2)
 url: https://www.w3.org/TR/WCAG22/
 topic: accessibility, a11y, keyboard, contrast, ui
+verified: 2026-10-25
+stack: html, react, vue, svelte, frontend, web, next.js
+
 ---
 WCAG 2.2 is the W3C standard most accessibility requirements refer to (level AA is the usual target).
 
