@@ -1,0 +1,5 @@
+{"prompt": "planner", "node": null, "modes": ["offline"],
+ "source": "Design finding (2026-10-27): the budgeting app shipped as browser defaults (one 44-line global CSS, no task owned the look); every test passed.",
+ "checks": [
+  {"on": "prompt", "prompt": "planner", "check": "contains", "text": "make\n  the FIRST task set up the design foundation"},
+  {"on": "prompt", "prompt": "planner", "check": "contains", "text": "prefer Tailwind CSS"}]}

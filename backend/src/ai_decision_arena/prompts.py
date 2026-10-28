@@ -105,21 +105,40 @@ REGISTRY: dict[str, PromptSpec] = {s.id: s for s in [
                ("v1 (M4): nine checks of spec section 5.",)),
     PromptSpec("brief_routing", "nodes.brief_review", ("ROUTING_PROMPT",), ("brief_review_router",), 1,
                (f"v1 (M5): routes a brief change to wording / requirements / research / proposal (wording-only once built: {M10}).",)),
-    PromptSpec("planner", "nodes.planner", ("SYSTEM_PROMPT", "REVISION_NOTE", "EXTENSION_NOTE"), ("planner",), 1,
-               (f"v1 (M6-M10): plan schema; revisions; extension mode for built apps ({M10}).",)),
-    PromptSpec("implementer", "nodes.implementer", ("SYSTEM_APPEND",), ("implementer",), 3,
+    PromptSpec("planner", "nodes.planner", ("SYSTEM_PROMPT", "REVISION_NOTE", "EXTENSION_NOTE"), ("planner",), 5,
+               (f"v1 (M6-M10): plan schema; revisions; extension mode for built apps ({M10}).",
+                "v2 (speed): fewer, larger tasks (about 4-8 for a small app; the calculator had 12 at ~21 s each, ~9 s "
+                "of it fixed overhead per task).",
+                "v3 (speed): only real dependencies and separate files per independent task (they run in parallel; "
+                "the cached calculator plan was one long chain with five tasks editing src/engine.js).",
+                "v4 (render check): the first screen must render without a .env; no import-time throw over missing "
+                "configuration (live: the budgeting app's supabase.ts threw at load, the preview was blank while "
+                "tests and build passed; eval planner/renders_without_env).",
+                "v5 (design): UI apps get a design foundation in the first task (Tailwind preferred: app shell + shared "
+                "components) and UI tasks name it in their acceptance criteria (live: the budgeting app was browser "
+                "defaults, 44 lines of global CSS, no task owned the look; eval planner/design_foundation).")),
+    PromptSpec("implementer", "nodes.implementer", ("SYSTEM_APPEND", "PARALLEL_NOTE"), ("implementer",), 7,
                ("v1 (M8): appended to the claude_code preset; one task, verify commands decide.",
                 "v2 (M11): no skipped / pending tests left behind; un-skip once the feature exists (M10: T13 left 4 "
                 "t.skip tests in the calculator that later tasks never re-enabled; eval implementer/no_skipped_tests).",
-                "v3 (M11): follow the <skills> picked for the project's stack (skills.py).")),
+                "v3 (M11): follow the <skills> picked for the project's stack (skills.py).",
+                "v4 (speed): final report at most 3 short lines (the long report took ~5 s of every task).",
+                "v5 (speed): PARALLEL_NOTE for tasks run at the same time (implementer_parallel): leave the siblings' "
+                "files alone, run only your own tests.",
+                "v6 (render check): missing configuration never crashes the app; a setup screen instead of an "
+                "import-time throw (same live finding as planner v4; eval implementer/renders_without_env).",
+                "v7 (app settings): a comment above each .env.example variable saying what it is and where to get it "
+                "(the Preview tab's settings form shows them; the budgeting app's .env.example had none).")),
     PromptSpec("ask", "chat", ("SYSTEM_PROMPT",), ("ask",), 2,
                (f"v1 (M10): project assistant, answers only, describes Reopen ({M10}).",
                 "v2 (M11): load_skill for builder skills; costs and limits only from <cost>; prompt-cached system block.")),
     PromptSpec("ask_tools", "tools", (), ("ask",), 2, ("v1 (M10): Ask-mode tool descriptions.",
                                                         "v2 (M11): load_skill offered again (builder skills)."),
                extra=_chat_tool_descriptions),
-    PromptSpec("skills", "skills", (), ("ask", "implementer"), 1,
-               ("v1 (M11): builder skills replace the health ones: 3 for Ask, 4 for the coding agent (picked by stack).",),
+    PromptSpec("skills", "skills", (), ("ask", "implementer"), 2,
+               ("v1 (M11): builder skills replace the health ones: 3 for Ask, 4 for the coding agent (picked by stack).",
+                "v2 (design): web-ui-design for web stacks: app shell, shared components, stacked labelled forms, tables, "
+                "empty states, spacing / type scale (the budgeting app was unstyled browser defaults)."),
                extra=_skill_texts),
     PromptSpec("researcher", "researcher", ("SYSTEM_PROMPT",), ("ask",), 1,
                ("v1 (M10): research sub-agent of Ask.",)),

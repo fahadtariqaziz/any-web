@@ -109,7 +109,8 @@ class Settings(BaseSettings):
     planner_model: str = Field(default="claude-opus-5-5", description="Model of the planner (checked against the API's "
                                "model list at startup; falls back to anthropic_model with a warning).")
     planner_effort: Literal["low", "medium", "high", "xhigh", "max"] = Field(
-        default="high", description="Reasoning effort of the planner (Opus 5.5 defaults to medium; planning deserves more).")
+        default="medium", description="Reasoning effort of the planner (Opus 5.5's default). Was high until 2026-10-26: "
+        "~100 s per plan measured; medium for speed (the user reviews every plan anyway).")
     planner_max_tokens: int = Field(default=16000, ge=4000, le=32000)
     planner_timeout_seconds: float = Field(default=600, gt=0, description="A full plan at high effort takes minutes.")
     implementer_model: str = Field(default="claude-sonnet-5-5", description="Model of the coding agent (M8, Claude "
@@ -117,6 +118,9 @@ class Settings(BaseSettings):
     implementer_effort: Literal["low", "medium", "high", "xhigh", "max"] = Field(
         default="medium", description="Sonnet 5.5's recalibrated levels: medium is the recommended start for agentic coding.")
     implementer_max_turns: int = Field(default=40, ge=5, le=200, description="Agent turns per task attempt.")
+    implementer_parallel: int = Field(default=3, ge=1, le=6, description="Plan tasks the coding agent may work on at "
+                                      "the same time: ready tasks (dependencies done) whose files do not overlap and "
+                                      "touch no shared manifest. 1 = one task after another.")
     implementer_task_timeout_seconds: float = Field(default=900, gt=0, description="Wall clock per task attempt.")
     implementer_task_budget_usd: float = Field(default=2.0, gt=0, description="Agent cost cap per task attempt.")
     implementation_budget_usd: float = Field(default=15.0, gt=0, description="Agent cost cap per session: no new "
@@ -169,6 +173,12 @@ class Settings(BaseSettings):
     preview_port_range: str = Field(default="4100-4199", pattern=r"^\d{4,5}-\d{4,5}$")
     preview_health_timeout_seconds: float = Field(default=60, gt=0, description="A dev server must answer HTTP in time.")
     preview_idle_minutes: float = Field(default=30, gt=0, description="A preview nobody looked at for this long is stopped.")
+    preview_render_check: bool = Field(default=True, description="After the dev server answers, open the app in "
+                                       "headless Chrome: a blank page (e.g. a crash at import time) or browser errors "
+                                       "are reported, and a blank page becomes a fix task. Skipped without Chrome.")
+    preview_render_browser: str = Field(default="", description="Chrome / Chromium executable for the render check; "
+                                        "empty = the usual install locations and PATH.")
+    preview_render_timeout_seconds: float = Field(default=20, gt=0, description="Render check: page load + settle time.")
 
     # --- session budget ---
     session_time_budget_seconds: float = Field(default=900, gt=0, description="Active (non-paused) seconds after which no new loops start.")

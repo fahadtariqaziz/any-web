@@ -47,10 +47,16 @@ components, backend services, integrations, AI components only if the brief need
 strategy, the commands to install / test / build / run, and the risks or decisions to settle.
 
 Tasks:
-- At most {max_tasks}, in execution order, each small enough to implement and verify in one go (a module, a
-  component, a feature slice). The first task scaffolds the project (package manifest, folder structure, test runner
-  configured, a trivial passing test) so every later task can be verified.
-- depends_on lists earlier task ids only. files are relative paths inside the project.
+- At most {max_tasks}, in execution order. Prefer FEWER, LARGER tasks: each one a coherent feature slice with its
+  tests that the coding agent can still implement and verify in one go (e.g. "the calculation engine: tokenizer,
+  evaluator and formatting, with their tests"), not single files or tiny steps. Aim for about 4-8 tasks for a small
+  app (a single-page tool, a few screens) and at most about 12 for a larger one: every task costs a fixed overhead
+  (agent start, reading the code, verification). The first task scaffolds the project (package manifest, folder
+  structure, test runner configured, a trivial passing test) so every later task can be verified.
+- depends_on lists earlier task ids only, and ONLY real dependencies (the task uses or extends that task's code or
+  files): independent tasks are built in parallel, so a chain of false dependencies makes the build slower. Give
+  independent tasks separate files (two tasks never write the same file unless one depends on the other) and put
+  shared setup (package manifest, configs) in the first task. files are relative paths inside the project.
 - acceptance_criteria are checkable outcomes. verify_commands prove them by running real tests or scripts from the
   project root: each is ONE plain command (no &&, ;, pipes, redirects or env assignments), starting with one of:
   {executables}. Prefer the project's test runner (e.g. "npm test", "npx vitest run tests/engine.test.js").
@@ -60,6 +66,15 @@ Tasks:
   (configure the dev script accordingly, e.g. Vite `--port $PORT` belongs in the package.json script, not in the
   command). The generated project runs in its own folder; never publish, push or touch files outside it.
 - Never put secrets in the code; apps that need keys read them from environment variables and ship a .env.example.
+- Apps with a user interface must look like a finished product, not browser defaults. Choose the styling approach in
+  tech_stack (prefer Tailwind CSS; a hand-written CSS design system with tokens is fine for very small apps) and make
+  the FIRST task set up the design foundation with it: the app shell (top bar or sidebar navigation, content column)
+  and shared UI components (button, input / select with label, form layout, card, table, page header, alert, empty
+  state). Every later UI task builds its screens from those components and lists "styled with the shared components:
+  labelled stacked form fields, tables for records, an empty state" among its acceptance_criteria.
+- The preview runs the dev server WITHOUT a .env file and is checked in a headless browser: the first screen must
+  render even when settings or external services (e.g. a Supabase URL and key) are missing. Plan that no module
+  throws at import time over missing configuration; the app shows a screen that names the missing settings instead.
 """ + BUILDER_RULES
 
 REVISION_NOTE = """

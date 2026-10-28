@@ -18,6 +18,7 @@ os.environ.setdefault("TAVILY_API_KEY", "test-key-not-used")
 os.environ["LANGSMITH_TRACING"] = "false"
 os.environ["PERSIST_RESULTS"] = "false"
 os.environ["CHECK_INS_ENABLED"] = "false"
+os.environ["PREVIEW_RENDER_CHECK"] = "false"      # no headless Chrome in pytest; test_render_check fakes it
 os.environ["DATABASE_URL"] = "postgresql://test:test@127.0.0.1:1/never_connected"
 # Generated projects of the pipeline tests go to a throwaway folder, never the repo's generated_projects/.
 import tempfile  # noqa: E402
@@ -395,11 +396,12 @@ class FakeAgent:
         self.fail_once: set[str] = set()     # task ids that fail only their first attempt
         self.writes: dict[str, list[str]] = {}   # extra files to write per task id (e.g. a fix task that fixes the build)
 
-    def __call__(self, ws, prompt, system_append, *, model, label):
+    def __call__(self, ws, prompt, system_append, *, model, label, protected=frozenset()):
         import json as _json
         from ai_decision_arena.workspace.agent import AgentRun
         task = _json.loads(tag("task", prompt))
-        self.calls.append({"task": task["id"], "model": model, "prompt": prompt, "system": system_append})
+        self.calls.append({"task": task["id"], "model": model, "prompt": prompt, "system": system_append,
+                           "protected": protected})
         attempt = sum(c["task"] == task["id"] for c in self.calls)
         if task["id"] not in self.skip and not (task["id"] in self.fail_once and attempt == 1):
             for name in task["files"]:

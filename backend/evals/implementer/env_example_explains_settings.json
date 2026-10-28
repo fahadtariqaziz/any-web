@@ -1,0 +1,4 @@
+{"prompt": "implementer", "node": null, "modes": ["offline"],
+ "source": "App settings form (2026-10-27): the budgeting app's .env.example had bare VITE_SUPABASE_URL= lines, so the Preview tab's settings form could not say where to get the values.",
+ "checks": [
+  {"on": "prompt", "prompt": "implementer", "check": "contains", "text": "a comment line above each variable saying what it is and where to get it"}]}

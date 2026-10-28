@@ -1,11 +1,12 @@
 """M6 live check: the planner (Opus) on the real graph, from the cached brief (calculator idea), then plan approval.
 
-Needs backend/.cache/brief_calculator.json (written by scripts/verify_m4.py). One Opus call (a few minutes at effort
-"high"; a failed plan check costs a self-correcting retry). Steps:
+Needs backend/.cache/brief_calculator.json (written by scripts/verify_m4.py). One Opus call (~75 s at effort
+"medium"; a failed plan check costs a self-correcting retry). Steps:
 1. The planner model is checked against the API's model list (never assumed).
 2. The cached brief is marked approved (as brief_review_router does) and the graph continues from there: the guard
    lets the planner run, the plan is checked and shown at the plan review pause.
-3. The plan is approved: approval hash recorded, plan saved to project_artifacts (real DB), session completed.
+3. The plan is approved: approval hash recorded, plan saved to project_artifacts (real DB); the run stops before the
+   coding agent (no build).
     uv run python scripts/verify_m6.py
 Writes backend/.cache/plan_calculator.json (the full state) for M7/M8.
 """
@@ -97,10 +98,12 @@ check(not plan_is_approved(values), "not approved yet")
 
 # --- 3) approve -------------------------------------------------------------------------------------------
 print("\n=== 3) approve the plan")
-graph.invoke(Command(resume={"action": "approve"}), config)
+# Since M8 an approved plan goes straight to the coding agent: stop before it (this script checks the plan only;
+# without the stop it builds the whole app, minutes and real agent cost — found 2026-10-26).
+graph.invoke(Command(resume={"action": "approve"}), config, interrupt_before=["implementer"])
 snapshot = graph.get_state(config)
 values = snapshot.values
-check(snapshot.next == (), "graph finished after the plan approval")
+check(snapshot.next == ("implementer",), "the approved plan goes to the coding agent (stopped before it)")
 check(plan_is_approved(values) and values["plan_approved_hash"] == plan_hash(values["plan_markdown"]),
       "approval matches exactly the reviewed plan (and the approved brief)")
 if settings.persist_results:

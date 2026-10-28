@@ -19,7 +19,9 @@
     implementer ─┬─(a task is pending: one attempt per step)─► implementer
                  └─(all done / failed / blocked / budget)─────► build_check
     build_check ─┬─(failed, fix round left: a fix task was added)─► implementer
-                 └─────────────────────────────────────────────────► preview → await_change_request (pause)
+                 └─────────────────────────────────────────────────► preview
+    preview ─┬─(page blank in headless Chrome, fix round left: a fix task was added)─► implementer
+             └──────────────────────────────────────────────────────────────────────► await_change_request (pause)
     await_change_request → change_request_router ─┬─(change: new task)─► implementer
                                                   ├─(replan)──────────► brief_writer (bigger change: brief review, then a plan extension and plan review)
                                                   └─(finish)──────────► completion → END
@@ -154,6 +156,11 @@ def route_after_build_check(state: ArenaState) -> Literal["implementer", "previe
     return "implementer" if _has_pending_task(state) and plan_is_approved(state) else "preview"
 
 
+def route_after_preview(state: ArenaState) -> Literal["implementer", "await_change_request"]:
+    # preview adds a fix task (pending) when the page rendered blank and a fix round is left (shared with build_check).
+    return "implementer" if _has_pending_task(state) and plan_is_approved(state) else "await_change_request"
+
+
 def route_after_change_request(state: ArenaState) -> Literal["implementer", "brief_writer", "completion",
                                                              "await_change_request"]:
     route = state.get("change_route")
@@ -206,7 +213,7 @@ def build_graph(checkpointer: BaseCheckpointSaver | None = None):
     connect("plan_review_router", route_after_plan_review, ["planner", "await_plan_review", "implementer"])
     connect("implementer", route_after_implementer, ["implementer", "build_check"])
     connect("build_check", route_after_build_check, ["implementer", "preview"])
-    connect("preview", "await_change_request", ["await_change_request"])
+    connect("preview", route_after_preview, ["implementer", "await_change_request"])
     connect("await_change_request", "change_request_router", ["change_request_router"])
     connect("change_request_router", route_after_change_request,
             ["implementer", "brief_writer", "completion", "await_change_request"])

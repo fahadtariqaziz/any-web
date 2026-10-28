@@ -29,6 +29,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
@@ -268,10 +269,28 @@ def audit(ws: Workspace, result: CommandResult) -> None:
                     duration_seconds=result.duration_seconds, label=result.label)
 
 
+_LOCKS: dict[str, threading.Lock] = {}
+_LOCKS_GUARD = threading.Lock()
+
+
+def workspace_lock(ws: Workspace) -> threading.Lock:
+    """One lock per project folder: commands of coding agents working in parallel (implementer_parallel) run one at
+    a time, so two installs never write node_modules together and a test run never overlaps another command."""
+    with _LOCKS_GUARD:
+        return _LOCKS.setdefault(str(ws.root), threading.Lock())
+
+
 def run(ws: Workspace, command: str | Sequence[str], *, timeout: float | None = None,
         env: Mapping[str, str] | None = None, label: str = "") -> CommandResult:
     """Run one command in ws.app and wait for it. Never raises for the command's own failures: a refused, missing,
-    failing or timed-out command comes back as a CommandResult with ok=False and the reason."""
+    failing or timed-out command comes back as a CommandResult with ok=False and the reason. Commands in the same
+    project run one at a time (workspace_lock)."""
+    with workspace_lock(ws):
+        return _run(ws, command, timeout=timeout, env=env, label=label)
+
+
+def _run(ws: Workspace, command: str | Sequence[str], *, timeout: float | None,
+         env: Mapping[str, str] | None, label: str) -> CommandResult:
     started = datetime.now(timezone.utc).isoformat()
     text, argv, problems = check_command(ws, command)
     result = CommandResult(command=text, argv=argv, started_at=started, label=label)

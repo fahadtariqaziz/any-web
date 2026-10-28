@@ -30,6 +30,7 @@ import psutil
 from pydantic import BaseModel
 
 from ai_decision_arena.config import get_settings
+from ai_decision_arena.workspace import app_settings
 from ai_decision_arena.workspace.paths import SHARED_DIR, Workspace, projects_root, workspace_for
 from ai_decision_arena.workspace.sandbox import (build_env, check_command, is_same_process, kill_group,
                                                  process_started_at, read_tail, resolve_executable)
@@ -293,7 +294,8 @@ class ProcessManager:
             if problems:
                 record.port = None
                 return self._fail(record, "refused: " + "; ".join(problems))
-            env = build_env(ws, {"PORT": str(port), "BROWSER": "none"})
+            # + the app's own settings the user gave in the Preview tab (app_settings: never in app/, never to a model)
+            env = build_env(ws, {"PORT": str(port), "BROWSER": "none"}) | app_settings.env_values(ws)
             executable = resolve_executable(argv, env)
             if not executable:
                 record.port = None

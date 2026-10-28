@@ -115,6 +115,19 @@ def test_start_pause_resume_report(client):
     assert client.post(f"/api/decisions/{thread_id}/resume", json={"type": "plan_review", "action": "approve"}).status_code == 409
     restarted = client.post(f"/api/decisions/{thread_id}/preview/restart").json()
     assert restarted["state"] == "ready" and restarted["port"]
+    # app settings (.env.example): names + steps out, values in, a value is never returned
+    from ai_decision_arena.workspace.paths import workspace_for
+    ws = workspace_for(thread_id)
+    (ws.app / ".env.example").write_text("# Project URL from Supabase → Project Settings → API\nVITE_SUPABASE_URL=\n")
+    settings = client.get(f"/api/decisions/{thread_id}/app-settings").json()
+    assert settings["missing"] == ["VITE_SUPABASE_URL"] and settings["guides"][0]["service"] == "Supabase"
+    assert settings["variables"][0]["help"] == ["Project URL from Supabase → Project Settings → API"]
+    assert client.put(f"/api/decisions/{thread_id}/app-settings", json={"values": {"PATH": "/x"}}).status_code == 422
+    saved = client.put(f"/api/decisions/{thread_id}/app-settings",
+                       json={"values": {"VITE_SUPABASE_URL": "https://abc.supabase.co"}})
+    assert saved.status_code == 200 and "abc.supabase.co" not in saved.text
+    assert saved.json()["missing"] == [] and saved.json()["preview"]["state"] == "ready"   # restarted with it
+    assert "abc.supabase.co" not in (ws.app / ".env.example").read_text() and not (ws.app / ".env").exists()
     assert client.post(f"/api/decisions/{thread_id}/resume",
                        json={"type": "change_request", "action": "finish"}).status_code == 202
     status = wait_until_not_running(client, thread_id)

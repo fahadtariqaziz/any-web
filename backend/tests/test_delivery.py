@@ -213,3 +213,49 @@ def test_idle_stopper_stops_previews_nobody_looks_at(graph, fake_llm, fake_searc
     assert process_manager.status("d-idle").state == "stopped"
     with pytest.raises(httpx.HTTPError):
         httpx.get(state["preview"]["url"], timeout=2)
+
+
+# --- render check (headless Chrome after the dev server answers; faked here, real in test_render_check) ----------
+
+def fake_render(monkeypatch, statuses: list[str]):
+    """render_check.check returns these statuses in order (the last one repeats)."""
+    from ai_decision_arena.workspace import render_check
+    calls = []
+
+    def check(url, timeout=None):
+        status = statuses[min(len(calls), len(statuses) - 1)]
+        calls.append(url)
+        errors = {"blank": ["Uncaught Error: Missing Supabase configuration"],
+                  "warnings": ["console.error: Failed to fetch"]}.get(status, [])
+        return {"status": status, "errors": errors, "text_chars": 0 if status == "blank" else 42, "snippet": "",
+                "at": "2026-10-27T00:00:00+00:00"}
+    monkeypatch.setattr(render_check, "check", check)
+    return calls
+
+
+def test_blank_preview_gets_a_fix_task_then_is_checked_again(graph, fake_llm, fake_search, monkeypatch):
+    calls = fake_render(monkeypatch, ["blank", "ok"])
+    state, snapshot = to_preview(graph, "d-blank")
+    fix = next(t for t in state["implementation_tasks"] if t["id"] == "F1")
+    assert fix["status"] == "done" and "blank" in fix["title"]
+    assert "<untrusted>Uncaught Error: Missing Supabase configuration</untrusted>" in fix["spec"]["description"]
+    assert fix["spec"]["verify_commands"] == ["ls package.json"]                      # the plan's test commands
+    assert len(calls) == 2 and state["preview"]["render"]["status"] == "ok"          # rebuilt, restarted, re-checked
+    assert state["build_fix_round"] == 1 and snapshot.next == ("await_change_request",)
+    assert snapshot.interrupts[0].value["preview"]["render"]["status"] == "ok"
+
+
+def test_blank_preview_fix_rounds_are_capped(graph, fake_llm, fake_search, monkeypatch):
+    calls = fake_render(monkeypatch, ["blank"])
+    state, snapshot = to_preview(graph, "d-blank-cap")
+    fixes = [t for t in state["implementation_tasks"] if t["id"].startswith("F")]
+    assert len(fixes) == get_settings().max_build_fix_rounds
+    assert len(calls) == get_settings().max_build_fix_rounds + 1
+    assert state["preview"]["render"]["status"] == "blank" and snapshot.next == ("await_change_request",)
+
+
+def test_render_warnings_do_not_add_a_task(graph, fake_llm, fake_search, monkeypatch):
+    fake_render(monkeypatch, ["warnings"])
+    state, snapshot = to_preview(graph, "d-warn")
+    assert not any(t["id"].startswith("F") for t in state["implementation_tasks"])
+    assert state["preview"]["render"]["status"] == "warnings" and snapshot.next == ("await_change_request",)

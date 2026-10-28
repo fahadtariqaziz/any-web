@@ -62,6 +62,9 @@ from ai_decision_arena.api.schemas import (
     ToolCallList,
     ToolCallView,
     UsageResponse,
+    AppSettingsResponse,
+    AppSettingsUpdate,
+    DatabaseSetupRequest,
     PreviewResponse,
     ReopenResume,
     CaseView,
@@ -97,7 +100,7 @@ from ai_decision_arena.graph import build_graph
 from ai_decision_arena.llm import resolve_model
 from ai_decision_arena.memory import valid_user_id
 from ai_decision_arena.nodes.delivery import reopen_actions, reopen_update
-from ai_decision_arena.workspace import export as code_export
+from ai_decision_arena.workspace import app_settings, export as code_export, render_check, supabase_setup
 from ai_decision_arena.workspace.paths import PathError, workspace_for
 from ai_decision_arena.workspace.processes import IdleStopper, RuntimeRecord, get_manager
 
@@ -529,7 +532,17 @@ def _preview_response(thread_id: str, record: RuntimeRecord) -> PreviewResponse:
                            port=record.port, command=record.command, last_error=record.last_error,
                            log_tail=get_manager().log_tail(thread_id)[-3000:],
                            started_at=record.started_at.isoformat() if record.started_at else None,
-                           ready_at=record.ready_at.isoformat() if record.ready_at else None)
+                           ready_at=record.ready_at.isoformat() if record.ready_at else None,
+                           render=_render(thread_id, record))
+
+
+def _render(thread_id: str, record: RuntimeRecord) -> dict | None:
+    if record.state != "ready":
+        return None
+    try:
+        return render_check.load(workspace_for(thread_id), record.started_at)
+    except PathError:
+        return None
 
 
 def _preview_record(request: Request, thread_id: str) -> RuntimeRecord:
@@ -564,7 +577,81 @@ def restart_preview(thread_id: str, request: Request):
         ws = workspace_for(thread_id)
     except PathError as exc:
         raise ApiError(422, "invalid_input", str(exc)) from exc
-    return _preview_response(thread_id, get_manager().start(ws, plan["commands"]["dev"]))
+    record = get_manager().start(ws, plan["commands"]["dev"])
+    render_check.check_preview(ws, record)                  # the pane shows a blank page's browser errors
+    return _preview_response(thread_id, record)
+
+
+def _app_settings_ws(request: Request, thread_id: str):
+    values = _snapshot(request, thread_id).values or {}            # 404 for unknown sessions
+    if not values.get("workspace_dir"):
+        raise ApiError(409, "no_implementation", "Nothing built yet: the app has no settings.")
+    try:
+        return workspace_for(thread_id), values
+    except PathError as exc:
+        raise ApiError(422, "invalid_input", str(exc)) from exc
+
+
+def _without_url(check: dict | None) -> dict | None:
+    return {k: v for k, v in check.items() if k != "url"} if check else None      # the API never echoes a value
+
+
+def _settings_response(thread_id: str, ws, **extra) -> AppSettingsResponse:
+    database = None
+    if supabase_setup.applies(ws):
+        database = {"migrations": [p.name for p in supabase_setup.migration_files(ws)],
+                    "tables": supabase_setup.tables(ws), "check": _without_url(supabase_setup.last_check(ws))}
+        database |= {"setup": extra.pop("setup")} if "setup" in extra else {}
+    return AppSettingsResponse(thread_id=thread_id, database=database, **extra, **app_settings.describe(ws))
+
+
+@app.get("/api/decisions/{thread_id}/app-settings", response_model=AppSettingsResponse, tags=["preview"])
+def get_app_settings(thread_id: str, request: Request):
+    """The variables of the app's .env.example: set or missing, with setup steps. Never returns a value."""
+    ws, _ = _app_settings_ws(request, thread_id)
+    return _settings_response(thread_id, ws)
+
+
+@app.post("/api/decisions/{thread_id}/app-settings/database/check", response_model=AppSettingsResponse, tags=["preview"])
+def check_app_database(thread_id: str, request: Request):
+    """Read-only: do the tables of the app's Supabase migrations exist in the user's project?"""
+    ws, _ = _app_settings_ws(request, thread_id)
+    if not supabase_setup.applies(ws):
+        raise ApiError(409, "no_database", "This app has no Supabase migrations.")
+    supabase_setup.check(ws)
+    return _settings_response(thread_id, ws)
+
+
+@app.post("/api/decisions/{thread_id}/app-settings/database/setup", response_model=AppSettingsResponse, tags=["preview"])
+def setup_app_database(thread_id: str, body: DatabaseSetupRequest, request: Request):
+    """Writes to the USER's database, only on their request: runs the migration files not applied yet (one
+    transaction each), then checks again. The connection string is used for this call only."""
+    ws, _ = _app_settings_ws(request, thread_id)
+    if not supabase_setup.applies(ws):
+        raise ApiError(409, "no_database", "This app has no Supabase migrations.")
+    result = supabase_setup.apply(ws, body.db_url)
+    if result["files"]:
+        supabase_setup.check(ws)
+    return _settings_response(thread_id, ws, setup=result)
+
+
+@app.put("/api/decisions/{thread_id}/app-settings", response_model=AppSettingsResponse, tags=["preview"])
+def put_app_settings(thread_id: str, body: AppSettingsUpdate, request: Request):
+    """Save settings for the preview (outside the code), then restart the preview with them unless the builder is
+    working on the session (its next preview start uses them)."""
+    ws, values = _app_settings_ws(request, thread_id)
+    problems = app_settings.save(ws, body.values)
+    if problems:
+        raise ApiError(422, "invalid_input", "; ".join(problems))
+    preview = None
+    plan = values.get("implementation_plan")
+    if plan and _run_state(request.app.state.runner, thread_id, _snapshot(request, thread_id)) != "running":
+        record = get_manager().start(ws, plan["commands"]["dev"])
+        render_check.check_preview(ws, record)
+        preview = _preview_response(thread_id, record)
+    if supabase_setup.applies(ws):
+        supabase_setup.check(ws)                                    # read-only: are the app's tables there?
+    return _settings_response(thread_id, ws, preview=preview)
 
 
 @app.post("/api/decisions/{thread_id}/preview/stop", response_model=PreviewResponse, tags=["preview"])

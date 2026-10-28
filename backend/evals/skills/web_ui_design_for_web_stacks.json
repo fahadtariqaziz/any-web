@@ -1,0 +1,6 @@
+{"prompt": "skills", "node": null, "modes": ["offline"],
+ "source": "Design finding (2026-10-27): web-ui-basics covered accessibility only; the budgeting app was unstyled.",
+ "checks": [
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "web-ui-design"},
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "Never a bullet list of records with buttons"},
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "label above its input"}]}

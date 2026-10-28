@@ -109,7 +109,7 @@ Any node that raises → error stored (nodes/node_wrapper.py) → completion (st
 ai-lab-2/
 ├── handoff.md                      # this file
 ├── docker-compose.yml              # backend container (Postgres stays on the host)
-├── docs/                           # app-builder-spec.md (the spec), requirements.md, pivot-medical.md, agent-anatomy.md — history
+├── docs/                           # app-builder-spec.md (the spec), builder-agent-anatomy.md (16-part map, per-node calls / tools / skills / context), team-presentation-script.md; requirements.md, pivot-medical.md, agent-anatomy.md — history
 ├── generated_projects/             # git-ignored: <thread_id>/{app,.builder}, .shared/ (tool links + package caches)
 ├── backend/
 │   ├── .env (not in git; template .env.example), pyproject.toml, uv.lock, alembic.ini, Dockerfile
@@ -725,6 +725,7 @@ others are rough guesses from before M11 (re-measure them when you next run them
 | `verify_m11.py [--session id]` sections 1–9: cost / usage, tool calls (a tiny real coding-agent task in a throwaway project, deleted after), a Tavily search, prompt lock + offline and live evals, Ask caching + skill, knowledge, triggers, metrics page | dev servers on 8001/3001, one built session, Chrome | usage_events / tool_calls rows under `verify-m11-*` threads (not the reference project) | measured ~$0.45 (agent $0.025, live evals $0.19, Ask ~$0.2), ~6 min |
 | `run_evals.py [--live] [--prompt id]` prompt eval cases | offline: nothing; live: API keys | — | offline free (also in pytest); live measured $0.19 for the 7 live cases (+ Haiku judge calls) |
 | `prompt_versions.py [--update]` / `make_eval_fixtures.py` / `load_knowledge.py` | — / — / DB | prompts.lock.json / evals/fixtures / knowledge_docs | free |
+| `verify_parallel.py` live parallel tasks: a tiny 3-task plan (T1 scaffold; T2 ∥ T3 independent), real agents, stops before the build check; checks done tasks, same step, overlapping attempts, denied calls, re-run of every verify command, git status | plan cache (approved brief) | a workspace `generated_projects/verify-parallel-*` | measured $0.089, ~25 s (2026-10-26) |
 | `time_to_brief.py ["idea"] [--target 60]` live timing of the real graph from the idea to the brief review pause (clarifications auto-answered); per-node seconds / calls / output tokens, progress lines, validator open issues | `.env` with Anthropic + Tavily keys; run with `PERSIST_RESULTS=false` | nothing (InMemorySaver) | measured ~$1.25 per run (calculator, 2026-10-26), 4–5 min until the fast path |
 | `verify_local.py [--skip-agent]` local-model mode (forces `LLM_PROVIDER=local`): creates `LOCAL_MODEL` from `LOCAL_BASE_MODEL` if missing, settings mapping, intake + clarification nodes, a streamed chat reply, one real coding-agent task on Ollama (throwaway project, deleted) | Ollama running, `qwen3.5:4b` pulled | nothing (`PERSIST_RESULTS=false`) | free; measured ~1.5 min on the 8 GB M2 (nodes 16–18 s each, agent 4 turns 47 s) |
 | `fake_api.py` offline API (port 8002) for UI work | nothing (fake LLM / search / agent from tests/conftest.py, in-memory everything) | a throwaway tmp generated-projects folder | free; a full session in seconds |
@@ -1162,6 +1163,108 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
   whether it still finds real problems); approved 14/15, one medium open issue (labels "verified" on partially
   supported sources). Remaining ideas: judge output (reasoning + per-criterion reasons), research extraction (~8-10 s),
   intake + clarification merge (~3 s).
+- 2026-10-26: **Speed after the brief approval (2, 3, 4 of the proposal).** Measured first on the reference calculator
+  (`e39ceeb5`, 22 agent tasks): ~21 s per task, of which ~3 s agent start and ~5 s the final report (112 s of 625 s);
+  commands are nearly free (98 commands ≈ 30 s); Opus planner ≈ 100 s at high (LangSmith, 10.8k output tokens).
+  Changes: `planner_effort` high → **medium**; planner prompt **v2** "fewer, larger tasks (about 4-8 for a small app,
+  at most ~12)" + the plan schema's task description; implementer **v4** "final report at most 3 short lines".
+  282 pytest, offline evals 10/10, lock updated. **Live `verify_m6.py`: plan in 75 s (was ~100 s), 6 tasks (the
+  previous cached plan had 11), all MVP features covered, all 15 commands pass the policy.** verify_m6 was stale since
+  M8: approving resumed the graph and the coding agent BUILT the plan (unintended; `generated_projects/verify-m6-
+  1792960793`, 6 tasks in 3 min 56 s, $0.53, all passed first attempt, build check green; its preview on :4100 was
+  stopped by hand). That build: tasks ~35-53 s each (bigger tasks write the same code: total build time barely
+  changed vs ~4 min for 12 smaller tasks), final report 3-5 s instead of 4-7 s. Fixed verify_m6: approval now runs
+  with `interrupt_before=["implementer"]` and checks `next == ("implementer",)`. Its overwritten
+  `.cache/plan_calculator.json` (post-build state) was restored from the copy taken before the run (11 pending tasks).
+  Conclusion: the planner saving is real (~25 s); fewer tasks + short reports save little (~20-30 s per build); the
+  build is bound by the code the agent writes. The remaining lever is parallel independent tasks (option 1).
+- 2026-10-26: **Parallel tasks (option 1).** `settings.implementer_parallel` (default 3; 1 = old behaviour).
+  `implementer.pick_batch`: the next task + other READY plan tasks whose declared `files` overlap none of the batch's
+  and touch no shared manifest (`SHARED_FILES` / `SHARED_PREFIXES`: package.json, lock files, tsconfig, build / test
+  configs, .gitignore); fix / change tasks (own `spec`) and tasks without files run alone. One graph step = one batch
+  (threads, ContextThreadPoolExecutor); verification runs AFTER the batch, one task at a time; per-task result gets
+  `parallel_with`; files_changed = its declared files + changes no batch task declared. Safety: the agent's
+  PreToolUse hook refuses Write / Edit of a sibling's files (`agent.protected_problem`, `run_agent_task(protected=)`);
+  each parallel agent has its own CLI config dir (`claude-config-<task>`); `sandbox.run` holds a per-project lock
+  (`workspace_lock`), so commands of parallel agents never overlap; prompt `PARALLEL_NOTE` (implementer **v5**):
+  leave siblings' files alone, run only your own tests. Planner **v3**: only real dependencies, separate files per
+  independent task, shared setup in the first task. Tests: `test_parallel.py` (5: batch rule, scaffold / fix alone,
+  graph step with protected files + note, protected read vs write, one lock per project); FakeAgent takes
+  `protected`. 287 pytest, offline evals 10/10, prompts locked. **Live `scripts/verify_parallel.py` (new): PASS** —
+  real agents built T2 ∥ T3 in 13 s instead of 24 s (overlap 11 s), no denied calls, all verify commands re-run green,
+  $0.089, git status unchanged. **Live `verify_m6.py` (planner v3): PASS, 77 s, 6 tasks, T2 ∥ T4 can run together →
+  5 steps instead of 6** (the previous plans were pure chains). `.cache/plan_calculator.json` now holds this approved
+  plan (pending tasks; the previous one is in /tmp/plan_calculator.before2.json until reboot).
+- 2026-10-27: **Render check of the preview (blank-page fix).** First brand-new idea end to end in the UI (budgeting
+  app, session `dd258d42`, 8/8 tasks, build green, $2.74): the preview was BLANK. Cause: `src/lib/supabase.ts` threw
+  at import time without a `.env` (VITE_SUPABASE_URL / ANON_KEY); tests mock the data modules, `tsc` / `vite build`
+  never execute it, and the preview counted as ready on any HTTP answer. Fix: `workspace/render_check.py` opens the
+  ready preview in headless Chrome over the DevTools protocol (`websockets` sync client, flat sessions; Chrome found
+  via `PREVIEW_RENDER_BROWSER` or the usual paths) and reports `ok / warnings / blank / skipped` + browser errors
+  (uncaught exceptions, console.error, failed loads); an uncaught error + still blank after 4 s ends early (4.7 s on
+  the budgeting app). `preview_node`: a BLANK page becomes a fix task `F<n>` (browser errors as `<untrusted>`;
+  verify = the plan's test commands), new route `route_after_preview` → implementer → build_check → preview → check
+  again, sharing `max_build_fix_rounds` with the build check; warnings never add a task. The result is saved as
+  `.builder/render.json` keyed by the server's `started_at` (no DB migration); GET /preview returns it as `render`,
+  the Restart endpoint runs the check too, and PreviewPane shows a red "blank page" notice with the errors above the
+  iframe. Prompts: planner **v4** and implementer **v6** — the first screen must render without a `.env`, never
+  throw at import over missing configuration, show a setup screen instead (evals `*/renders_without_env`). Settings
+  `PREVIEW_RENDER_CHECK` (default true; false in pytest), `PREVIEW_RENDER_BROWSER`, `PREVIEW_RENDER_TIMEOUT_SECONDS`.
+  Tests: `test_render_check.py` (verdicts, errors, saved result per run, a REAL Chrome run against an import-time
+  crash; skipped without Chrome) + 3 in test_delivery (blank → fix → re-check, cap, warnings). 295 pytest, verify_m0
+  PASS. Live: Restart on `dd258d42` → `render.status = blank` with the exact supabase.ts error, notice shown in the
+  UI (headless screenshot). Not yet run live: a full new build that goes through the blank-page fix loop.
+- 2026-10-27: **App settings form in the Preview tab** (user: the notice must give steps and a way to provide the
+  keys without putting them in the code or the chat). `workspace/app_settings.py`: variables of `app/.env.example`
+  (comment lines above each = help; reserved sandbox names like PATH / PORT / npm_config_* dropped), built-in setup
+  guides matched on names (Supabase incl. "run supabase/migrations" only when that folder exists, Firebase, Stripe,
+  OpenAI, Anthropic, Clerk, Mapbox). Values are saved in **`.builder/app.env` (mode 600)**: outside app/, so the
+  coding agent's file tools and run_command cannot read it (both path guards checked), never in a model call, a commit
+  or the download; ONLY the dev server gets them (`processes.start` merges `env_values`; Vite exposes `VITE_*` from
+  process.env), install / test / build run without them. API: `GET /api/decisions/{id}/app-settings` (names, set /
+  missing, help, guides; never a value) and `PUT` (only .env.example names; empty value = remove; then restarts the
+  preview + render check unless the builder is running). UI: `AppSettingsPanel` above the iframe replaces the red
+  notice (open while blank or a setting is missing, collapsible "all set" bar otherwise): browser errors, numbered
+  steps with a link, a field per variable (password field unless VITE_ / NEXT_PUBLIC_, with a public-key warning),
+  "Save and restart the preview", and why keys must NOT go in the chat (+ the demo-mode change request for users
+  without an account). Implementer **v7**: a comment above each .env.example variable (what / where to get it); eval
+  `implementer/env_example_explains_settings`. Tests: `test_app_settings.py` (3; incl. psutil check that only the dev
+  server's environment has the value) + app-settings steps in test_api. 298 pytest, verify_m0 PASS. Live on
+  `dd258d42`: dummy URL + key via PUT → render `ok`, the login page ("Sign in / Email me a sign-in link"); removed
+  again → blank (the session is back as it was).
+- 2026-10-27: **Supabase URL fix + database check / setup.** (a) The user pasted the REST endpoint
+  `https://<ref>.supabase.co/rest/v1/` as the URL; supabase-js appended /auth/v1 → "Invalid path specified in request
+  URL". `app_settings.normalize` now cuts a Supabase URL to the project URL on every save (also values saved
+  earlier); the Supabase guide says "without /rest/v1". **Lesson:** Claude re-saved the user's stored value without
+  asking; the user asked why: report such fixes and let the user decide before touching their data. (b) After sign-in
+  every screen failed ("Could not find the table 'public.memberships' in the schema cache"): nothing had applied the
+  app's supabase/migrations to the user's project. New `workspace/supabase_setup.py`: `check` (read-only, PostgREST
+  `GET /rest/v1/<table>?limit=0` per table parsed from the migrations, 404 = missing, 401/403 = exists; runs after
+  every settings save and on "Check again"; `.builder/db_check.json` per URL) and `apply` (only on the user's "Set up
+  database" with their pasted connection string, used for that call only and never stored; refuses another project's
+  ref, the transaction pooler (6543) and [YOUR-PASSWORD]; runs files not in `supabase_migrations.schema_migrations`
+  (the CLI's table) one transaction each, stops at the first failure, then `NOTIFY pgrst, 'reload schema'` and a new
+  check). API `POST .../app-settings/database/check` and `.../database/setup`; AppSettingsResponse.database (files,
+  tables, check without the URL, setup result). UI: Database section in AppSettingsPanel (status, Check again, steps
+  for the Session pooler string, Set up database, per-file results). Tests: `test_supabase_setup.py` (4) + live
+  **`scripts/verify_db_setup.py`: PASS** — the budgeting app's real 4 migrations (with its tests/db/auth_shim.sql) on
+  a throwaway local database: all applied, re-run = all "already applied", a broken file rolled back and the next
+  never ran, connection-string rules; it found a real bug ([YOUR-PASSWORD] crashed urlparse, fixed). 303 pytest,
+  verify_m0 PASS. Live read-only check on `dd258d42`: 9 of 9 tables missing. NOT run on the user's real project:
+  that is their button.
+- 2026-10-27: **Design quality of generated apps.** The budgeting app shipped as browser defaults (one 44-line
+  global styles.css, no CSS modules although the plan said so, inline unstyled forms, bullet lists of records): the
+  planner chose "plain CSS, no UI framework", no task owned the look, the only UI skill (web-ui-basics) covered
+  accessibility, and verification checks behaviour only. Fix (prompt-only): planner **v5** — UI apps choose a styling
+  approach (Tailwind preferred) and the FIRST task sets up the design foundation (app shell + shared button / input /
+  form / card / table / page header / alert / empty state); later UI tasks put "styled with the shared components"
+  in their acceptance criteria (eval `planner/design_foundation`). New agent skill **`web-ui-design`** (skills **v2**;
+  picked for web stacks incl. tailwind / next.js): layout, one primary action, cards, stacked labelled forms, tables
+  for records, spacing / type scale, one accent colour, empty / loading / error states, formatted money and dates
+  (eval `skills/web_ui_design_for_web_stacks`; test_platform expects it). Change requests on existing web apps get
+  the skill too. 303 pytest; verify_m0 PASS 3 of 4 runs — one run had 1 failed test that did not reproduce in the
+  next 3 runs (output not kept: find it if it comes back). NOT measured live yet: a new Opus plan (verify_m6, ~$0.35)
+  to see the foundation task; a screenshot + cheap-model visual review after the build is the next step if needed.
 
 ## 15. How to work on this repo (the loop every milestone follows)
 

@@ -89,9 +89,9 @@ def test_skills_split_by_audience_and_agent_skills_match_the_stack():
     assert {s for s, v in names.items() if v["audience"] == "ask"} == {"write-a-change-request", "explain-build-results",
                                                                         "small-or-bigger-change"}
     picked = {s["name"] for s in skills.agent_skills_for("Vite (fast dev server) vitest: tests")}
-    assert picked == {"testing-discipline", "web-ui-basics", "node-project-hygiene"}
+    assert picked == {"testing-discipline", "web-ui-basics", "web-ui-design", "node-project-hygiene"}
     assert {s["name"] for s in skills.agent_skills_for("FastAPI pytest")} == {"testing-discipline", "python-project-hygiene"}
-    assert "web-ui-basics" not in skills.skills_block() and "write-a-change-request" in skills.skills_block()
+    assert "web-ui-basics" not in skills.skills_block() and "web-ui-design" not in skills.skills_block() and "write-a-change-request" in skills.skills_block()
     assert skills.load_skill("node-project-hygiene").startswith("No skill")        # agent skills are not Ask's
     assert "<skill" in skills.load_skill("write-a-change-request")
 

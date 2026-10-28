@@ -285,6 +285,53 @@ class PreviewResponse(BaseModel):
     log_tail: str = ""
     started_at: str | None = None
     ready_at: str | None = None
+    render: dict | None = Field(default=None, description="Render check of this dev server run in headless Chrome "
+                                "(workspace/render_check.py): status ok / warnings / blank / skipped, errors, text_chars.")
+
+
+class AppSettingVariable(BaseModel):
+    name: str
+    set: bool = Field(description="A value was saved (the value itself is never returned).")
+    help: list[str] = Field(default_factory=list, description="Comment lines above it in the app's .env.example.")
+    example: str = ""
+    public: bool = Field(description="Bundled into the browser code by the app's framework (VITE_, NEXT_PUBLIC_...).")
+
+
+class AppSettingGuide(BaseModel):
+    service: str
+    url: str
+    steps: list[str]
+
+
+class AppDatabase(BaseModel):
+    """Supabase apps: the migrations the builder can run, and the last read-only check of the user's project."""
+
+    migrations: list[str] = Field(description="Files of app/supabase/migrations, in the order they run.")
+    tables: list[str] = Field(description="Tables those files create (what the check looks for).")
+    check: dict | None = Field(default=None, description="status ready / missing / unknown / not_checked, missing "
+                               "tables, errors, at. None = not checked with the URL saved now.")
+    setup: dict | None = Field(default=None, description="After POST .../database/setup: ok, error, per-file status.")
+
+
+class AppSettingsResponse(BaseModel):
+    """The settings the generated app needs (its .env.example), for the Preview tab's form. Values stay on the
+    builder's machine in .builder/app.env and go to the dev server only: never to the code, a model or the download."""
+
+    thread_id: str
+    variables: list[AppSettingVariable]
+    missing: list[str]
+    guides: list[AppSettingGuide]
+    preview: PreviewResponse | None = Field(default=None, description="After a save: the restarted preview.")
+    database: AppDatabase | None = Field(default=None, description="Only for apps with Supabase migrations.")
+
+
+class DatabaseSetupRequest(BaseModel):
+    db_url: str = Field(min_length=10, max_length=2000, description="The project's Postgres connection string (with "
+                        "the password). Used for this run only: never stored, logged or given to a model.")
+
+
+class AppSettingsUpdate(BaseModel):
+    values: dict[str, str] = Field(description="Name → value; an empty value removes a saved one.")
 
 
 class CodeFile(BaseModel):

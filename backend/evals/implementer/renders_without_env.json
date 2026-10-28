@@ -1,0 +1,5 @@
+{"prompt": "implementer", "node": null, "modes": ["offline"],
+ "source": "Render check finding (2026-10-27): the budgeting app's src/lib/supabase.ts threw at import time without a .env, so the preview was blank while tests and build passed.",
+ "checks": [
+  {"on": "prompt", "prompt": "implementer", "check": "contains", "text": "Missing configuration must never crash the app"},
+  {"on": "prompt", "prompt": "implementer", "check": "contains", "text": "Never throw at import / module load"}]}

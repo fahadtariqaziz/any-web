@@ -2,7 +2,8 @@
 
 // The live preview (spec §9, right side): the session's dev server in an iframe, with a small browser bar (state,
 // address, reload, desktop / phone width, open in a new tab, restart). Facts only: the app is shown when the
-// backend's health check said "ready"; otherwise the dev server's own error and log are shown.
+// backend's health check said "ready"; otherwise the dev server's own error and log are shown. Above the app,
+// AppSettingsPanel shows a blank page's browser errors (render check) and the settings the app needs (.env.example).
 //
 // GET /preview is polled (every 5 s while something is changing, every 30 s while it runs). Reading it counts as
 // "looked at", so an open preview is not idle-stopped. The iframe reloads by itself when the dev server was
@@ -11,6 +12,7 @@
 import { ExternalLink, Laptop, MonitorPlay, Play, RotateCw, Smartphone } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
+import { AppSettingsPanel } from "@/components/builder/AppSettingsPanel";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { ApiError, getPreview, restartPreview } from "@/lib/api/client";
@@ -101,7 +103,9 @@ export function PreviewPane({
     body = <Placeholder icon={<Spinner className="size-6 text-brand" />} title="Loading the preview…" />;
   } else if (url) {
     body = (
-      <div className="flex h-full justify-center overflow-auto bg-slate-100">
+      <div className="flex h-full flex-col">
+        <AppSettingsPanel threadId={threadId} render={preview?.render} serverStartedAt={preview?.started_at} builderBusy={builderBusy} onPreview={setPreview} />
+        <div className="flex min-h-0 flex-1 justify-center overflow-auto bg-slate-100">
         <iframe
           key={`${preview?.started_at}|${reloads}`}
           src={url}
@@ -109,6 +113,7 @@ export function PreviewPane({
           className={`h-full bg-white ${phone ? "my-3 h-[calc(100%-1.5rem)] w-[390px] rounded-xl border border-slate-300 shadow" : "w-full"}`}
           sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals"
         />
+        </div>
       </div>
     );
   } else if (state === "starting") {

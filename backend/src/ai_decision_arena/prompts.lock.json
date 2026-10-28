@@ -44,8 +44,8 @@
   "version": 1
  },
  "implementer": {
-  "sha256": "886e9cee1c37699e8a173ecfc33b813d4af87a58e634118b0fb334ed59fd2333",
-  "version": 3
+  "sha256": "cf9a9fc1851d629d480f7ec015f2e7d9e5aebfd929a04c0aa18e36e7da0addc0",
+  "version": 7
  },
  "intake": {
   "sha256": "ee7b053b34e86bed467af4818d2b5f9cb24336131b14bb1f4f3932a304c67f21",
@@ -56,8 +56,8 @@
   "version": 1
  },
  "planner": {
-  "sha256": "5e8a9c2cb23771901980db8c3475045b5bd08181cdd9d9f1fbaa509e8b9c6f34",
-  "version": 1
+  "sha256": "aba4f2ff9cdd00ef8a7c94203886de479444ae2b14c5b056517485581d0e5883",
+  "version": 5
  },
  "proposer": {
   "sha256": "7c4ec5d2c2ef852a63f00a1dc45e7b3a8ca2b6164480776dd018e54ffc79ce29",
@@ -72,7 +72,7 @@
   "version": 1
  },
  "skills": {
-  "sha256": "01f95656ef455f555536a8bed61d6ce2cca21439e68f386ec53058ebc4c9aa54",
-  "version": 1
+  "sha256": "b6cad1e08d28d052ea2141cadcfa7cbac828dc94bcec44181ad89761a364f138",
+  "version": 2
  }
 }

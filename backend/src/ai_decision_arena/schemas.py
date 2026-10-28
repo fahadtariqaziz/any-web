@@ -1121,9 +1121,9 @@ class PlanFields(BaseModel):
     ai_components: str = Field(description="Models, agents or tools the app itself uses, ONLY if the brief needs them; "
                                            "otherwise 'none'.")
     phases: list[PlanPhase] = Field(description="2-6 phases in order.")
-    tasks: list[PlanTask] = Field(description=f"All tasks in execution order, at most {MAX_PLAN_TASKS}; small and "
-                                              "independently verifiable. The first task scaffolds the project and its "
-                                              "test runner.")
+    tasks: list[PlanTask] = Field(description=f"All tasks in execution order, at most {MAX_PLAN_TASKS}; few, coherent "
+                                              "feature slices, each independently verifiable. The first task scaffolds "
+                                              "the project and its test runner.")
     feature_coverage: list[FeatureCoverage] = Field(description="One entry per MVP feature of the approved brief.")
     testing_strategy: list[str] = Field(description="Unit / integration / end-to-end tests and what each covers, 2-5 items.")
     commands: PlanCommands

@@ -16,6 +16,7 @@ import type {
   ImplementationResponse,
   LiveSnapshot,
   PreviewResponse,
+  AppSettingsResponse,
   ReportResponse,
   UsageResponse,
   MetricsResponse,
@@ -133,6 +134,25 @@ export function getPreview(threadId: string): Promise<PreviewResponse> {
 /** Restart the dev server; answers after the health check (up to a minute). */
 export function restartPreview(threadId: string): Promise<PreviewResponse> {
   return request(`${BASE}/${encodeURIComponent(threadId)}/preview/restart`, { method: "POST" });
+}
+
+export function getAppSettings(threadId: string): Promise<AppSettingsResponse> {
+  return request(`/api/decisions/${threadId}/app-settings`);
+}
+
+/** Save the app's settings (outside the code) and restart the preview with them. */
+export function saveAppSettings(threadId: string, values: Record<string, string>): Promise<AppSettingsResponse> {
+  return request(`/api/decisions/${threadId}/app-settings`, { method: "PUT", body: JSON.stringify({ values }) });
+}
+
+/** Read-only: do the app's Supabase tables exist in the user's project? */
+export function checkAppDatabase(threadId: string): Promise<AppSettingsResponse> {
+  return request(`/api/decisions/${threadId}/app-settings/database/check`, { method: "POST" });
+}
+
+/** Runs the app's migration files on the user's Supabase database (the connection string is used once, not stored). */
+export function setupAppDatabase(threadId: string, dbUrl: string): Promise<AppSettingsResponse> {
+  return request(`/api/decisions/${threadId}/app-settings/database/setup`, { method: "POST", body: JSON.stringify({ db_url: dbUrl }) });
 }
 
 export function stopPreview(threadId: string): Promise<PreviewResponse> {

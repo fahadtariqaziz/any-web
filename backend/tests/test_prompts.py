@@ -47,7 +47,7 @@ def test_a_session_records_the_prompt_versions_it_used(graph, fake_llm, fake_sea
     assert all(v == prompts.REGISTRY[p].version for p, v in used.items())
     assert state["metrics"]["prompt_versions"] == used
     entry = next(e for e in state["usage_log"] if e["node"] == "planner")
-    assert entry["prompts"]["planner"] == 1
+    assert entry["prompts"]["planner"] == prompts.REGISTRY["planner"].version
 
 
 def test_offline_evals_pass():

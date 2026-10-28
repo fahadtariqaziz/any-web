@@ -20,6 +20,7 @@ import asyncio
 import json
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 from pydantic import BaseModel, Field
 
@@ -58,7 +59,23 @@ def _target(tool_input: dict) -> str:
     return ""
 
 
-async def _run(ws: Workspace, prompt: str, system_append: str, model: str, label: str) -> AgentRun:
+def protected_problem(ws: Workspace, tool_name: str, tool_input: dict, protected: frozenset[str]) -> str | None:
+    """Refuse a Write / Edit of a file another task is implementing at the same time (parallel tasks)."""
+    if tool_name not in ("Write", "Edit") or not protected:
+        return None
+    value = str(tool_input.get("file_path") or "")
+    path = Path(value) if value.startswith("/") else ws.app / value
+    try:
+        rel = str(path.resolve().relative_to(ws.app.resolve()))
+    except ValueError:
+        return None                                     # outside app/: tool_path_problem refuses it
+    if rel in protected:
+        return f"{rel} belongs to another task that is being implemented at the same time; leave it alone"
+    return None
+
+
+async def _run(ws: Workspace, prompt: str, system_append: str, model: str, label: str,
+               protected: frozenset[str] = frozenset()) -> AgentRun:
     from claude_agent_sdk import (ClaudeAgentOptions, HookMatcher, ResultMessage, create_sdk_mcp_server, query,
                                   tool)
 
@@ -72,7 +89,8 @@ async def _run(ws: Workspace, prompt: str, system_append: str, model: str, label
 
     async def pre_tool_use(input_data, tool_use_id, context):
         name, tool_input = input_data["tool_name"], input_data.get("tool_input") or {}
-        reason = None if name == COMMAND_TOOL else tool_path_problem(ws, name, tool_input)
+        reason = None if name == COMMAND_TOOL else (tool_path_problem(ws, name, tool_input)
+                                                    or protected_problem(ws, name, tool_input, protected))
         if name not in FILE_TOOLS and name != COMMAND_TOOL:
             reason = f"tool {name} is not available here"
         run.tool_calls.append({"tool": name, "target": _target(tool_input), "denied": reason})
@@ -97,7 +115,8 @@ async def _run(ws: Workspace, prompt: str, system_append: str, model: str, label
                            "stderr": result.stderr_tail[-TOOL_OUTPUT_CHARS:]})
         return {"content": [{"type": "text", "text": text}], "is_error": not result.ok}
 
-    config_dir = ws.builder / "claude-config"
+    # Parallel agents (protected files given) each get their own CLI config folder: no two CLIs share one.
+    config_dir = ws.builder / ("claude-config" if not protected else f"claude-config-{label}")
     config_dir.mkdir(parents=True, exist_ok=True)
     if settings.is_local:
         auth = {"ANTHROPIC_BASE_URL": settings.local_base_url, "ANTHROPIC_AUTH_TOKEN": "ollama", "ANTHROPIC_API_KEY": "",
@@ -154,7 +173,9 @@ async def _run(ws: Workspace, prompt: str, system_append: str, model: str, label
     return run
 
 
-def run_agent_task(ws: Workspace, prompt: str, system_append: str, *, model: str, label: str) -> AgentRun:
-    """Run the agent once for one task (blocking; call from a worker thread, e.g. a graph node)."""
+def run_agent_task(ws: Workspace, prompt: str, system_append: str, *, model: str, label: str,
+                   protected: frozenset[str] = frozenset()) -> AgentRun:
+    """Run the agent once for one task (blocking; call from a worker thread, e.g. a graph node). `protected`: files
+    of tasks running at the same time, which this agent may read but not write."""
     ws.logs.mkdir(parents=True, exist_ok=True)
-    return asyncio.run(_run(ws, prompt, system_append, model, label))
+    return asyncio.run(_run(ws, prompt, system_append, model, label, protected))

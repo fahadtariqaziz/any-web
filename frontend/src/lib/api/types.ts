@@ -66,6 +66,15 @@ export interface PreviewInfo {
   command: string;
   last_error: string | null; // exit code / timeout + the server's last output
   log_tail?: string;
+  render?: RenderCheck | null; // headless-Chrome check of this server run (null until checked / not ready)
+}
+
+/** Did the running app draw anything in a real browser? (backend workspace/render_check.py) */
+export interface RenderCheck {
+  status: "ok" | "warnings" | "blank" | "skipped";
+  errors: string[]; // uncaught exceptions, console.error, failed loads (first ones)
+  text_chars: number;
+  reason?: string; // skipped: why
 }
 
 export interface BuildStep {
@@ -702,6 +711,25 @@ export interface UsageResponse {
   first_build: CostSplit;
   changes: ({ round: number; action: "change" | "replan"; request: string; at: string; tasks: string[] } & CostSplit)[];
   steps: UsageStep[];
+}
+
+/** Settings the generated app needs (its .env.example). Values are never returned: they stay in the builder's
+ * .builder/app.env and go to the dev server only (not the code, the AI or the download). */
+export interface AppSettingsResponse {
+  thread_id: string;
+  variables: { name: string; set: boolean; help: string[]; example: string; public: boolean }[];
+  missing: string[];
+  guides: { service: string; url: string; steps: string[] }[];
+  preview: PreviewResponse | null; // after a save: the restarted preview
+  database: AppDatabase | null; // only for apps with supabase/migrations
+}
+
+/** Supabase apps: the migration files and the last read-only check of the user's project (backend supabase_setup.py). */
+export interface AppDatabase {
+  migrations: string[];
+  tables: string[];
+  check: { status: "ready" | "missing" | "unknown" | "not_checked"; missing?: string[]; errors?: string[]; reason?: string; at: string } | null;
+  setup: { ok: boolean; error: string | null; files: { file: string; status: "applied" | "already applied" | "failed"; error?: string }[] } | null;
 }
 
 export interface PreviewResponse extends PreviewInfo {
