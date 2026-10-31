@@ -1,0 +1,6 @@
+{"prompt": "code_review", "node": null, "modes": ["offline"],
+ "source": "M13 (2026-10-29): learnings are read by every later task, so generic advice would only add noise; they must be project-specific rules from a finding or a fix.",
+ "checks": [
+  {"on": "prompt", "prompt": "code_review", "check": "contains", "text": "reusable rules for THIS project"},
+  {"on": "prompt", "prompt": "code_review", "check": "contains", "text": "Not generic advice"},
+  {"on": "prompt", "prompt": "code_review", "check": "contains", "text": "<fix_history>"}]}

@@ -1,0 +1,4 @@
+{"prompt": "implementer", "node": null, "modes": ["offline"],
+ "source": "M13 (2026-10-29): the compound step only pays off if later tasks obey the learned rules.",
+ "checks": [
+  {"on": "prompt", "prompt": "implementer", "check": "contains", "text": "Follow <project_learnings> when present"}]}

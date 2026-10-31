@@ -5,7 +5,7 @@ from ai_decision_arena import graph as G
 EXPECTED_NODES = {"intake", "clarification", "await_clarification", "research", "proposer", "critic", "judge",
                   "final_report", "brief_writer", "brief_validator",
                   "await_brief_review", "brief_review_router",
-                  "planner", "await_plan_review", "plan_review_router", "implementer", "build_check", "preview",
+                  "planner", "await_plan_review", "plan_review_router", "implementer", "build_check", "code_review", "preview", "e2e_check",
                   "await_change_request", "change_request_router", "completion"}
 
 

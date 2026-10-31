@@ -37,8 +37,12 @@ export function stageLabel(status: DecisionStatus | null): string {
       return "Building your app";
     case "build_check":
       return "Checking the build";
+    case "code_review":
+      return "Reviewing the code";
     case "preview":
       return "Starting your app";
+    case "e2e_check":
+      return "Testing your app in a browser";
     case "await_change_request":
     case "change_request_router":
       return "Reading your request";

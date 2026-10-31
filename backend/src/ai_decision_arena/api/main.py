@@ -487,7 +487,9 @@ def get_implementation(thread_id: str, request: Request):
     return ImplementationResponse(thread_id=thread_id, workflow_status=values.get("status"),
                                   workspace_dir=values.get("workspace_dir"), current_task_id=values.get("current_task_id"),
                                   tasks=values.get("implementation_tasks", []), log=values.get("implementation_log", []),
-                                  cost_usd=values.get("implementation_cost_usd", 0.0), build=values.get("build_results"))
+                                  cost_usd=values.get("implementation_cost_usd", 0.0), build=values.get("build_results"),
+                                  e2e=values.get("e2e_results"), review=values.get("code_review"),
+                                  learnings=values.get("learnings") or [])
 
 
 @app.get("/api/decisions/{thread_id}/usage", response_model=UsageResponse, tags=["decisions"])

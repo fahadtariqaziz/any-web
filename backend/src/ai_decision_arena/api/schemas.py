@@ -216,6 +216,13 @@ class ImplementationResponse(BaseModel):
     log: list[dict[str, Any]] = Field(default_factory=list, description="One entry per attempt, newest last.")
     cost_usd: float = 0.0
     build: dict[str, Any] | None = Field(default=None, description="Last build check: {round, passed, steps}.")
+    review: dict[str, Any] | None = Field(default=None, description="Last code review (M13): {round, status "
+                                          "(passed | changes_requested | skipped), summary, findings, files_reviewed, "
+                                          "fix_task_id}.")
+    learnings: list[dict[str, Any]] = Field(default_factory=list, description="Project learnings (M13): "
+                                            "[{rule, source, at, round}], read by every later coding task.")
+    e2e: dict[str, Any] | None = Field(default=None, description="Last browser-test run (M12, Playwright): {round, status "
+                                       "(passed | failed | error | skipped), reason, total, passed, failed, flaky, tests}.")
 
 
 class UsageResponse(BaseModel):

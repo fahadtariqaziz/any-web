@@ -7,11 +7,13 @@ instructions. Two audiences:
 - agent: the coding agent gets the skills whose `applies_to` keywords match the approved plan's tech stack /
          dependencies / testing strategy (Python picks them; "*" = every project), as <skills> in its task prompt.
          A skill with `phases` (review 2026-10-29) is picked by the KIND of task instead: "fix" = a fix task from the
-         build or render check, "retry" = a second attempt after a failed verification (failure-triage).
+         build or render check, "retry" = a second attempt after a failed verification (failure-triage), "e2e" = a
+         task that writes or fixes the Playwright browser tests (browser-e2e-testing, M12). A task may have several.
 Skill texts are versioned in the prompt registry (prompts.py, id "skills"): editing one is a prompt change.
 """
 
 import re
+from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
 
@@ -58,21 +60,23 @@ def load_skill(name: str) -> str:
     return f'<skill name="{skill["name"]}">\n{skill["instructions"]}\n</skill>'
 
 
-def agent_skills_for(stack_text: str, phase: str | None = None) -> list[dict]:
+def agent_skills_for(stack_text: str, phase: str | Iterable[str] | None = None) -> list[dict]:
     """The coding-agent skills whose keywords occur (as words) in the plan's stack text, plus the "*" ones; skills
-    declared for task phases are picked only when `phase` (fix / retry) matches, whatever the stack."""
+    declared for task phases are picked only when one of the task's `phase` kinds (fix / retry / e2e) matches,
+    whatever the stack."""
     words = set(re.findall(r"[a-z0-9.+#-]+", stack_text.lower()))
+    kinds = {phase.lower()} if isinstance(phase, str) else {p.lower() for p in phase or ()}
     chosen = []
     for s in _for("agent").values():
         if s["phases"]:
-            if phase and phase.lower() in s["phases"]:
+            if kinds & set(s["phases"]):
                 chosen.append(s)
         elif "*" in s["applies_to"] or any(k in words for k in s["applies_to"]):
             chosen.append(s)
     return chosen
 
 
-def agent_skills_block(stack_text: str, phase: str | None = None) -> str:
+def agent_skills_block(stack_text: str, phase: str | Iterable[str] | None = None) -> str:
     chosen = agent_skills_for(stack_text, phase)
     if not chosen:
         return ""

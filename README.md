@@ -22,3 +22,8 @@ Then test
 1. Open http://localhost:3001 and start a small idea, for example "a simple tip calculator web page".
 2. Answer the clarification questions and approve the brief and the plan as usual.
 3. To check that Ollama is doing the work, run ollama ps in a third terminal while a step runs. qwen3.5-4b-32k should be listed.
+
+GRAPHIFY
+open graphify-out/graph.html
+graphify query "how does code review work"
+

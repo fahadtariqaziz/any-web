@@ -62,7 +62,7 @@ Default model is **Sonnet 5.5**; effort per node is in `config.DEFAULT_NODE_EFFO
 | # | Node | Kind | LLM calls | Model · effort | What its prompt tells the model | Tools / skills / KB |
 |---|---|---|---|---|---|---|
 | 12 | **planner** | LLM step | **1** (if Python's plan checks fail, the exact problem goes back to the model inside the same call's retry) | **Opus 5.5** · medium (local mode: local model) | "Write the plan a coding agent will follow task by task, like a senior engineer preparing work for Claude Code. Based ONLY on the approved brief: never contradict it, never add features." v3: fewer, larger tasks, only real dependencies, separate files per independent task | none |
-| – | await_plan_review | Python (pause) | 0 | – | – | – |
+| – | await_plan_review | Python (pause; **skipped by default**: `AUTO_APPROVE_PLAN=true` approves the plan once the brief is approved) | 0 | – | – | – |
 | 13 | **plan_review_router** | Python | **0** | – | – | – |
 | 14 | **implementer** | **Agent** | **1 agent session per task attempt** (up to 40 model turns each), **up to 3 tasks in parallel**, up to 2 attempts per task | Sonnet 5.5 · medium | "You are the coding agent… implement ONE task of an approved plan in the current project folder, the only place you can read or write… commands only through run_command." + `<skills>`, + note about parallel siblings | **6 tools**: Read, Write, Edit, Glob, Grep, `run_command` · **agent skills** picked by Python · no KB |
 | 15 | **build_check** | Python | **0** | – | Runs install → test → build in the sandbox, then the **secret scan** (`workspace/secret_scan.py`: key-shaped strings in the source, a `.env` not git-ignored); a failure adds a fix task (max 2 rounds; a secret finding gets its own fix task, and every fix task gets the `failure-triage` skill) | sandbox commands |
@@ -302,3 +302,45 @@ features after*. Everything below is in the tests (`verify_m0.sh`), the prompt r
 - **A redesigned UI** (landing page with a section per functionality and animated mocks of each screen, a frosted top
   bar, gradient accents, animated stage chips, question cards, animated tabs and drawer; `motion` library). Checked
   with headless-Chrome screenshots against the offline fake API before the user saw it.
+- **The plan is approved automatically once the brief is approved** (2026-10-30; part 16 Guardrails:
+  `AUTO_APPROVE_PLAN`, default true). Changed: no plan review pause. Kept: the approval is still recorded (timestamp +
+  plan hash) and every "both approvals" guard still checks it; `AUTO_APPROVE_PLAN=false` brings the pause back. Why:
+  the brief is the decision the user actually makes; the plan is derived from it by Python-checked rules (every MVP
+  feature covered, allowlisted commands), so a second approval mostly added a wait before the build.
+
+### 7.5 The developer-toolkit request (2026-10-29): 21st.dev, Graphify, Compound Engineering, Playwright
+
+The user asked for four popular Claude Code add-ons in the builder. All four are made for a developer driving Claude
+Code by hand. Our coding agent is a locked-down Agent SDK session (file tools + our sandboxed `run_command`, no
+network tool, no user settings). So each one was **translated into the builder's own trust model** instead of being
+installed as-is. User decisions, in this order, one milestone each:
+
+| Add-on | Where it goes (anatomy part) | Decided | Why this shape |
+|---|---|---|---|
+| **Playwright** (M12, built) | new Python node `e2e_check` after `preview` (part 12 Tools / part 16 Guardrails) + skill `browser-e2e-testing` (part 6 Skills) | first | The build check proves it compiles and the render check proves the first screen draws; nothing clicked a button. Now the agent writes `e2e/*.e2e.mjs` for the brief's MVP flows (task E1), and **Python** runs them and reads Playwright's JSON report. Failures become fix tasks (2 rounds). Pass/fail is still a fact, not an opinion. |
+| **Compound Engineering** (M13, built) | node `code_review` after a passing build check (part 2 Sub-agents) + project learnings read by every later task (part 8 Memory); switch `COMPOUND_ENGINEERING` | review → fix tasks | Reverses the 2026-10-29 "no reviewer agent" call at the user's request. The reviewer gives an opinion, so Python limits it: only files it was shown, one fix round per change, and pass/fail still comes from exit codes. |
+| **Graphify** (M14, set up) | NOT in the builder: a code map of this repo for Claude Code (CLAUDE.md, skill, hooks) | real `graphifyy`, code-only, for the repo (user correction) | We (Claude Code) re-read the builder's code every session. A local tree-sitter graph (0 tokens) answers "what calls / depends on X" first. |
+| **21st.dev Magic** (M15) | extra MCP tool for UI tasks in React projects (part 12 Tools) | left out | Needs a paid API key, and sends component descriptions to an outside service. That would be the first time the agent reaches beyond the sandbox. |
+
+What Playwright changed / kept / why:
+- **Changed:** graph `preview → e2e_check → (implementer | await_change_request)`. New state `e2e_results` and
+  `e2e_fix_round` (reset per change), API `GET /implementation.e2e`, Build-tab card "Browser tests", chat chip,
+  Ask sees the results, implementer prompt v8, skills v4.
+- **Kept:** pass/fail from exit code + report (zero tests ≠ pass). Playwright starts **its own** dev server on its own
+  port **without the user's app settings**, so a test can never write into the user's real Supabase. The config
+  file belongs to the builder (rewritten before every run). It uses the installed Chrome, with no browser download.
+- **Not done, and why:** Python projects (Playwright for Python: wait until a Python web app is built); screenshots or
+  traces of failures in the UI (the error text has been enough so far); running against the user's live preview with
+  their settings (that's their data: never automatic).
+
+What the code review + learnings changed / kept / why (M13):
+- **Changed:** graph `build_check → code_review → preview`. One reviewer call reads the diff since the last review,
+  plus the brief, plan, fix history, open findings and learnings. HIGH findings become one fix task. The same call
+  writes 0-3 project rules that every later coding task reads (`<project_learnings>`). That's the "compound" part:
+  a mistake fixed once is a rule from then on.
+- **Kept:** Python owns the outcome. Findings on files the reviewer wasn't shown are dropped. Unfixed findings on
+  untouched files stay open (a later clean review can't hide them). One fix round per change. A review never marks
+  anything "done": exit codes still do.
+- **Why not more:** no multi-agent review panel like Compound Engineering's (one call, measured at $0.015–0.02 per
+  round, found every planted bug in verify_m13). A panel is the next step only if the evals show misses. Learnings
+  stay inside one project, never shared across projects: another project's rules would be noise.

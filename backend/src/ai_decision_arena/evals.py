@@ -47,6 +47,7 @@ LLM_USERS = [
     "ai_decision_arena.nodes.brief_validator",
     "ai_decision_arena.nodes.brief_review",
     "ai_decision_arena.nodes.planner",
+    "ai_decision_arena.nodes.code_review",
     "ai_decision_arena.research.planner",
     "ai_decision_arena.research.extractor",
 ]

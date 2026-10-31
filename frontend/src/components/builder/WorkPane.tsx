@@ -10,7 +10,7 @@ import { motion } from "motion/react";
 import { BriefView } from "@/components/report/BriefView";
 import { PlanView } from "@/components/report/PlanView";
 import { ActivityFeed } from "@/components/session/ActivityFeed";
-import { BuildCard, TaskList } from "@/components/session/BuildViews";
+import { BrowserTestsCard, BuildCard, CodeReviewCard, TaskList } from "@/components/session/BuildViews";
 import { CostCard } from "@/components/session/CostCard";
 import { NowPanel } from "@/components/session/NowPanel";
 import { Callout } from "@/components/ui/Callout";
@@ -99,6 +99,8 @@ export function WorkPane({
               <span className="truncate">Project folder: {implementation.workspace_dir ?? "unknown"}</span>
             </div>
             {implementation.build && <BuildCard build={implementation.build} />}
+            {implementation.review && <CodeReviewCard review={implementation.review} learnings={implementation.learnings ?? []} />}
+            {implementation.e2e && <BrowserTestsCard e2e={implementation.e2e} />}
             {usage && <CostCard usage={usage} />}
             <TaskList tasks={implementation.tasks} />
           </div>

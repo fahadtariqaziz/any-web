@@ -10,6 +10,8 @@ planner_node (LLM, ONE call on settings.planner_model = claude-opus-5-5 at effor
   The model is resolved against the API's model list (llm.resolve_model): never assumed to exist.
 
 await_plan_review_node (human): shows the plan, pauses; reply = approve | request_changes + feedback.
+  With settings.auto_approve_plan (default) there is no pause: the brief approval covers the plan, the node writes an
+  "approve" reply marked auto, and the router records the approval (hash) exactly like a user approval.
 plan_review_router_node (Python): approve → plan_approved_at + hash, saved to project_artifacts; changes → planner
   (the next plan gets the previous plan and the feedback). After max_plan_revisions rewrites the plan can only be
   approved. Nothing is built before both approvals (the implementer route checks plan_is_approved, M8).
@@ -201,6 +203,11 @@ def planner_node(state: ArenaState) -> dict:
 def await_plan_review_node(state: ArenaState) -> dict:
     """Human input: show the plan and pause until the user approves or asks for changes. (No LLM here.)"""
     settings = get_settings()
+    if settings.auto_approve_plan:
+        report("await_plan_review", "plan approved automatically (the approved brief covers it; AUTO_APPROVE_PLAN)")
+        entry = {"round": state.get("plan_revision_count", 0) + 1, "action": "approve", "feedback": "", "auto": True,
+                 "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        return {"plan_feedback": [*state.get("plan_feedback", []), entry], "current_node": "await_plan_review"}
     revisions = state.get("plan_revision_count", 0)
     changes_allowed = revisions < settings.max_plan_revisions
     plan = state.get("implementation_plan") or {}

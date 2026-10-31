@@ -18,9 +18,13 @@
     implementer ─┬─(a task is pending: one attempt per step)─► implementer
                  └─(all done / failed / blocked / budget)─────► build_check
     build_check ─┬─(failed, fix round left: a fix task was added)─► implementer
-                 └─────────────────────────────────────────────────► preview
+                 └─────────────────────────────────────────────────► code_review
+    code_review ─┬─(high-severity findings, review fix round left: a fix task)─► implementer
+                 └─(passed / skipped (COMPOUND_ENGINEERING=false, build failed, nothing changed))─► preview
     preview ─┬─(page blank in headless Chrome, fix round left: a fix task was added)─► implementer
-             └──────────────────────────────────────────────────────────────────────► await_change_request (pause)
+             └──────────────────────────────────────────────────────────────────────► e2e_check
+    e2e_check ─┬─(no browser tests yet: task E1 writes them / a test failed, fix round left: a fix task)─► implementer
+               └─(passed / skipped / no fix round left)──────────────────────────────────────────────────► await_change_request (pause)
     await_change_request → change_request_router ─┬─(change: new task)─► implementer
                                                   ├─(replan)──────────► brief_writer (bigger change: brief review, then a plan extension and plan review)
                                                   └─(finish)──────────► completion → END
@@ -44,10 +48,11 @@ from ai_decision_arena.nodes.brief_review import await_brief_review_node, brief_
 from ai_decision_arena.nodes.brief_validator import brief_validator_node
 from ai_decision_arena.nodes.brief_writer import brief_writer_node
 from ai_decision_arena.nodes.clarification import await_clarification_node, clarification_node
+from ai_decision_arena.nodes.code_review import code_review_node
 from ai_decision_arena.nodes.critic import critic_node
 from ai_decision_arena.nodes.final_report import completion_node, final_report_node
 from ai_decision_arena.nodes.delivery import (await_change_request_node, build_check_node, change_request_router_node,
-                                              preview_node)
+                                              e2e_check_node, preview_node)
 from ai_decision_arena.nodes.implementer import implementer_node
 from ai_decision_arena.nodes.intake import intake_node
 from ai_decision_arena.nodes.judge import judge_node
@@ -75,7 +80,9 @@ NODES = {
     "plan_review_router": plan_review_router_node,
     "implementer": implementer_node,
     "build_check": build_check_node,
+    "code_review": code_review_node,
     "preview": preview_node,
+    "e2e_check": e2e_check_node,
     "await_change_request": await_change_request_node,
     "change_request_router": change_request_router_node,
 }
@@ -142,13 +149,23 @@ def route_after_implementer(state: ArenaState) -> Literal["implementer", "build_
     return "implementer" if _has_pending_task(state) else "build_check"
 
 
-def route_after_build_check(state: ArenaState) -> Literal["implementer", "preview"]:
-    # build_check adds a fix task (pending) when a fix round is left; otherwise the preview shows the result.
+def route_after_build_check(state: ArenaState) -> Literal["implementer", "code_review"]:
+    # build_check adds a fix task (pending) when a fix round is left; otherwise the review (it skips a failed build).
+    return "implementer" if _has_pending_task(state) and plan_is_approved(state) else "code_review"
+
+
+def route_after_code_review(state: ArenaState) -> Literal["implementer", "preview"]:
+    # code_review adds a fix task for high-severity findings when a review fix round is left.
     return "implementer" if _has_pending_task(state) and plan_is_approved(state) else "preview"
 
 
-def route_after_preview(state: ArenaState) -> Literal["implementer", "await_change_request"]:
+def route_after_preview(state: ArenaState) -> Literal["implementer", "e2e_check"]:
     # preview adds a fix task (pending) when the page rendered blank and a fix round is left (shared with build_check).
+    return "implementer" if _has_pending_task(state) and plan_is_approved(state) else "e2e_check"
+
+
+def route_after_e2e_check(state: ArenaState) -> Literal["implementer", "await_change_request"]:
+    # e2e_check adds the E1 task (no browser tests yet) or a fix task (a test failed, an e2e fix round left).
     return "implementer" if _has_pending_task(state) and plan_is_approved(state) else "await_change_request"
 
 
@@ -202,8 +219,10 @@ def build_graph(checkpointer: BaseCheckpointSaver | None = None):
     connect("await_plan_review", "plan_review_router", ["plan_review_router"])
     connect("plan_review_router", route_after_plan_review, ["planner", "await_plan_review", "implementer"])
     connect("implementer", route_after_implementer, ["implementer", "build_check"])
-    connect("build_check", route_after_build_check, ["implementer", "preview"])
-    connect("preview", route_after_preview, ["implementer", "await_change_request"])
+    connect("build_check", route_after_build_check, ["implementer", "code_review"])
+    connect("code_review", route_after_code_review, ["implementer", "preview"])
+    connect("preview", route_after_preview, ["implementer", "e2e_check"])
+    connect("e2e_check", route_after_e2e_check, ["implementer", "await_change_request"])
     connect("await_change_request", "change_request_router", ["change_request_router"])
     connect("change_request_router", route_after_change_request,
             ["implementer", "brief_writer", "completion", "await_change_request"])

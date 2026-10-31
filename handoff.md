@@ -35,9 +35,9 @@
 |---|---|
 | **Spec** | `docs/app-builder-spec.md` — the user's original brief, verbatim (clarification §1, research §2, proposals §3, brief §4.1–4.10, validation §5, review §6, planning §7, implementation §8, preview + isolation §9, platform §10.1–10.11, constraints §12, outcome §13). The milestone blocks below quote the parts each one needs. |
 | **Concept (decided 2026-10-24)** | An AI application builder like Lovable: the user describes an app or website; the system clarifies, researches, proposes, critiques, judges, writes a validated problem statement + solution brief, gets approval, plans (Opus 5.5), implements (Sonnet 5.5) in an isolated session folder, and shows a live preview beside the chat. |
-| **Where we are** | **M0–M11 done and pushed (2026-10-25; last commit `a3a514a` "Added platform hardening (tool log, prompt registry and evals, knowledge, skills, cleanup)", before it `5562c8b` "Added cost and usage tracking").** The pipeline works end to end: idea → clarification → research (3 domains) → proposals / critic / judge / checker → validated brief → **user approval** → Opus plan → **user approval** → Sonnet coding agent builds task by task (verified by real commands) → build check → **live preview** → change requests / bigger change (brief first, plan extension) / Ask / reopen / download → finish. **M10** made the Lovable-style builder UI (`/`, `/c/<id>`: chat left, Preview / Brief / Plan / Build / Activity right; admin view at `/admin`). **M11 hardened the platform itself (spec §10):** every model call and agent attempt is metered (Cost card per stage and per change, limits in `.env`, `/usage`, `/api/metrics`, `/admin/metrics`); every tool call is logged (`tool_calls`); all 19 prompts are versioned and locked with 13 eval cases (offline + live, Haiku-judged where needed; the evals already caught and fixed one real prompt defect); Ask is prompt-cached; builder knowledge docs and skills replaced the health ones; memory is project-scoped; one trigger table; the quick profile and all health leftovers are gone. Proven live: verify_m11 sections 1–9, live evals 7/7 ($0.19). The 2026-10-27 work (render check, app settings, Supabase setup, design skill) is pushed as `8310e1e` "Fixes bugs". **2026-10-29: architecture review applied** (uncommitted): Evidence Checker folded into the Judge (21 nodes), secret scan in the build check, safe Stop (`POST /cancel`), few-shot claim check + critic, skills `secure-coding` + `failure-triage` (picked by task kind), knowledge freshness (`status` / `verified_at` / `stack`, migration `d8e9f0a1b2c3`), memory facts with source + date and a cap. The reasoning per recommendation (changed / kept / why): `docs/builder-agent-anatomy.md` section 7. **Same day, user decisions:** ONE clarification round with at most 5 questions, each with tappable answer options (`ClarificationQuestion.options`, payload `options` / `max_rounds`); the brief has NO appendix (every item on the page, budget 1500 words); a redesigned UI (landing page with a section per functionality, frosted top bar, gradient accents, animated question cards / stage chips / tabs / drawer; new dependency `motion`). Checked offline with `fake_api.py` + headless-Chrome screenshots (landing, question card, tap-through, brief review). |
+| **Where we are** | **M0–M11 done and pushed (2026-10-25; last commit `a3a514a` "Added platform hardening (tool log, prompt registry and evals, knowledge, skills, cleanup)", before it `5562c8b` "Added cost and usage tracking").** The pipeline works end to end: idea → clarification → research (3 domains) → proposals / critic / judge / checker → validated brief → **user approval** → Opus plan → **user approval** → Sonnet coding agent builds task by task (verified by real commands) → build check → **live preview** → change requests / bigger change (brief first, plan extension) / Ask / reopen / download → finish. **M10** made the Lovable-style builder UI (`/`, `/c/<id>`: chat left, Preview / Brief / Plan / Build / Activity right; admin view at `/admin`). **M11 hardened the platform itself (spec §10):** every model call and agent attempt is metered (Cost card per stage and per change, limits in `.env`, `/usage`, `/api/metrics`, `/admin/metrics`); every tool call is logged (`tool_calls`); all 19 prompts are versioned and locked with 13 eval cases (offline + live, Haiku-judged where needed; the evals already caught and fixed one real prompt defect); Ask is prompt-cached; builder knowledge docs and skills replaced the health ones; memory is project-scoped; one trigger table; the quick profile and all health leftovers are gone. Proven live: verify_m11 sections 1–9, live evals 7/7 ($0.19). The 2026-10-27 work (render check, app settings, Supabase setup, design skill) is pushed as `8310e1e` "Fixes bugs". **2026-10-29: architecture review applied** (uncommitted): Evidence Checker folded into the Judge (21 nodes), secret scan in the build check, safe Stop (`POST /cancel`), few-shot claim check + critic, skills `secure-coding` + `failure-triage` (picked by task kind), knowledge freshness (`status` / `verified_at` / `stack`, migration `d8e9f0a1b2c3`), memory facts with source + date and a cap. The reasoning per recommendation (changed / kept / why): `docs/builder-agent-anatomy.md` section 7. **Same day, user decisions:** ONE clarification round with at most 5 questions, each with tappable answer options (`ClarificationQuestion.options`, payload `options` / `max_rounds`); the brief has NO appendix (every item on the page, budget 1500 words); a redesigned UI (landing page with a section per functionality, frosted top bar, gradient accents, animated question cards / stage chips / tabs / drawer; new dependency `motion`). Checked offline with `fake_api.py` + headless-Chrome screenshots (landing, question card, tap-through, brief review). **2026-10-29 (later): the developer-toolkit request** (user: add 21st.dev Magic, Graphify, Compound Engineering, Playwright). Each is translated into the builder's trust model, one milestone each, in the user's order: **M12 Playwright browser tests** (`E2E_CHECK`), **M13 code review + learnings** (Compound Engineering, `COMPOUND_ENGINEERING`), **M14 Graphify code map of THIS repo for Claude Code** (user correction: not for generated apps): all three built and verified live 2026-10-29, waiting for the user's commit. 21st.dev left out (user decision). Decision 12 "Developer toolkit", anatomy §7.5. **2026-10-30: the plan is approved automatically after the brief approval** (`AUTO_APPROVE_PLAN`, default true; decision 12 "Auto-approve the plan"), uncommitted. |
 | **Milestones** | M0 harness · M1 intake + clarification · M2 research · M3 debate · M4 brief writer + validator · M5 brief review · M6 Opus planner + plan review · M7 workspace / sandbox / processes · M8 coding agent (Claude Agent SDK) · M9 build check / preview / change requests · M10 Lovable UI · M11 platform hardening (cost, tool log, prompts + evals, knowledge, skills, memory, triggers, cleanup). Details: section 8 (✅ blocks), section 14 (progress log with real numbers), section 12 (decisions). |
-| **Next milestone** | **The first brand-new idea end to end in the builder UI** (never done since M10; ~$2–3 real money: ask the user first, propose an idea or let them pick). Everything is measured now, so it doubles as the first per-stage cost baseline. Then **M12 (optional): Docker runtime per session** (needs the Docker daemon: open question 2) + a cleanup CLI. See "▶ Next step". |
+| **Next milestone** | M12–M14 are built: the user commits them. Then, still open from before: **the first brand-new idea end to end in the builder UI** (never done since M10; ~$2–3 real money: ask the user first, propose an idea or let them pick). Everything is measured now, so it doubles as the first per-stage cost baseline. Then **M12 (optional): Docker runtime per session** (needs the Docker daemon: open question 2) + a cleanup CLI. See "▶ Next step". |
 | **Models (verified 2026-10-24 via `client.models.list()`)** | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` are all available to the key in `backend/.env`. Configured default: `ANTHROPIC_MODEL=claude-sonnet-5-5`. **Local switch (2026-10-25):** `LLM_PROVIDER=local` in `backend/.env` (+ restart the backend) runs EVERY role on Ollama (`LOCAL_MODEL=qwen3.5-4b-q4-32k` = `qwen3.5:4b-q4_K_M` with 32K context; never the MLX tags, see section 16) — graph, planner, Ask and the coding agent; free, ~5–10x slower, weaker. Check: `uv run python scripts/verify_local.py`. Section 12 "Local models". |
 | **Environment (verified 2026-10-24/25)** | macOS, zsh · uv 0.12.21 · Python 3.13.12 · Node 22.22 · npm 10.9 · Postgres 16.15 running, DB `ai_decision_arena_2` at Alembic head `c7d8e9f0a1b2` (M11: `usage_events`, `tool_calls`, `knowledge_docs.topic`) · `claude-agent-sdk` 0.2.174 (ships its own Claude Code CLI 2.1.310) · `psutil` 7.2 · Docker CLI 29.4 present but **daemon not running** · ports **8000/3000 are the original ai-lab** → ai-lab-2 runs on **8001/3001** (the user starts them with `--reload`; section 11) · previews use ports **4100–4199** · generated apps in `generated_projects/` (git-ignored). |
 | **Tests** | `bash backend/scripts/verify_m0.sh` = 316 pytest (incl. the 26 eval cases: 23 offline, 3 live-only) + eslint + tsc, ~55 s. Offline: fake LLM, fake Tavily, `FakeAgent` for the coding agent, in-memory checkpoints, no DB; but sandbox commands, git and dev servers (`python3 -m http.server {port}`) run for REAL under tmp dirs. Live checks: `backend/scripts/verify_m1..m11.py` (real APIs, node level; m10 = UI contract + rendered page) and `scripts/api_flow.py --auto` (full HTTP E2E); what each needs, writes and costs: section 11. No frontend unit tests (lint + tsc + `next build` + headless-Chrome DOM checks + the user's browser check). Free UI walk-through of every pause: `scripts/fake_api.py` (section 11). |
@@ -81,7 +81,10 @@ await_brief_review → brief_review_router ──(approved, hash guard)──►
 await_plan_review → plan_review_router ──(approved, brief + plan hashes)──► implementer (Sonnet agent, 1 task attempt/step)
                                        └──(changes, ≤ max_plan_revisions)──► planner
 implementer ──(a task pending)──► implementer   ──(all done / failed / blocked / budget)──► build_check
-build_check ──(failed, fix round left: fix task F<n> added)──► implementer   ──(else)──► preview → await_change_request (pause)
+build_check ──(failed, fix round left: fix task F<n> added)──► implementer   ──(else)──► code_review (M13)
+code_review ──(HIGH findings, review fix round left: F<n>)──► implementer   ──(passed / skipped)──► preview → e2e_check (M12)
+e2e_check ──(no browser tests yet: task E1 writes them / a browser test failed, e2e fix round left: F<n>)──► implementer
+          ──(passed / skipped / no round left)──► await_change_request (pause)
 await_change_request → change_request_router ──(change: task C<n>)──► implementer ──(finish)──► completion → END
                                              └──(replan = "Plan a bigger change")──► brief_writer (edits the approved brief)
                                                  → brief_validator → await_brief_review (WORDING-ONLY once built) → planner
@@ -109,6 +112,8 @@ Any node that raises → error stored (nodes/node_wrapper.py) → completion (st
 ```
 ai-lab-2/
 ├── handoff.md                      # this file
+├── CLAUDE.md, .claude/             # Claude Code for THIS repo (M14): read handoff first + graphify rules, skill, hooks
+├── .graphifyignore, graphify-out/  # code map of this repo (graphify, code-only, git-ignored; `graphify update .`)
 ├── docker-compose.yml              # backend container (Postgres stays on the host)
 ├── docs/                           # app-builder-spec.md (the spec), builder-agent-anatomy.md (16-part map, per-node calls / tools / skills / context), team-presentation-script.md; requirements.md, pivot-medical.md, agent-anatomy.md — history
 ├── generated_projects/             # git-ignored: <thread_id>/{app,.builder}, .shared/ (tool links + package caches)
@@ -116,7 +121,7 @@ ai-lab-2/
 │   ├── .env (not in git; template .env.example), pyproject.toml, uv.lock, alembic.ini, Dockerfile
 │   ├── migrations/versions/        # Alembic migrations (13 so far; head d8e9f0a1b2c3 = knowledge_docs status / verified_at / stack)
 │   ├── knowledge/*.md              # curated builder docs (M11: builder process, decimals, node --test, Vite, a11y, secrets)
-│   ├── skills/*/SKILL.md           # builder skills (M11): audience ask (3, load_skill) / agent (7: picked by stack, or by task kind = failure-triage)
+│   ├── skills/*/SKILL.md           # builder skills (M11): audience ask (3, load_skill) / agent (8: picked by stack, or by task kind = failure-triage, browser-e2e-testing)
 │   ├── evals/<prompt>/*.json       # prompt eval cases (M11) + evals/fixtures/*.json (fake-pipeline states)
 │   ├── .cache/*.json               # cached real states for the verify scripts (git-ignored; section 11)
 │   ├── scripts/                    # run_graph, run_intake, run_research, api_flow (HTTP end to end), check_env, draw_graph,
@@ -131,13 +136,13 @@ ai-lab-2/
 │       │   pricing.py (price table, tokens → USD), usage.py (UsageMeter, usage_log, session_cost), tool_log.py
 │       │   (tool_calls), prompts.py + prompts.lock.json (registry), evals.py (eval cases), triggers.py (TRIGGERS) — M11
 │       ├── brief.py (brief references / labels / rendering / deterministic checks), plan.py (plan checks / rendering / hashes)
-│       ├── nodes/  intake, clarification, research, proposer, critic, judge (+ claim_check: the claim-check call used by the critic and the Python consolidation used by the judge), final_report (+ completion),
+│       ├── nodes/  code_review (M13: review + learnings), intake, clarification, research, proposer, critic, judge (+ claim_check: the claim-check call used by the critic and the Python consolidation used by the judge), final_report (+ completion),
 │       │           brief_writer, brief_validator, brief_review (await + router), planner (+ await + router), implementer, delivery (build_check, preview,
 │       │           await_change_request, change_request_router), node_wrapper
 │       ├── research/  planner (queries), search (Tavily), extractor (snippets → Evidence), sources (domains, url utils)
 │       ├── workspace/  paths (session folders, safe_path, tool_path_problem), sandbox (one command), processes (dev
 │       │               servers, M7), agent (Claude Agent SDK adapter, M8), render_check, app_settings, supabase_setup,
-│       │               secret_scan (build-check guardrail, 2026-10-29)
+│       │               secret_scan (build-check guardrail, 2026-10-29), e2e (Playwright browser tests, M12)
 │       ├── chat.py (Ask mode: project assistant), tools.py, researcher.py, skills.py, knowledge.py, memory.py, triggers.py, checkpointing.py
 │       ├── db/  engine, models (11 tables), repository
 │       └── api/  main (decisions endpoints), runner (background threads), chat (transcript + Ask), memories, triggers, schemas, errors
@@ -326,11 +331,11 @@ Mechanics (same for every pause; proven by `await_clarification`):
 |---|---|---|---|
 | `clarification` (exists) | `questions`, `round` | `{answers}` | `clarification` |
 | `brief_review` | `brief_markdown`, `brief`, `validation_summary`, `unresolved_questions`, `round` | `{action: approve \| request_changes, feedback, target: auto \| requirements \| research \| proposal \| wording}` | approve → `planner`; `auto` → small `FeedbackRouting` LLM call picks the target; else the named node |
-| `plan_review` | `plan_markdown`, `plan`, `round` | `{action: approve \| request_changes, feedback}` | approve → `implementer`; changes → `planner` |
+| `plan_review` | `plan_markdown`, `plan`, `round` | `{action: approve \| request_changes, feedback}` | approve → `implementer`; changes → `planner`. **Skipped by default since 2026-10-30** (`AUTO_APPROVE_PLAN=true`): the node writes an `approve` reply marked `auto` without pausing, the router records the hash as usual |
 | `change_request` | `preview`, `build_results`, task summary | `{action: change \| replan \| finish, request}` | change → `implementer` (new task C<n>); replan → `brief_writer` (brief first, M10) → brief review → `planner` (extension); finish → `completion` |
 | (finished) `reopen` | — (`DecisionStatus.reopen_actions`) | `{type: reopen, action: change \| replan, request}` | written as an `await_change_request` reply, then the same routes as above (M10) |
 
-Rules: implementation never starts before **both** approvals (route guard); every revision is re-validated before it is shown again;
+Rules: implementation never starts before **both** approvals (route guard; with `AUTO_APPROVE_PLAN` the plan approval is automatic but still recorded and hash-checked); every revision is re-validated before it is shown again;
 user-driven loops are bounded by `max_review_rounds` (then only wording edits are accepted); each approval records what was approved
 (hash of the markdown) so a later edit invalidates the approval.
 
@@ -658,9 +663,83 @@ the builder itself, **not** to every generated app: a generated project gets onl
     reported `skipped_tests` (badge in the Build card, in Ask's context) and the implementer prompt forbids leaving
     skips; Ask's context has `<cost>` (totals, per change, limits left).
 
-### M12 — Optional: Docker runtime per session, session list/resume polish, cleanup CLI
-- **Verify:** `scripts/verify_m12.py` runs one session's dev server in a container (requires the Docker daemon).
-- **Commit:** `M12: Docker runtime per session`
+### M12 — Browser tests with Playwright (developer toolkit 1/4) ✅ built 2026-10-29, waiting for the user's commit
+- **Why:** build check = it compiles and unit tests pass; render check = the first screen draws. Nothing clicked a
+  button or filled a form. User request (2026-10-29): "PLAYWRIGHT SKILL ... testing whole flow by open website on
+  browser and button form animation and entire flow".
+- **What:** Python node `e2e_check` after `preview` (`nodes/delivery.py`, module `workspace/e2e.py`). No specs yet →
+  task **E1** (phase `e2e`) for the coding agent: `e2e/<flow>.e2e.mjs` per MVP flow, `npm install -D @playwright/test`,
+  verified by `npx playwright test`. With specs → Python runs them in the sandbox and parses Playwright's JSON report
+  (`e2e_results`: status passed / failed / error / skipped, per-test title / file / error, flaky = passed on retry).
+  Failed or error → fix task F<n> (failing tests as `<untrusted>`, verify = the Playwright command), at most
+  `max_e2e_fix_rounds=2` per change (`e2e_fix_round`, reset by a change request). Skill `browser-e2e-testing`
+  (phase `e2e`; fix tasks verified by Playwright get it + failure-triage); implementer prompt v8, skills v4.
+- **Trust model:** `playwright.config.mjs` is builder-owned (rewritten before every run: free port from
+  `e2e_port_range=4200-4299`, the plan's dev command as Playwright's `webServer`, installed Chrome via
+  `channel: 'chrome'` (else `executablePath`), JSON report, retries 1, workers 1). Playwright starts its OWN dev server
+  WITHOUT the user's app settings: tests never touch the live preview or the user's Supabase. Pass = exit 0 AND report
+  has > 0 tests AND 0 failed. Skipped (reason shown) for non-Node projects, no Chrome, preview not ready / blank, budget
+  spent, `E2E_CHECK=false`. `npx playwright test` gets `e2e_timeout_seconds=300` in the sandbox.
+- **UI:** Build tab card "Browser tests" (`BrowserTestsCard`), chip "Browser tests n/m" on the change-request card,
+  change-request panel (admin), stage label "Testing your app in a browser", NODE_INFO `e2e_check`.
+- **Verify:** `uv run python scripts/verify_m12.py` (free: real npm + real Chrome; 13 checks) and `--agent` (one real
+  Sonnet E1 task: measured $0.044, 6 turns, 16 s; 18 checks PASS). pytest `tests/test_e2e.py` (10, Playwright faked).
+- **Switch:** `E2E_CHECK=false` in backend/.env (+ restart) turns browser tests off.
+- **Commit (suggested):** `Added browser tests with Playwright (e2e_check node, E1 task, browser-e2e-testing skill)`
+
+### M13 — Code review + learnings (developer toolkit 2/4: Compound Engineering) ✅ built 2026-10-29, waiting for commit
+- User decisions: **review → fix tasks** (reverses the "no reviewer agent" call of the same morning); **switch from
+  env**: `COMPOUND_ENGINEERING=true|false` (default true; off = no review call, no learnings, no `<project_learnings>`).
+- **Node `code_review`** (`nodes/code_review.py`) between `build_check` and `preview`, only after a PASSING build.
+  Changes = app/ vs `.builder/review_snapshot.json` (saved after every review): unified diffs, new files whole, files
+  with an OPEN finding whole, deletions by name; locks / binaries / playwright.config.mjs left out; source → configs
+  → tests under `review_max_chars=60000`. One call (`review_model=claude-sonnet-5-5`, effort medium,
+  `CodeReviewOutput`: summary, findings {severity high|medium|low, category, file, line, title, detail, fix}, 0-3
+  learnings {rule, source}). Inputs: brief excerpt, plan excerpt, changes, `<open_findings>` (earlier findings on
+  files shown again: re-reported only if not fixed), `<fix_history>` (F tasks since the last review: problem + agent
+  report), `<project_learnings>`.
+- **Python owns:** findings on files not shown are dropped (`dropped`); open findings on untouched files are CARRIED
+  (`from_round`; a later clean diff can't hide an unfixed high finding); HIGH → ONE fix task "Address the code review
+  findings" (verify = plan test commands), `max_review_fix_rounds=1` per change (`review_fix_round`, reset by a change);
+  no change since the last review → the last result stands. Learnings: dedupe (normalised text), newest
+  `max_learnings=20` kept, `.builder/learnings.md`, given to EVERY later coding task (`<project_learnings>`,
+  implementer v9) and the next review. Prompt `code_review` v2 + 3 eval cases.
+- **UI:** Build tab "Code review" card (findings with severity / file:line / category / "open since round n", the
+  project learnings), chip "Review clean / n findings", stage "Reviewing the code". API `GET /implementation`
+  `review` + `learnings`; Ask context `code_review` + `project_learnings`; metrics `review_findings`, `learnings`.
+- **Verify:** `uv run python scripts/verify_m13.py` (real Sonnet, 3 rounds on a planted-bug habit tracker: measured
+  $0.055, 15 checks PASS); pytest `tests/test_code_review.py` (10).
+- **Commit (suggested):** `Added code review and project learnings (Compound Engineering, COMPOUND_ENGINEERING switch)`
+
+### M14 — Graphify code map of THIS repo for Claude Code (developer toolkit 3/4) ✅ set up 2026-10-29
+- **User correction:** graphify is "for my repo code not for generated code": it saves Claude Code (us) from
+  re-reading the builder's codebase every session. Nothing in the builder's runtime changed.
+- **Installed:** `uv tool install graphifyy` (CLI `graphify` in ~/.local/bin). `.graphifyignore` (generated_projects,
+  .next, node_modules, caches, fixtures, locks). Graph: `GRAPHIFY_BACKEND=none graphify extract . --code-only` (local
+  tree-sitter, 0 tokens: 260 files → 2675 nodes / 7455 edges / 108 communities in ~12 s) + `graphify cluster-only .
+  --no-label` (GRAPH_REPORT.md, graph.html; communities unnamed because naming needs an LLM).
+  `graphify-out/` is git-ignored (3 MB graph.json rewritten on every build; anyone rebuilds in 12 s).
+- **Claude Code wiring (`graphify install --project --platform claude`):** `CLAUDE.md` (our header: read handoff.md
+  first, never commit; then graphify's rules: `graphify query` before grep / reads, `graphify path`, `explain`,
+  `graphify update .` after code changes), `.claude/CLAUDE.md` (skill pointer), `.claude/skills/graphify/` (skill +
+  references), `.claude/settings.json` (PreToolUse hooks `graphify hook-guard search|read`: advisory nudges, command
+  from PATH so it works for teammates).
+- **Not affected:** the builder's coding agent (Agent SDK, `setting_sources=[]`: no CLAUDE.md, no project hooks;
+  cwd in generated_projects/).
+- **Not done (needs the user):** `graphify hook install` (git hook: rebuild the graph after every commit / checkout).
+  Claude Code's auto-mode classifier refused it as persistence: the user runs `! graphify hook install` if wanted.
+  Until then: `graphify update .` (CLAUDE.md tells Claude to run it after code changes).
+- **Useful:** `graphify affected "build_check_node"` (what depends on a symbol: section 15 rule 2 in one call),
+  `graphify god-nodes`, `graphify explain "ArenaState"`, `graphify path "A" "B"`.
+
+### M15 — 21st.dev Magic components (developer toolkit 4/4) — left out (user decision 2026-10-29)
+- User decision: wait. Needs `TWENTY_FIRST_API_KEY` (paid after the free tier) and sends component descriptions to
+  21st.dev: the first outside service the coding agent would reach. Shape when it comes: stdio MCP server
+  (`npx @21st-dev/magic`) with the key in ITS env only, offered to UI tasks of React projects only.
+
+### M16 — Optional: Docker runtime per session, session list/resume polish, cleanup CLI
+- **Verify:** `scripts/verify_m16.py` runs one session's dev server in a container (requires the Docker daemon).
+- **Commit:** `M16: Docker runtime per session`
 
 ---
 
@@ -727,6 +806,8 @@ others are rough guesses from before M11 (re-measure them when you next run them
 | `verify_m9.py` build / preview / change | plan cache | a workspace + project_runtimes row | $0.09–0.10 measured, ~1 min |
 | `verify_m10.py [--session id] [--ask] [--skip-build]` builder UI (35 checks incl. real resize drags and Download-code clicks via `frontend/scripts/check_resize.mjs` / `check_download.mjs`) | dev servers on 8001/3001, one built session, Chrome for the DOM / drag checks | (`--ask`: 2 chat messages in that session) | free (`--ask`: cents, 1 Sonnet call), ~1 min incl. `next build` |
 | `verify_m11.py [--session id]` sections 1–9: cost / usage, tool calls (a tiny real coding-agent task in a throwaway project, deleted after), a Tavily search, prompt lock + offline and live evals, Ask caching + skill, knowledge, triggers, metrics page | dev servers on 8001/3001, one built session, Chrome | usage_events / tool_calls rows under `verify-m11-*` threads (not the reference project) | measured ~$0.45 (agent $0.025, live evals $0.19, Ask ~$0.2), ~6 min |
+| `verify_m13.py` code review: real reviewer, 3 rounds on a planted-bug habit tracker (finds the bugs, fix task, learnings; a fixed bug not re-reported, an unfixed one is; no false positive on a correct helper) | Anthropic key | a temp folder | measured $0.055, ~1 min |
+| `verify_m12.py [--agent]` browser tests: real `npm install -D @playwright/test` + real Chrome through the sandbox: passing flows, a broken app (failure listing), a localhost-bound (Vite-like) server, unit runner ignores `*.e2e.mjs`; `--agent`: the coding agent writes the tests for a calculator | npm network, Chrome | a temp folder (printed) | free, ~30 s (`--agent`: one Sonnet task, ~$0.20–0.50) |
 | `run_evals.py [--live] [--prompt id]` prompt eval cases | offline: nothing; live: API keys | — | offline free (also in pytest); live measured $0.19 for the 7 live cases (+ Haiku judge calls) |
 | `prompt_versions.py [--update]` / `make_eval_fixtures.py` / `load_knowledge.py` | — / — / DB | prompts.lock.json / evals/fixtures / knowledge_docs | free |
 | `verify_parallel.py` live parallel tasks: a tiny 3-task plan (T1 scaffold; T2 ∥ T3 independent), real agents, stops before the build check; checks done tasks, same step, overlapping attempts, denied calls, re-run of every verify command, git status | plan cache (approved brief) | a workspace `generated_projects/verify-parallel-*` | measured $0.089, ~25 s (2026-10-26) |
@@ -760,6 +841,34 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 ---
 
 ## 12. Decisions log
+- 2026-10-30 (**Auto-approve the plan**: the user: "after we approve the brief then auto approve the implementation
+  plan"). New setting `auto_approve_plan` / `AUTO_APPROVE_PLAN` (default **true**; false = the old plan review pause).
+  Shape: `await_plan_review` does not call `interrupt` and writes a normal `approve` entry (`auto: true`) to
+  `plan_feedback`; `plan_review_router` then approves exactly like a user approval (timestamp + plan hash, saved as an
+  artifact). Why there and not by routing `planner → implementer`: every guard (`plan_is_approved` in the implementer,
+  code review, preview, change routes) keeps working unchanged, the graph shape and the frontend stay the same (the UI
+  simply never sees a `plan_review` pause), and the switch is one setting. Also applies to plan extensions after a
+  bigger change (the brief is re-approved first). The Plan tab still shows the plan; changes to it go through a
+  change request. Tests: conftest sets it false (the existing tests drive the pause); `test_plan.py` +1 with it on.
+- 2026-10-29 (**Toolkit, round 2**: the user: "do all 3 complete (Playwright, Compound Engineering, Graphify) ...
+  compound engineering can be turn on and off from env and playwright also ... graphify is for my repo code not for
+  generate code ... leave 21st.dev"). Switches: `COMPOUND_ENGINEERING`, `E2E_CHECK` (both default true, .env.example
+  documents them). Graphify moved from "code map for the coding agent" to a developer tool for this repo (CLAUDE.md,
+  skill, hooks, `graphify-out/` git-ignored). Review design choices: review only builds that pass (reading broken code
+  wastes a call; the build fix loop handles it); diff-based (cheap, scales with the change) with two corrections found
+  in the offline walk-through: open findings are carried on untouched files and files with an open finding are shown
+  whole; one fix round per change (a reviewer is an opinion: Python caps how much it can drive); learnings are
+  generated by the same call (no extra call), deduped and capped, and they reach every coding task.
+- 2026-10-29 (**Developer toolkit**: the user asked for 21st.dev Magic MCP, Graphify, Compound Engineering and the
+  Playwright skill "in our ai builder app when its creating apps"). All four are Claude Code add-ons for a developer
+  at the keyboard; our coding agent is a locked-down Agent SDK session, so each is translated, not installed.
+  AskUserQuestion answers: **Playwright first** (then review, then Graphify); **review → fix tasks** (Compound
+  Engineering's review + compound steps; reverses the morning's "no reviewer agent"); **real graphify, code-only**;
+  **21st.dev not now** (paid key, outside service). M12 built: Playwright runs as a Python node, not as an agent
+  skill the agent could use to declare success. The agent only writes the specs (E1) and fixes failures. Facts come
+  from Playwright's JSON report. Builder-owned config, own dev server without the user's settings (never the user's
+  data), installed Chrome (no download), spec suffix `.e2e.mjs` so vitest / jest / node --test never pick the specs
+  up. Python apps skipped for now (no Python web app built yet).
 - 2026-10-29 (**User decisions after the review**: "only 1 round of clarification and 5 questions max", "options so
   the user can choose or type", "no Appendix in the brief", "UI/UX very good, latest styles with animation, landing
   page with each functionality"). **Clarification:** `max_clarification_rounds` 3 → 1, `MAX_QUESTIONS_PER_ROUND` 6 → 5;
@@ -964,6 +1073,9 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
 5. Rename LangSmith project from `ai-decision-arena` (shared with ai-lab) to `ai-app-builder`? (one `.env` line)
 
 ## 14. Progress log
+- 2026-10-30: **Plan auto-approval** (`AUTO_APPROVE_PLAN`, decision 12). Offline: `test_auto_approve_plan_skips_the_plan_pause`
+  (pauses seen: clarification → brief_review → change_request; plan approved + hash recorded, `auto` entry). No live run
+  (no LLM call changed). `verify_m0.sh` PASS: 337 pytest + eslint + tsc. The user's 8001 backend must be restarted to pick up the setting.
 - 2026-10-26: **Local mode fix after the user's first local project failed** (critic timeout; cause and fix in
   section 16). 273 pytest green. `verify_local.py` **PASS** on `qwen3.5-4b-q4-32k` (llama.cpp runner, 4.9 GB estimate,
   34%/66% CPU/GPU because the Mac was short of free memory): intake 78 s (incl. model load), clarification 26 s, Ask
@@ -1343,13 +1455,37 @@ Database: local Postgres `ai_decision_arena_2` (`backend/.env`). Tables: `decisi
   scroll positions, the question card with 3 option chips, tap-through (Students → Just the basics → research summary
   → brief review card), brief markdown without "Appendix" (10 headings, alternatives in section 4). Not run live:
   the clarification v3 live eval (~$0.05) and a real session (the first live run will show the real options).
+- 2026-10-29 **M12 browser tests (Playwright)** built. Spike first (real sandbox: npm install, `channel: 'chrome'`,
+  `webServer` from the dev command, JSON report: 1 passed / 1 failed as planted). New: `workspace/e2e.py`,
+  `e2e_check` node + route, state `e2e_results` / `e2e_fix_round`, settings `e2e_check`, `max_e2e_fix_rounds`,
+  `e2e_timeout_seconds`, `e2e_test_timeout_seconds`, `e2e_port_range`, skill `browser-e2e-testing`, `task_kinds()`
+  (skills picked by several kinds), implementer v8 / skills v4 + 2 eval cases (offline evals implementer 5/5, skills
+  5/5), API `ImplementationResponse.e2e`, Ask context `browser_tests`, metrics `e2e_status`, fake_api fake runs,
+  frontend card + chip + labels. Verified: `verify_m0.sh` PASS (326 pytest incl. 10 new, eslint, tsc);
+  `verify_m12.py` PASS (13/13, real npm + Chrome, ~30 s, $0); offline HTTP walk-through on fake_api (T1, T2 → E1 →
+  run 1 failed → F1 → run 2 passed 3/3, one flaky) + headless-Chrome screenshots of the Build tab card and the chat
+  chip. Not run: `verify_m12.py --agent` (real Sonnet E1 task, ~$0.20–0.50: asking the user) and a full live session.
+- 2026-10-29 **M13 code review + learnings and M14 graphify** built; M12 finished. M13: schemas
+  `ReviewFinding` / `ProjectLearning` / `CodeReviewOutput` (probe: fits), `nodes/code_review.py`, graph route
+  build_check → code_review → preview, state `code_review` / `review_fix_round` / `learnings`, settings
+  (`compound_engineering`, `review_model`, `review_effort`, `review_max_tokens`, `review_max_chars`,
+  `max_review_fix_rounds`, `max_learnings`), implementer v9, prompt `code_review` v2, evals (code_review 2/2,
+  implementer 6/6), usage phase "Build", API / Ask / metrics, UI card + chip + labels, fake_api fake reviewer.
+  Offline walk-through found 2 design bugs before any live run (a later clean review hid an unfixed high finding; the
+  reviewer saw only a diff of a file with an open finding): both fixed + tests. Verified: `verify_m0.sh` PASS (336
+  pytest), `verify_m13.py` PASS 15/15 ($0.055; it found the planted off-by-one delete, innerHTML XSS, empty names,
+  UTC dates, missing brief features; learned 3 project rules; did not re-report the fixed delete; no false positive),
+  `verify_m12.py --agent` PASS 18/18 (agent $0.044: e2e/add.e2e.mjs with getByLabel / getByRole / toHaveText, happy
+  path + validation; Python's run 2/2), env switches checked (`COMPOUND_ENGINEERING=false E2E_CHECK=false` → both
+  off), headless-Chrome screenshots (review card with findings + "open since round 1", learnings, chips). M14:
+  graphify installed and wired (section 8). Not run: a full live session through the UI.
 
 ## 15. How to work on this repo (the loop every milestone follows)
 
 1. **Start:** follow "Start here" at the top. Read the milestone block in section 8 (it quotes the spec parts it needs;
    the full text is `docs/app-builder-spec.md`). Check `git status` is clean (the user commits after each milestone;
    if it is not clean, ask before continuing).
-2. **Map before you change:** grep every identifier / literal you will touch across `backend/src backend/scripts backend/tests
+2. **Map before you change:** `graphify affected "<symbol>"` / `graphify query "..."` first (M14 code map), then grep every identifier / literal you will touch across `backend/src backend/scripts backend/tests
    frontend/src` (quote the globs: `--include='*.py'`). Decide what is a mechanical rename and what needs new content.
 3. **Mechanical renames by script** (M1, M2 pattern): write a small Python script (word-boundary `re.sub`, longest names first,
    plus literal replacements), run it, then **grep for leftovers**. Identifiers joined by underscores (`uq_patient_memories_fact`,
@@ -1783,9 +1919,42 @@ is what you will see)
   `next` is correct and `{"type": "continue"}` resumes there (`tests/test_cancel.py`).
 - **Two `cd`-prefixed Bash calls in the same turn share one working directory:** the second call's `cd` was reset by
   the first's and its relative heredoc path failed. Use absolute paths in scripts that write files.
+- **Edit helpers with `'''...'''` strings turn `\n` inside the replacement into a real newline** (M12: two
+  "unterminated string literal" errors in delivery.py). Write `\\n` in the helper, or import the module right after
+  the edit (`uv run python -c "import ai_decision_arena.graph"`).
+- **Browser-test spec names (M12):** `*.spec.*` / `*.test.*` or a `test/` folder would be picked up by vitest / jest /
+  `node --test` and break the build check's unit tests (they can't import `@playwright/test`'s runner). The specs are
+  `e2e/*.e2e.mjs`, `.mjs` so a CommonJS package and `tsc` / eslint globs (`*.{js,jsx,ts}`) leave them alone.
+- **Diff-only review hides findings (M13):** reviewing only the new diff made a later clean review report "passed"
+  over an earlier unfixed HIGH finding on a file nobody touched, and a file with an open finding showed the reviewer
+  a diff without the problem line. Fixed: carried findings + whole files for open findings. Any incremental checker
+  needs "what is still open" state, not just "what changed".
+- **Claude Code auto mode refuses `graphify hook install`** (git hooks = persistence): leave it to the user.
+- **Playwright `webServer` URL:** use `http://localhost:<port>/`, not 127.0.0.1. Vite listens on "localhost" (may be
+  ::1 only on macOS); Node 22 + Chrome try both families (verify_m12 section 3 checks a localhost-bound server).
 
 ## ▶ Next step
-**Two pieces of work are built and waiting for the user's commit (2026-10-29):** the architecture review (decision
+**2026-10-30: plan auto-approval** (`AUTO_APPROVE_PLAN`, default true, uncommitted; decision 12). Suggested commit:
+`Auto-approve the implementation plan after the brief approval (AUTO_APPROVE_PLAN)`. Restart the 8001 backend; in the
+browser: approve a brief → the chat goes straight from planning to building (no "Review the plan" card); the Plan tab
+still shows the plan. `AUTO_APPROVE_PLAN=false` in backend/.env + restart brings the pause back.
+
+**M12 (Playwright), M13 (code review + learnings) and M14 (graphify for this repo) are built and verified, waiting
+for the user's commit (2026-10-29).** One commit or three, the user's call. Suggested names:
+`Added browser tests with Playwright (e2e_check node, E1 task, browser-e2e-testing skill)`,
+`Added code review and project learnings (Compound Engineering, COMPOUND_ENGINEERING switch)`,
+`Added graphify code map of the repo for Claude Code (CLAUDE.md, skill, hooks)`.
+New files: `workspace/e2e.py`, `nodes/code_review.py`, `skills/browser-e2e-testing/`, `tests/test_e2e.py`,
+`tests/test_code_review.py`, `scripts/verify_m12.py`, `scripts/verify_m13.py`, evals (`implementer/keeps_browser_tests`,
+`implementer/follows_project_learnings`, `skills/browser_e2e_testing_for_e2e_tasks`, `code_review/*`), root
+`CLAUDE.md`, `.claude/`, `.graphifyignore`. **The user's backend on 8001 must be restarted** (new settings + nodes;
+`--reload` restarts on .py changes, but check). Optional for the user: `! graphify hook install` (graph rebuilt on
+every commit). **Browser check:** start a small web idea; after the build the chat shows "Reviewing the code" (Build
+tab: Code review card, findings, project learnings), then "Testing your app in a browser" (E1 task, Browser tests
+card), and the "Your turn" card shows "Review …" and "Browser tests n/m" chips. Turn either off with
+`COMPOUND_ENGINEERING=false` / `E2E_CHECK=false` in backend/.env + restart.
+
+**Committed as `3d23496` "Fix bugs" (2026-10-29), kept for the record:** the architecture review (decision
 12 "Architecture review applied") and the user decisions after it (decision 12 "User decisions after the review":
 one clarification round with options, no brief appendix, UI redesign). One commit or two, the user's call; suggested
 names: `Applied the architecture review (judge absorbs the evidence checker, secret scan, safe stop, few-shot
@@ -1801,7 +1970,7 @@ questions (options + typing + Skip), read the brief (no appendix), press Stop on
 For the video call: `docs/team-presentation-script.md` sections 2 (questions), 3 (brief) and 6c; the anatomy doc
 section 7 (incl. 7.4).
 
-**Local-model switch built (2026-10-25), waiting for the user's commit.** To try it in the builder UI: set
+**Local-model switch built (2026-10-25), committed as `7abe6a8`.** To try it in the builder UI: set
 `LLM_PROVIDER=local` in `backend/.env`, restart the 8001 backend (settings are read once per process; `--reload` only
 watches .py files), keep the Ollama app open, then start a SMALL idea (one-page app). Switch back with
 `LLM_PROVIDER=anthropic` + restart.

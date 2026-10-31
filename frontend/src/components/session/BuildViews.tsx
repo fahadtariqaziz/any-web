@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { ApiError, restartPreview } from "@/lib/api/client";
-import type { BuildResults, PreviewInfo, TaskStatus } from "@/lib/api/types";
+import type { BuildResults, CodeReview, E2EResults, PreviewInfo, ProjectLearning, TaskStatus } from "@/lib/api/types";
 import type { Tone } from "@/lib/format";
 
 const TASK_TONE: Record<TaskStatus, Tone> = {
@@ -125,6 +125,111 @@ export function BuildCard({ build }: { build: BuildResults }) {
             </li>
           ))}
         </ul>
+      </CardBody>
+    </Card>
+  );
+}
+
+const E2E_TONE: Record<E2EResults["status"], Tone> = { passed: "emerald", failed: "red", error: "red", skipped: "slate" };
+const TEST_TONE: Record<string, Tone> = { passed: "emerald", failed: "red", flaky: "amber", skipped: "slate" };
+
+/** The browser tests (M12): Playwright clicked through the app's flows in Chrome. Facts from Playwright's report. */
+export function BrowserTestsCard({ e2e }: { e2e: E2EResults }) {
+  const passed = (e2e.passed ?? 0) + (e2e.flaky ?? 0);
+  return (
+    <Card>
+      <CardHeader
+        title={`Browser tests${e2e.round > 1 ? ` · run ${e2e.round}` : ""}`}
+        description="Playwright clicks through the app's user flows in Chrome, on its own dev server without your settings"
+        aside={
+          <Badge tone={E2E_TONE[e2e.status]} size="md">
+            {e2e.status === "skipped" ? "skipped" : e2e.total ? `${passed}/${e2e.total} ${e2e.status}` : e2e.status}
+          </Badge>
+        }
+      />
+      <CardBody>
+        {e2e.reason && e2e.status !== "passed" && <p className="mb-2 text-sm text-slate-600">{e2e.reason}</p>}
+        {e2e.tests && e2e.tests.length > 0 && (
+          <ul className="space-y-2">
+            {e2e.tests.map((t) => (
+              <li key={`${t.file}:${t.line}:${t.title}`} className="text-sm">
+                <span className="flex flex-wrap items-center gap-2">
+                  <Badge tone={TEST_TONE[t.status] ?? "slate"}>{t.status}</Badge>
+                  <span className="text-slate-800">{t.title}</span>
+                  <code className="text-xs text-slate-400">{t.file}</code>
+                </span>
+                {t.status === "failed" && t.error && (
+                  <pre className="mt-1 max-h-48 overflow-auto rounded bg-slate-50 p-2 text-xs whitespace-pre-wrap">{t.error}</pre>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {e2e.status === "error" && e2e.output && (
+          <pre className="mt-1 max-h-48 overflow-auto rounded bg-slate-50 p-2 text-xs whitespace-pre-wrap">{e2e.output}</pre>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+const SEVERITY_TONE: Record<string, Tone> = { high: "red", medium: "amber", low: "slate" };
+const REVIEW_LABEL: Record<CodeReview["status"], string> = { passed: "passed", changes_requested: "changes requested", skipped: "skipped" };
+const REVIEW_TONE: Record<CodeReview["status"], Tone> = { passed: "emerald", changes_requested: "amber", skipped: "slate" };
+
+/** The code review + learnings (M13): findings on the latest changes and the rules the project learned. */
+export function CodeReviewCard({ review, learnings }: { review: CodeReview | null; learnings: ProjectLearning[] }) {
+  const findings = review?.findings ?? [];
+  return (
+    <Card>
+      <CardHeader
+        title={`Code review${review?.round && review.round > 1 ? ` · round ${review.round}` : ""}`}
+        description="One reviewer reads the changes since the last review; high-severity findings go back to the coding agent"
+        aside={
+          review && (
+            <Badge tone={REVIEW_TONE[review.status]} size="md">
+              {REVIEW_LABEL[review.status]}
+            </Badge>
+          )
+        }
+      />
+      <CardBody>
+        {review?.status === "skipped" && review.reason && <p className="mb-2 text-sm text-slate-600">{review.reason}</p>}
+        {review?.summary && review.status !== "skipped" && <p className="mb-2 text-sm text-slate-700">{review.summary}</p>}
+        {findings.length > 0 && (
+          <ul className="space-y-2">
+            {findings.map((f) => (
+              <li key={`${f.file}:${f.line}:${f.title}`} className="text-sm">
+                <span className="flex flex-wrap items-center gap-2">
+                  <Badge tone={SEVERITY_TONE[f.severity]}>{f.severity}</Badge>
+                  <span className="text-slate-800">{f.title}</span>
+                  <code className="text-xs text-slate-400">
+                    {f.file}
+                    {f.line ? `:${f.line}` : ""}
+                  </code>
+                  <span className="text-xs text-slate-400">{f.category.replace(/_/g, " ")}</span>
+                  {f.from_round && <span className="text-xs text-amber-600">open since round {f.from_round}</span>}
+                </span>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {f.detail} <span className="text-slate-700">Fix: {f.fix}</span>
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+        {review?.status === "passed" && findings.length === 0 && <p className="text-sm text-slate-500">No findings on these changes.</p>}
+        {learnings.length > 0 && (
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <p className="mb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">Project learnings · read by every later task</p>
+            <ul className="space-y-1">
+              {learnings.map((l) => (
+                <li key={l.rule} className="text-sm text-slate-700">
+                  {l.rule} <span className="text-xs text-slate-400">from {l.source}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </CardBody>
     </Card>
   );

@@ -97,11 +97,73 @@ export interface BuildResults {
   at: string;
 }
 
+/** One browser test from Playwright's JSON report (M12). flaky = failed once, passed its retry. */
+export interface E2ETest {
+  title: string; // "describe › test"
+  file: string;
+  line: number | null;
+  status: "passed" | "failed" | "flaky" | "skipped";
+  error: string;
+}
+
+/** The last browser-test run (M12): the app's e2e/*.e2e.mjs specs, Playwright + the installed Chrome, own dev server. */
+export interface E2EResults {
+  round: number;
+  status: "passed" | "failed" | "error" | "skipped";
+  reason?: string; // skipped / failed / error: why
+  total?: number;
+  passed?: number;
+  failed?: number;
+  flaky?: number;
+  tests?: E2ETest[];
+  seconds?: number;
+  output?: string; // tail of the run (shown on error)
+  at: string;
+}
+
+/** One code-review finding (M13). Python kept it only because its file was among the reviewed changes. */
+export interface ReviewFinding {
+  severity: "high" | "medium" | "low";
+  category: "security" | "bug" | "brief_compliance" | "data_integrity" | "performance" | "simplicity" | "test_gap";
+  file: string;
+  line: number | null;
+  title: string;
+  detail: string;
+  fix: string;
+  from_round?: number; // carried: found in an earlier round, its file unchanged since (still open)
+}
+
+/** The last code review (M13, COMPOUND_ENGINEERING): changes since the previous review, one reviewer call. */
+export interface CodeReview {
+  round?: number;
+  status: "passed" | "changes_requested" | "skipped";
+  reason?: string; // skipped: why
+  summary?: string;
+  findings?: ReviewFinding[];
+  dropped?: number; // findings on files the reviewer was not shown
+  carried?: number; // open findings from earlier rounds on files nobody changed since
+  files_reviewed?: string[];
+  files_omitted?: string[];
+  fix_task_id?: string;
+  new_learnings?: string[];
+  at: string;
+}
+
+/** A rule the project learned from a review or a fix; every later coding task reads it (M13). */
+export interface ProjectLearning {
+  rule: string;
+  source: string;
+  at: string;
+  round: number;
+}
+
 /** The app runs in the preview: ask for a change, a new plan, or finish (spec §8 / §9). */
 export interface ChangeRequestPayload {
   type: "change_request";
   preview: PreviewInfo | Record<string, never>;
   build: BuildResults | Record<string, never>;
+  e2e?: E2EResults | Record<string, never>;
+  review?: CodeReview | Record<string, never>;
   tasks: { id: string; title: string; status: TaskStatus; attempts: number }[];
   cost_usd: number;
   round: number;
@@ -652,6 +714,9 @@ export interface ImplementationResponse {
   log: { task_id: string; attempt: number; ok: boolean; status: TaskStatus; summary: string; cost_usd: number; at: string }[];
   cost_usd: number;
   build: BuildResults | null;
+  e2e: E2EResults | null;
+  review: CodeReview | null;
+  learnings: ProjectLearning[];
 }
 
 /** Totals of usage_events rows (one per node run with model calls / per Ask reply). */

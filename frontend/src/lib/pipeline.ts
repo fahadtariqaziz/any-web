@@ -163,6 +163,20 @@ export const NODE_INFO: Record<string, NodeInfo> = {
     expectedSeconds: 15,
     stage: "preview",
   },
+  code_review: {
+    label: "Code review",
+    headline: "Reviewing the code",
+    doing: "A reviewer reads what changed since the last review: security, bugs, the approved brief, data safety. High-severity findings go back to the coding agent as one fix task, and what the project learned is saved as rules for every later task.",
+    expectedSeconds: 30,
+    stage: "build",
+  },
+  e2e_check: {
+    label: "Browser tests",
+    headline: "Clicking through your app",
+    doing: "Playwright opens your app in Chrome and runs through its user flows: buttons, forms, navigation. The first time, the coding agent writes these tests from the brief's features. A failing test goes back to the coding agent as a fix task (at most twice).",
+    expectedSeconds: 45,
+    stage: "preview",
+  },
   await_change_request: {
     label: "Your changes",
     headline: "Your app is running",

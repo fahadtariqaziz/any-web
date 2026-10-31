@@ -198,10 +198,50 @@ for a personal tool is not a finding. Each change has eval cases and a new locke
 the project's own stack rank first. Every remembered fact says whether you said it or the assistant noted it, and
 when, so the model never mistakes an old note for your current words.
 
+**One approval instead of two.** You approve the brief; the plan built from it is approved automatically and the
+build starts. The approval is still recorded and checked before any code is written, and one setting brings the
+plan review back for teams that want it.
+
 What we did not do, on purpose: no independent reviewer agent yet, because the critic, the claim check and the judge
-already give three independent reads and the evals haven't shown a miss; no vector search, because we've measured no
+already give three independent reads and the evals haven't shown a miss (update, same day: the user asked for one
+after the build, the Compound Engineering review in section 6d); no vector search, because we've measured no
 retrieval miss; no skills for the single-call steps, because without a tool loop a skill is just more prompt text.
 Each of those has a trigger written down for when it would become worth it.
+
+## 6d. The developer toolkit: Playwright, Compound Engineering, Graphify, 21st.dev (about 1.5 minutes)
+
+*[Say this when someone asks "why not just install the popular Claude Code plugins?" Table: anatomy section 7.5.]*
+
+Those four tools are built for a developer sitting in Claude Code. Our coding agent is different: it's locked into
+one project folder, with no network tool and no access to our keys. So we didn't install them. We translated each one
+into the builder's own rules.
+
+**Playwright came first, because it closes the biggest gap.** Until now we checked that the app compiles, that the
+tests pass, and that the first screen draws. Nobody had clicked a button. Now the coding agent writes browser tests
+for the features in the approved brief, and the builder runs them in Chrome after every build and every change. The
+result comes from Playwright's report, not from the agent saying "done". A failing test goes back as a fix task.
+
+Two details matter. The tests start their own copy of the app without your settings, so a test can never write into
+your real database. And the builder owns the test configuration, so the agent can't make a test pass by changing how
+it runs.
+
+**Compound Engineering became a review step that teaches the project.** After the build passes, one reviewer reads
+what changed: security, bugs, the approved brief, data safety. High-severity findings go back to the coding agent as
+one fix task. The part I like most is the "compound" step: the reviewer turns each mistake into a short rule for
+this project, like "escape habit names, never put user text into innerHTML". Every later task reads those rules, so
+the same mistake doesn't come back. The reviewer is still an opinion, so the code limits it: it can only flag files
+it was actually shown, it gets one fix round per change, and pass or fail still comes from real commands. In our
+test, a deliberately buggy app cost five cents to review: it found all three planted bugs and didn't re-report the
+one we fixed.
+
+**Both can be switched off** with one line each in the settings file: COMPOUND_ENGINEERING and E2E_CHECK.
+
+**Graphify is for us, not for the generated apps.** It builds a map of the builder's own code locally, with no AI
+cost. When Claude Code works on the builder, it asks the map "what depends on this function?" instead of re-reading
+hundreds of files.
+
+**We left 21st.dev out on purpose:** it needs a paid key and would send descriptions to an outside service. That's
+the first time the coding agent would reach beyond its sandbox, and we decided not yet.
 
 ---
 

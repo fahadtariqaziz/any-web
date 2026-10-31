@@ -204,6 +204,9 @@ export function AppRunningCard({
   const preview = isPreview(payload.preview) ? payload.preview : null;
   const running = preview?.state === "ready";
   const done = payload.tasks.filter((t) => t.status === "done").length;
+  const e2e = payload.e2e && "status" in payload.e2e && payload.e2e.status !== "skipped" ? payload.e2e : null;
+  const review = payload.review && "status" in payload.review && payload.review.status !== "skipped" ? payload.review : null;
+  const open = (review?.findings ?? []).length;
   return (
     <ActionCard
       tone={running && build?.passed ? "brand" : "red"}
@@ -213,6 +216,16 @@ export function AppRunningCard({
     >
       <div className="flex flex-wrap gap-1.5">
         <Badge tone={build?.passed ? "emerald" : "red"}>Build {build?.passed ? "passed" : "failed"}</Badge>
+        {review && (
+          <Badge tone={review.status === "passed" ? "emerald" : "amber"}>
+            Review {open ? `${open} finding${open > 1 ? "s" : ""}` : "clean"}
+          </Badge>
+        )}
+        {e2e && (
+          <Badge tone={e2e.status === "passed" ? "emerald" : "red"}>
+            Browser tests {e2e.total ? `${(e2e.passed ?? 0) + (e2e.flaky ?? 0)}/${e2e.total}` : e2e.status}
+          </Badge>
+        )}
         <Badge tone={done === payload.tasks.length ? "emerald" : "amber"}>
           {done}/{payload.tasks.length} tasks done
         </Badge>

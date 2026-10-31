@@ -129,7 +129,7 @@ REGISTRY: dict[str, PromptSpec] = {s.id: s for s in [
                 "v5 (design): UI apps get a design foundation in the first task (Tailwind preferred: app shell + shared "
                 "components) and UI tasks name it in their acceptance criteria (live: the budgeting app was browser "
                 "defaults, 44 lines of global CSS, no task owned the look; eval planner/design_foundation).")),
-    PromptSpec("implementer", "nodes.implementer", ("SYSTEM_APPEND", "PARALLEL_NOTE"), ("implementer",), 7,
+    PromptSpec("implementer", "nodes.implementer", ("SYSTEM_APPEND", "PARALLEL_NOTE"), ("implementer",), 9,
                ("v1 (M8): appended to the claude_code preset; one task, verify commands decide.",
                 "v2 (M11): no skipped / pending tests left behind; un-skip once the feature exists (M10: T13 left 4 "
                 "t.skip tests in the calculator that later tasks never re-enabled; eval implementer/no_skipped_tests).",
@@ -140,7 +140,18 @@ REGISTRY: dict[str, PromptSpec] = {s.id: s for s in [
                 "v6 (render check): missing configuration never crashes the app; a setup screen instead of an "
                 "import-time throw (same live finding as planner v4; eval implementer/renders_without_env).",
                 "v7 (app settings): a comment above each .env.example variable saying what it is and where to get it "
-                "(the Preview tab's settings form shows them; the budgeting app's .env.example had none).")),
+                "(the Preview tab's settings form shows them; the budgeting app's .env.example had none).",
+                "v8 (M12 browser tests): keep the Playwright e2e/*.e2e.mjs tests passing, update them when a covered "
+                "flow changes, never delete / skip one, leave the builder's playwright.config.mjs alone.",
+                "v9 (M13 compound): follow <project_learnings> (rules from earlier reviews and fixes).")),
+    PromptSpec("code_review", "nodes.code_review", ("SYSTEM_PROMPT",), ("code_review",), 2,
+               ("v1 (M13, Compound Engineering): review the changes since the last review (security, bug, brief "
+                "compliance, data integrity, performance, simplicity, test gaps), concrete findings only, severity "
+                "scale, 0-3 project learnings from findings / fix history; one example of a high finding and a "
+                "non-finding.",
+                "v2 (M13, offline walk-through): <open_findings> = earlier findings on files shown again; re-report "
+                "only if not fixed (Python keeps open findings on untouched files: a later clean diff no longer hides "
+                "an unfixed high finding).")),
     PromptSpec("ask", "chat", ("SYSTEM_PROMPT",), ("ask",), 2,
                (f"v1 (M10): project assistant, answers only, describes Reopen ({M10}).",
                 "v2 (M11): load_skill for builder skills; costs and limits only from <cost>; prompt-cached system block.")),
@@ -150,14 +161,16 @@ REGISTRY: dict[str, PromptSpec] = {s.id: s for s in [
                                                         "(when the source was last checked): prefer newer sources when "
                                                         "they disagree; results for the project's stack rank first."),
                extra=_chat_tool_descriptions),
-    PromptSpec("skills", "skills", (), ("ask", "implementer"), 3,
+    PromptSpec("skills", "skills", (), ("ask", "implementer"), 4,
                ("v1 (M11): builder skills replace the health ones: 3 for Ask, 4 for the coding agent (picked by stack).",
                 "v2 (design): web-ui-design for web stacks: app shell, shared components, stacked labelled forms, tables, "
                 "empty states, spacing / type scale (the budgeting app was unstyled browser defaults).",
                 "v3 (review 2026-10-29): secure-coding for every stack (boundary validation, server-side authorization, "
                 "no string-built queries, secrets from the environment, tests per rule) and failure-triage, picked by "
                 "the KIND of task (fix tasks and retries: reproduce, first error, name the cause, never weaken a test), "
-                "the procedure-skill answer to the review's QA-agent idea: pass / fail stays with Python's exit codes."),
+                "the procedure-skill answer to the review's QA-agent idea: pass / fail stays with Python's exit codes.",
+                "v4 (M12): browser-e2e-testing, picked by task kind \"e2e\" (the E1 task and browser-test fixes): "
+                "e2e/<flow>.e2e.mjs, user-facing locators, web-first assertions, no sleeps, no credentials."),
                extra=_skill_texts),
     PromptSpec("researcher", "researcher", ("SYSTEM_PROMPT",), ("ask",), 1,
                ("v1 (M10): research sub-agent of Ask.",)),

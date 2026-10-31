@@ -181,6 +181,32 @@ class Settings(BaseSettings):
     preview_render_browser: str = Field(default="", description="Chrome / Chromium executable for the render check; "
                                         "empty = the usual install locations and PATH.")
     preview_render_timeout_seconds: float = Field(default=20, gt=0, description="Render check: page load + settle time.")
+    compound_engineering: bool = Field(default=True, description="M13 (Compound Engineering's review + compound "
+                                       "steps): after a passing build check, one reviewer call over the changes; HIGH "
+                                       "findings become a fix task; learned rules go to .builder/learnings.md and into "
+                                       "every later coding task. False = no review, no learnings (COMPOUND_ENGINEERING=false).")
+    review_model: str = Field(default="claude-sonnet-5-5", description="Model of the code reviewer (M13).")
+    review_effort: Effort | None = Field(default="medium", description="Reasoning effort of the code reviewer.")
+    review_max_tokens: int = Field(default=6000, ge=1000, le=32000)
+    review_max_chars: int = Field(default=60000, ge=5000, le=400000, description="Characters of diffs / new files the "
+                                  "reviewer sees per review (source first, then tests, then configs).")
+    max_review_fix_rounds: int = Field(default=1, ge=0, le=5, description="Fix tasks from high-severity review findings "
+                                       "per change; after that the findings are only shown.")
+    max_learnings: int = Field(default=20, ge=1, le=100, description="Project learnings kept (newest).")
+    auto_approve_plan: bool = Field(default=True, description="Once the user approved the brief, the implementation "
+                                    "plan is approved automatically (no plan review pause; the approval is still "
+                                    "recorded with the plan hash). False = the user reviews the plan "
+                                    "(AUTO_APPROVE_PLAN=false).")
+    e2e_check: bool = Field(default=True, description="M12: after the preview renders, run the app's Playwright browser "
+                            "tests (app/e2e/*.e2e.mjs; the coding agent writes them for the MVP flows in an E1 task when "
+                            "there are none). A failing test becomes a fix task. Node projects with Chrome only.")
+    max_e2e_fix_rounds: int = Field(default=2, ge=0, le=5, description="Times failing browser tests send a fix task "
+                                    "back to the coding agent (per change), on top of max_build_fix_rounds.")
+    e2e_timeout_seconds: float = Field(default=300, gt=0, description="One `npx playwright test` run (all specs, the "
+                                       "dev server start and one retry per failing test).")
+    e2e_test_timeout_seconds: float = Field(default=20, gt=0, description="One browser test.")
+    e2e_port_range: str = Field(default="4200-4299", pattern=r"^\d{4,5}-\d{4,5}$", description="Ports of the dev "
+                                "server Playwright starts for the tests (never the preview's).")
 
     # --- session budget ---
     session_time_budget_seconds: float = Field(default=900, gt=0, description="Active (non-paused) seconds after which no new loops start.")
@@ -224,7 +250,7 @@ class Settings(BaseSettings):
                 raise ValueError("ANTHROPIC_API_KEY is required unless LLM_PROVIDER=local")
             return self
         self.anthropic_model = self.planner_model = self.chat_model = self.local_model
-        self.extractor_model = self.validator_model = self.local_model
+        self.extractor_model = self.validator_model = self.review_model = self.local_model
         self.implementer_model = self.local_coder_model or self.local_model
         self.fallback_model = ""
         m = self.local_time_multiplier

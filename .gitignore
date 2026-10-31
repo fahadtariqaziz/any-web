@@ -51,3 +51,6 @@ yarn-error.log*
 
 # Generated apps (one folder per builder session, M7)
 generated_projects/
+
+# Graphify code map of this repo (rebuild: `graphify update .`)
+graphify-out/

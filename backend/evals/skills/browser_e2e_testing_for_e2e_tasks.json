@@ -1,0 +1,8 @@
+{"prompt": "skills", "node": null, "modes": ["offline"],
+ "source": "M12 (2026-10-29): the E1 task and browser-test fixes get a Playwright procedure: spec naming the unit runner never picks up, user-facing locators, waiting assertions, no browser download, no credentials.",
+ "checks": [
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "browser-e2e-testing"},
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "e2e/<flow>.e2e.mjs"},
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "never run `npx playwright install`"},
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "Never `waitForTimeout` / sleeps"},
+  {"on": "prompt", "prompt": "skills", "check": "contains", "text": "Never delete, `.skip` or weaken a test"}]}

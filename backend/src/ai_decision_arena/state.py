@@ -117,6 +117,11 @@ class ArenaState(TypedDict, total=False):
     # --- build check, preview, change requests ------------------------------------------- (M9)
     build_results: dict                  # last build check: {round, passed, steps: [{phase, command, ok, ...}]} (build_check)
     build_fix_round: int                 # fix tasks sent since the last change request                           (build_check)
+    code_review: dict                    # last code review: {round, status, summary, findings, files_reviewed...}  (code_review)
+    review_fix_round: int                # review fix tasks since the last change request                           (code_review)
+    learnings: list[dict]                # project rules from reviews / fixes: [{rule, source, at, round}]           (code_review)
+    e2e_results: dict                    # last browser-test run: {status, total, passed, failed, tests, ...}      (e2e_check)
+    e2e_fix_round: int                   # browser-test fix tasks since the last change request                    (e2e_check)
     preview: dict                        # RuntimeRecord of the dev server + log_tail (processes.py)              (preview)
     change_requests: list[dict]          # {round, action, request, at, task_id?} per reply at the preview pause (await_change_request;
                                          #   change_request_router adds the C task id of a change since M11)

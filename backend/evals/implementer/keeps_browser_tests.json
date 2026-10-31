@@ -1,0 +1,6 @@
+{"prompt": "implementer", "node": null, "modes": ["offline"],
+ "source": "M12 (2026-10-29): the builder runs the app's Playwright browser tests after every build and change; a change task that rewrites a flow must update its test, not delete or skip it, and the builder owns playwright.config.mjs (port, browser, no .env).",
+ "checks": [
+  {"on": "prompt", "prompt": "implementer", "check": "contains", "text": "Browser tests (e2e/*.e2e.mjs, Playwright)"},
+  {"on": "prompt", "prompt": "implementer", "check": "contains", "text": "never delete or skip one"},
+  {"on": "prompt", "prompt": "implementer", "check": "contains", "text": "playwright.config.mjs"}]}

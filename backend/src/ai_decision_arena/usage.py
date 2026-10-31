@@ -107,7 +107,7 @@ PHASES = {      # node -> the stage the builder UI shows
     "final_report": "Proposals",
     "brief_writer": "Brief", "brief_validator": "Brief", "brief_review_router": "Brief",
     "planner": "Plan",
-    "implementer": "Build",
+    "implementer": "Build", "code_review": "Build",
 }
 
 

@@ -8,13 +8,13 @@
 import { Flag, ListRestart, MonitorPlay, Send } from "lucide-react";
 import { useState } from "react";
 
-import { BuildCard, PreviewCard, TaskList } from "@/components/session/BuildViews";
+import { BrowserTestsCard, BuildCard, CodeReviewCard, PreviewCard, TaskList } from "@/components/session/BuildViews";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { ApiError, resumeDecision } from "@/lib/api/client";
-import type { BuildResults, ChangeRequestPayload, PreviewInfo } from "@/lib/api/types";
+import type { BuildResults, ChangeRequestPayload, CodeReview, E2EResults, PreviewInfo } from "@/lib/api/types";
 
 type Action = "change" | "replan" | "finish";
 
@@ -31,6 +31,8 @@ export function ChangeRequestPanel({
   const [sending, setSending] = useState<Action | null>(null);
   const [error, setError] = useState<string | null>(null);
   const build = "steps" in payload.build ? (payload.build as BuildResults) : null;
+  const e2e = payload.e2e && "status" in payload.e2e ? (payload.e2e as E2EResults) : null;
+  const review = payload.review && "status" in payload.review ? (payload.review as CodeReview) : null;
   const done = payload.tasks.filter((t) => t.status === "done").length;
 
   async function send(action: Action) {
@@ -142,6 +144,8 @@ export function ChangeRequestPanel({
 
       <PreviewCard threadId={threadId} initial={"state" in payload.preview ? (payload.preview as PreviewInfo) : null} />
       {build && <BuildCard build={build} />}
+      {review && review.status !== "skipped" && <CodeReviewCard review={review} learnings={[]} />}
+      {e2e && <BrowserTestsCard e2e={e2e} />}
       <TaskList tasks={payload.tasks} />
     </div>
   );

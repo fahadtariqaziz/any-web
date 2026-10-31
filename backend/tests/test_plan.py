@@ -142,6 +142,24 @@ def test_planner_runs_on_the_planner_model_after_brief_approval(graph, fake_llm,
     assert state["models_used"]["planner"] == settings.planner_model
 
 
+def test_auto_approve_plan_skips_the_plan_pause(graph, fake_llm, fake_search, monkeypatch):
+    monkeypatch.setattr(get_settings(), "auto_approve_plan", True)
+    config = {"configurable": {"thread_id": "auto-plan"}}
+    graph.invoke({"question": "A habit tracker app for students", "mode": "full"}, config)
+    pauses = []
+    for _ in range(4):
+        payload = graph.get_state(config).interrupts[0].value
+        pauses.append(payload["type"])
+        if payload["type"] == "change_request":
+            break
+        reply = {"answers": {q: "x" for q in payload["questions"]}} if payload["type"] == "clarification" else {"action": "approve"}
+        graph.invoke(Command(resume=reply), config)
+    state = dict(graph.get_state(config).values)
+    assert pauses == ["clarification", "brief_review", "change_request"]        # brief approval → build, no plan pause
+    assert plan_is_approved(state) and state["plan_approved_hash"] == plan_hash(state["plan_markdown"])
+    assert state["plan_feedback"][-1]["action"] == "approve" and state["plan_feedback"][-1]["auto"] is True
+
+
 def test_planner_refuses_an_unapproved_brief(graph, fake_llm, fake_search):
     state = run_full(graph, "guard")
     with pytest.raises(RuntimeError, match="approved brief"):

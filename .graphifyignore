@@ -1,0 +1,9 @@
+# Graphify (code map of THIS repo for Claude Code; see handoff.md section 11 "Code map"). .gitignore is honoured too.
+generated_projects/
+graphify-out/
+frontend/.next/
+node_modules/
+backend/.cache/
+backend/evals/fixtures/
+backend/uv.lock
+frontend/package-lock.json

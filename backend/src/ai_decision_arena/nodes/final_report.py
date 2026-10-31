@@ -225,6 +225,9 @@ def completion_node(state: ArenaState, config: RunnableConfig) -> dict:
         metrics["implementation_cost_usd"] = state.get("implementation_cost_usd", 0.0)
         metrics["build_passed"] = (state.get("build_results") or {}).get("passed")
         metrics["preview_state"] = (state.get("preview") or {}).get("state")
+        metrics["e2e_status"] = (state.get("e2e_results") or {}).get("status")
+        metrics["review_findings"] = len((state.get("code_review") or {}).get("findings", []))
+        metrics["learnings"] = len(state.get("learnings") or [])
         metrics["change_requests"] = len(state.get("change_requests", []))
     update = {
         "status": status,

@@ -172,11 +172,14 @@ def _task_summary(task: dict) -> str:
 
 
 def _build_context(state: ArenaState) -> dict:
-    """Measured facts only: task status (verify commands), the last build check (exit codes), the preview state."""
+    """Measured facts only: task status (verify commands), the last build check (exit codes), the preview state, the
+    last browser-test run (Playwright's report)."""
     if not state.get("workspace_dir"):
         return {}
     build = state.get("build_results") or {}
     preview = state.get("preview") or {}
+    e2e = state.get("e2e_results") or {}
+    review = state.get("code_review") or {}
     return {
         "tasks": [{"id": t["id"], "title": t["title"], "status": t["status"], "attempts": t.get("attempts", 0),
                    "note": _task_summary(t)} for t in state.get("implementation_tasks", [])],
@@ -186,6 +189,14 @@ def _build_context(state: ArenaState) -> dict:
                                        for s in build.get("steps", [])]} if build else None,
         "preview": {"state": preview.get("state"), "url": preview.get("url"),
                     "last_error": (preview.get("last_error") or "")[:500]} if preview else None,
+        "browser_tests": {"status": e2e.get("status"), "reason": e2e.get("reason"), "total": e2e.get("total"),
+                          "passed": e2e.get("passed"), "failed": e2e.get("failed"),
+                          "failing": [t.get("title") for t in e2e.get("tests", []) if t.get("status") == "failed"][:10]}
+                         if e2e else None,
+        "code_review": {"status": review.get("status"), "summary": review.get("summary"),
+                        "findings": [{k: f.get(k) for k in ("severity", "file", "title")} for f in review.get("findings", [])][:10]}
+                       if review else None,
+        "project_learnings": [item.get("rule") for item in state.get("learnings") or []][:20],
     }
 
 

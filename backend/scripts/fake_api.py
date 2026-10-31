@@ -45,8 +45,11 @@ def install_fakes() -> None:
     import ai_decision_arena.nodes.planner as planner
     import ai_decision_arena.nodes.research as research
     planner.resolve_model = implementer.resolve_model = lambda wanted: (wanted, "")
-    implementer.run_agent_task = fakes.FakeAgent()
+    agent = fakes.FakeAgent()
+    implementer.run_agent_task = agent
     research.run_searches = fakes.fake_run_searches
+    install_fake_browser_tests(agent, implementer)
+    install_fake_review(fake, agent)
 
     # Ask mode and the project list without a database.
     def add_message(thread_id, role, content, kind="reply"):
@@ -73,6 +76,73 @@ def install_fakes() -> None:
 
     api_main._start = start
     api_main.list_sessions = lambda limit=20, mode=None: SESSIONS[:limit]
+
+
+def install_fake_browser_tests(agent, implementer) -> None:
+    """M12 browser tests without npm / Chrome: E1 writes a spec, the first Playwright run fails one test, the fix
+    task's run passes (a fresh project per session: counted per thread)."""
+    from ai_decision_arena.config import get_settings
+    from ai_decision_arena.workspace import e2e
+
+    get_settings().e2e_check = True
+    e2e.render_check.find_browser = lambda: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    agent.writes["E1"] = ["e2e/flows.e2e.mjs"]
+    real_verify = implementer.run_verify
+    implementer.run_verify = lambda ws, task: ([{"command": e2e.COMMAND, "ok": True, "exit_code": 0, "summary": "exit 0",
+                                                 "output": ""}] if e2e.COMMAND in task.verify_commands
+                                               else real_verify(ws, task))
+    runs: dict[str, int] = {}
+
+    def run(ws, plan, label="e2e"):
+        runs[ws.session_id] = runs.get(ws.session_id, 0) + 1
+        ok = runs[ws.session_id] > 1
+        tests = [{"title": "habits › adds a habit and sees it in the list", "file": "e2e/flows.e2e.mjs", "line": 4,
+                  "status": "passed", "error": ""},
+                 {"title": "habits › ticking a habit raises the streak", "file": "e2e/flows.e2e.mjs", "line": 12,
+                  "status": "passed" if ok else "failed",
+                  "error": "" if ok else 'Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByTestId('
+                                         "'streak')\nExpected: \"1 day\"\nReceived: \"0 days\""},
+                 {"title": "habits › an empty name shows a validation message", "file": "e2e/flows.e2e.mjs",
+                  "line": 20, "status": "flaky" if ok else "passed", "error": ""}]
+        failed = sum(t["status"] == "failed" for t in tests)
+        return {"status": "failed" if failed else "passed", "reason": f"{failed} of 3 browser test(s) failed" if failed else "",
+                "total": 3, "passed": sum(t["status"] == "passed" for t in tests), "failed": failed,
+                "flaky": sum(t["status"] == "flaky" for t in tests), "skipped": 0, "tests": tests, "seconds": 6.4,
+                "output": "", "command": e2e.COMMAND}
+
+    e2e.run = run
+
+
+def install_fake_review(fake, agent) -> None:
+    """M13 code review without Claude: round 1 finds one HIGH and one MEDIUM problem and learns a rule, the fix task
+    F1 rewrites the file, later reviews find nothing."""
+    from ai_decision_arena import schemas as S
+    from ai_decision_arena.config import get_settings
+
+    get_settings().compound_engineering = True
+    agent.writes["F1"] = ["src/habits.js"]
+    agent.contents["F1"] = {"src/habits.js": "// F1: habit names validated, streak counts days\n"}
+    seen: dict[str, int] = {}
+
+    def review(system, user):
+        key = user[:200]                       # the brief excerpt: one per project
+        seen[key] = seen.get(key, 0) + 1
+        if seen[key] > 1:
+            return S.CodeReviewOutput(summary="The fix validates names; nothing else changed.", findings=[], learnings=[])
+        return S.CodeReviewOutput(
+            summary="The tracker works, but an empty habit name is saved and the streak resets at midnight UTC.",
+            findings=[S.ReviewFinding(severity="high", category="bug", file="src/habits.js", line=12,
+                                      title="An empty habit name is saved",
+                                      detail="Pressing Add with an empty field stores a nameless habit that cannot be deleted.",
+                                      fix="Trim the name and refuse empty names with a message; add a test."),
+                      S.ReviewFinding(severity="medium", category="data_integrity", file="src/main.js", line=4,
+                                      title="Streak day boundary uses UTC",
+                                      detail="A user in UTC-5 ticking at 8 pm loses the streak the next morning.",
+                                      fix="Compare local dates (toLocaleDateString) instead of ISO strings.")],
+            learnings=[S.ProjectLearning(rule="Validate every user-entered name in src/habits.js (trimmed, non-empty) "
+                                              "before it reaches localStorage.", source="An empty habit name is saved")])
+
+    fake.overrides[S.CodeReviewOutput] = review
 
 
 @asynccontextmanager

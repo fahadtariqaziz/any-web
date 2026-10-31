@@ -186,7 +186,11 @@ def check_command(ws: Workspace, command: str | Sequence[str]) -> tuple[str, lis
 
 def default_timeout(argv: list[str]) -> float:
     settings = get_settings()
-    return settings.install_timeout_seconds if tuple(argv[:2]) in INSTALL_COMMANDS else settings.command_timeout_seconds
+    if tuple(argv[:2]) in INSTALL_COMMANDS:
+        return settings.install_timeout_seconds
+    if list(argv[:3]) == ["npx", "playwright", "test"]:          # browser tests (M12): dev server start + retries
+        return settings.e2e_timeout_seconds
+    return settings.command_timeout_seconds
 
 
 def resolve_executable(argv: list[str], env: Mapping[str, str]) -> str | None:

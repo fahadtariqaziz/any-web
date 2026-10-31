@@ -51,8 +51,8 @@ PHASES = {
     "6 · Brief": ["brief_writer", "brief_validator"],
     "7 · Your review": ["await_brief_review", "brief_review_router"],
     "8 · Plan (Opus)": ["planner", "await_plan_review", "plan_review_router"],
-    "9 · Build (Sonnet agent)": ["implementer", "build_check"],
-    "10 · Preview and changes": ["preview", "await_change_request", "change_request_router", "completion"],
+    "9 · Build (Sonnet agent)": ["implementer", "build_check", "code_review"],
+    "10 · Preview and changes": ["preview", "e2e_check", "await_change_request", "change_request_router", "completion"],
 }
 
 # Edges that go back to an earlier step (drawn dashed).
@@ -71,13 +71,16 @@ LOOPS = {
     ("plan_review_router", "await_plan_review"),
     ("implementer", "implementer"),
     ("build_check", "implementer"),
+    ("code_review", "implementer"),
+    ("preview", "implementer"),
+    ("e2e_check", "implementer"),
     ("change_request_router", "implementer"),
     ("change_request_router", "planner"),
     ("change_request_router", "await_change_request"),
 }
 
 PAUSES = {"await_clarification", "await_brief_review", "await_plan_review", "await_change_request"}   # interrupt(): the graph stops until the user replies
-PYTHON = {"completion", "build_check", "preview"}                            # no LLM call
+PYTHON = {"completion", "build_check", "preview", "e2e_check"}                            # no LLM call
 
 
 def node_class(name: str) -> str:

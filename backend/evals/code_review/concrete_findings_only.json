@@ -1,0 +1,7 @@
+{"prompt": "code_review", "node": null, "modes": ["offline"],
+ "source": "M13 (2026-10-29): a reviewer whose opinion turns into fix tasks must not invent problems (fix-task churn) or ask for a different stack; an empty list is a valid answer.",
+ "checks": [
+  {"on": "prompt", "prompt": "code_review", "check": "contains", "text": "An empty findings list is a good answer"},
+  {"on": "prompt", "prompt": "code_review", "check": "contains", "text": "Style, naming and formatting are never findings"},
+  {"on": "prompt", "prompt": "code_review", "check": "contains", "text": "do not ask for a different framework or design"},
+  {"on": "prompt", "prompt": "code_review", "check": "contains", "text": "findings about files you were not shown are discarded"}]}

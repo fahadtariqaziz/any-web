@@ -1241,3 +1241,39 @@ class ErrorRecord(BaseModel):
     category: Literal["llm_unavailable", "database", "invalid_input", "unknown"]
     message: str = Field(max_length=500, description="Shown to the user, e.g. the Claude API error of each model.")
     occurred_at: datetime = Field(default_factory=utc_now)
+
+
+# --- M13: code review + project learnings (Compound Engineering's review / compound steps) -------------------------
+
+REVIEW_CATEGORIES = ("security", "bug", "brief_compliance", "data_integrity", "performance", "simplicity", "test_gap")
+
+
+class ReviewFinding(BaseModel):
+    """One concrete problem in the reviewed changes. Python keeps it only when `file` is one of the files shown."""
+
+    severity: Literal["high", "medium", "low"] = Field(description="high = breaks an MVP flow, a security hole, data "
+                                                       "loss, or contradicts the approved brief; medium = should be fixed "
+                                                       "soon; low = minor.")
+    category: Literal["security", "bug", "brief_compliance", "data_integrity", "performance", "simplicity", "test_gap"]
+    file: str = Field(description="Relative path exactly as in <changes>.")
+    line: int | None = Field(default=None, description="Line in the NEW file, when known.")
+    title: str = Field(description="The problem in one line, max ~15 words.")
+    detail: str = Field(description="Why it is a problem: the concrete input / action and what goes wrong, 1-3 sentences.")
+    fix: str = Field(description="What to change, 1-2 sentences.")
+
+
+class ProjectLearning(BaseModel):
+    """A reusable rule for THIS project's later tasks, derived from a finding or a fix (the "compound" step)."""
+
+    rule: str = Field(description="Imperative, specific to this project's code, max ~25 words.")
+    source: str = Field(description="The finding title or the fix task id it comes from.")
+
+
+class CodeReviewOutput(BaseModel):
+    """LLM output of the code reviewer."""
+
+    summary: str = Field(description="One or two sentences: what changed and the overall verdict.")
+    findings: list[ReviewFinding] = Field(default_factory=list, description="Most severe first; [] when nothing "
+                                          "concrete is wrong (a valid, common answer).")
+    learnings: list[ProjectLearning] = Field(default_factory=list, description="0-3 new rules; [] when nothing "
+                                             "reusable was learned.")

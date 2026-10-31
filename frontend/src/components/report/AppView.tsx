@@ -5,7 +5,7 @@
 
 import { Boxes } from "lucide-react";
 
-import { BuildCard, PreviewCard, TaskList } from "@/components/session/BuildViews";
+import { BrowserTestsCard, BuildCard, CodeReviewCard, PreviewCard, TaskList } from "@/components/session/BuildViews";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardHeader } from "@/components/ui/Card";
 import type { ImplementationResponse, PreviewResponse } from "@/lib/api/types";
@@ -48,6 +48,8 @@ export function AppView({
       </Card>
       <PreviewCard threadId={threadId} initial={preview} />
       {implementation.build && <BuildCard build={implementation.build} />}
+      {implementation.review && <CodeReviewCard review={implementation.review} learnings={implementation.learnings ?? []} />}
+      {implementation.e2e && <BrowserTestsCard e2e={implementation.e2e} />}
       <TaskList tasks={implementation.tasks} />
     </section>
   );

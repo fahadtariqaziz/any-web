@@ -19,6 +19,9 @@ os.environ["LANGSMITH_TRACING"] = "false"
 os.environ["PERSIST_RESULTS"] = "false"
 os.environ["CHECK_INS_ENABLED"] = "false"
 os.environ["PREVIEW_RENDER_CHECK"] = "false"      # no headless Chrome in pytest; test_render_check fakes it
+os.environ["COMPOUND_ENGINEERING"] = "false"      # no review call in the other tests; test_code_review turns it on
+os.environ["AUTO_APPROVE_PLAN"] = "false"         # the tests drive the plan review pause; test_plan turns it on
+os.environ["E2E_CHECK"] = "false"                 # no Playwright / npm network in pytest; test_e2e fakes the runs
 os.environ["DATABASE_URL"] = "postgresql://test:test@127.0.0.1:1/never_connected"
 # Generated projects of the pipeline tests go to a throwaway folder, never the repo's generated_projects/.
 import tempfile  # noqa: E402
@@ -307,6 +310,7 @@ DEFAULT_BUILDERS = {
     S.BriefReview: build_brief_review,
     S.ImplementationPlan: build_plan,
     S.FeedbackRouting: lambda system, user: S.FeedbackRouting(reasoning="test", target="wording"),
+    S.CodeReviewOutput: lambda system, user: S.CodeReviewOutput(summary="Looks sound.", findings=[], learnings=[]),
 }
 
 
